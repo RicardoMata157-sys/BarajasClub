@@ -79,7 +79,7 @@
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<version>2.7.18</version>
 				<configuration>
-					<mainClass>com.mx.web.bajarasClub.TioAndresApplication</mainClass>
+					<mainClass>com.mx.web.bajarasClub.config.TioAndresApplication</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
