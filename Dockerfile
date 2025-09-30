@@ -7,7 +7,7 @@ RUN apk add --no-cache bash curl
 WORKDIR /app
 
 
-COPY target/barajasclub.war app.war
+COPY BarajasClub/target/barajasclub.war app.war
 
 
 EXPOSE 8080
