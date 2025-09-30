@@ -1,7 +1,5 @@
 package com.mx.web.bajarasClub.config;
 
-
-
 import java.util.HashMap;
 import java.util.Map;
 
@@ -36,8 +34,8 @@ public class ConfigDataBases {
 		dataSource.setUsername("root");
 		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
 		
-		dataSource.setUsername("root");
-		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
+//		dataSource.setUsername("root");
+//		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
 		return dataSource;
 	}
 
