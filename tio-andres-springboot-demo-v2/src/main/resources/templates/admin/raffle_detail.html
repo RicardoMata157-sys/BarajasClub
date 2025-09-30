@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments_admin :: head('Comprar boleto')}"></head>
+
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  // Base de cálculo
+  let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;
+  let RIFA_ID        = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
+  const BASE         = /*[[@{/}]]*/ '/';
+
+  // UI
+  const grid    = document.getElementById('gridNumeros');
+  const input   = document.getElementById('numeroTicket');
+  const selBoletos   = document.getElementById('selBoletos');
+  const maxCountSpan = document.getElementById('maxCount');
+  const selCountSpan = document.getElementById('selCount');
+  const cantBoletosH = document.getElementById('cantidadBoletosHidden');
+  const btnAuto  = document.getElementById('btnAuto');
+  const btnClear = document.getElementById('btnClear');
+
+  // Estado
+  let CANT_BOLETOS = Number(selBoletos?.value || 1);
+  const seleccion = new Set();
+
+  // MAX dinámico = numPorBoleto * cantidad de boletos
+  const getMAX = () => NUM_POR_BOLETO * CANT_BOLETOS;
+
+  function refreshMaxUI(){
+    if (maxCountSpan) maxCountSpan.textContent = String(getMAX());
+  }
+
+  function refreshInput(){
+    const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+    input.value = arr.join(', ');
+    if (selCountSpan) selCountSpan.textContent = String(arr.length);
+  }
+
+  function clearSelection(){
+    seleccion.clear();
+    grid?.querySelectorAll('.num-btn.selected').forEach(b => {
+      b.classList.remove('btn-primary','selected');
+      if (!b.disabled) b.classList.add('btn-success');
+    });
+    refreshInput();
+  }
+
+  function toggleButton(btn){
+    if (!btn || btn.disabled) return;
+    const label = btn.dataset.label || btn.textContent.trim();
+    const isOn  = seleccion.has(label);
+    const MAX   = getMAX();
+    if (!isOn && seleccion.size >= MAX) return; // no exceder el tope
+
+    if (isOn){
+      seleccion.delete(label);
+      btn.classList.remove('btn-primary','selected');
+      btn.classList.add('btn-success');
+    } else {
+      seleccion.add(label);
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-primary','selected');
+    }
+    refreshInput();
+  }
+
+  // Clicks en grilla
+  grid?.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.num-btn');
+    if (!btn) return;
+    if (btn.classList.contains('btn-success') || btn.classList.contains('btn-primary')){
+      toggleButton(btn);
+    }
+  });
+
+  // Limpiar
+  btnClear?.addEventListener('click', clearSelection);
+
+  // Cambio de cantidad de boletos => recalcular tope y ajustar selección si excede
+  selBoletos?.addEventListener('change', () => {
+    CANT_BOLETOS = Number(selBoletos.value || 1);
+    if (cantBoletosH) cantBoletosH.value = String(CANT_BOLETOS);
+    refreshMaxUI();
+
+    // Si ya te pasaste del nuevo MAX, limpiamos por simplicidad (o podrías deseleccionar los últimos)
+    const MAX = getMAX();
+    if (seleccion.size > MAX) clearSelection();
+
+    refreshInput();
+  });
+
+  // Autoselección pide justo los faltantes del nuevo MAX
+  async function autoPick(){
+    const faltantes = getMAX() - seleccion.size;
+    if (faltantes <= 0 || !Number(RIFA_ID)) return;
+
+    const url = `${BASE}admin/rifa/${RIFA_ID}/auto-numeros?faltan=${faltantes}`;
+    try{
+      const res = await fetch(url, { method:'GET', cache:'no-store' });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const txt = await res.text();
+      const numeros = (()=>{ try{ return JSON.parse(txt); }catch{ return []; } })();
+      numeros.forEach(n => {
+        const btn = grid?.querySelector(`.num-btn[data-num='${n}']`);
+        if (btn) toggleButton(btn);
+      });
+    } catch(err){
+      console.error('[autoPick] error:', err);
+    }
+  }
+  btnAuto?.addEventListener('click', autoPick);
+
+  // Si cambias de rifa por AJAX, asegúrate de actualizar NUM_POR_BOLETO con lo que te regrese el backend
+  // y luego llama refreshMaxUI(). (Tu segundo bloque ya lo hace cuando lee data.numPorBoleto.)
+
+  // Inicial
+  if (cantBoletosH) cantBoletosH.value = String(CANT_BOLETOS);
+  refreshMaxUI();
+  refreshInput();
+});
+/*]]>*/
+
+
+document.addEventListener('DOMContentLoaded', () => {
+	  let MAX     = /*[[${numPorBoleto}]]*/ 1;  // usa let para poder actualizar
+	  let RIFA_ID = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
+
+	  const BASE     = /*[[@{/}]]*/ '/';
+	  const selRifa  = document.getElementById('selectRifa');
+	  const grid     = document.getElementById('gridNumeros');
+	  const input    = document.getElementById('numeroTicket');
+	  const selCount = document.getElementById('selCount');
+
+	  const seleccion = new Set();
+
+	  function refreshInput(){
+	    const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+	    input.value = arr.join(', ');
+	    if (selCount) selCount.textContent = String(arr.length);
+	  }
+
+	  function clearGridAndSelection(){
+	    seleccion.clear();
+	    grid.innerHTML = '';           // limpia completamente la grilla
+	    input.value = '';              // limpia el input
+	    if (selCount) selCount.textContent = '0';
+	  }
+
+	  function makeBtn(label, state){
+	    const btn = document.createElement('button');
+	    btn.type = 'button';
+	    btn.className = 'btn btn-sm num-btn';
+	    btn.textContent = label;
+	    btn.dataset.label = label;
+	    btn.dataset.num   = String(parseInt(label,10)); // crudo por si lo ocupas
+	    if (state === 'disp') btn.classList.add('btn-success');
+	    else if (state === 'ap') { btn.classList.add('btn-warning'); btn.disabled = true; btn.title='Apartado'; }
+	    else { btn.classList.add('btn-dark'); btn.disabled = true; btn.title='Pagado'; }
+	    return btn;
+	  }
+
+	  function buildGrid(data){
+	    MAX = Number(data.numPorBoleto ?? MAX);
+	    const frag = document.createDocumentFragment();
+	    (data.disp||[]).forEach(l => frag.appendChild(makeBtn(l, 'disp')));
+	    (data.ap  ||[]).forEach(l => frag.appendChild(makeBtn(l, 'ap')));
+	    (data.pag ||[]).forEach(l => frag.appendChild(makeBtn(l, 'pag')));
+	    grid.appendChild(frag);
+	  }
+
+	  // Delegación para clicks en la grilla reconstruida
+	  grid.addEventListener('click', (e)=>{
+	    const btn = e.target.closest('.num-btn');
+	    if (!btn || btn.disabled) return;
+	    const label = btn.dataset.label || btn.textContent.trim();
+	    const isOn = seleccion.has(label);
+	    if (!isOn && seleccion.size >= MAX) return;
+	    if (isOn){ seleccion.delete(label); btn.classList.remove('btn-primary','selected'); btn.classList.add('btn-success'); }
+	    else { seleccion.add(label); btn.classList.remove('btn-success'); btn.classList.add('btn-primary','selected'); }
+	    refreshInput();
+	  });
+
+	  // Cambiar rifa -> AJAX + reconstrucción
+	  selRifa?.addEventListener('change', async (e) => {
+	    const newId = Number(e.target.value);
+	    if (!newId) return;
+	    e.preventDefault?.();
+
+	    RIFA_ID = newId;                        // actualiza id
+	    clearGridAndSelection();                // limpia UI previa
+
+	    try {
+	      const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?_=${Date.now()}`;
+	      const res = await fetch(url, { cache: 'no-store' });
+	      if (!res.ok) throw new Error('HTTP '+res.status);
+	      const data = await res.json();
+	      buildGrid(data);                      // carga nueva grilla
+	      refreshInput();
+	    } catch (err) {
+	      console.error('Error AJAX, fallback a navegación', err);
+	      window.location.href = `${BASE}admin/rifa?id=${encodeURIComponent(newId)}&_=${Date.now()}`;
+	    }
+	  });
+	});
+
+
+
+
+
+
+
+
+/*]]>*/
+</script>
+
+
+
+
+
+
+
+
+<body>
+	<header th:replace="~{fragments_admin :: navbar}"></header>
+	<main class="container py-4">
+		<h1 class="h4 mb-3"
+			th:text="${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'EDICIÓN'}">EDICIÓN</h1>
+
+
+
+		<div class="row g-4">
+			<div class="col-lg-8">
+
+
+
+				<div class="card p-3 p-md-4 mt-3 shadow-sm border-0">
+					<style>
+/* Estilos del preview */
+.preview-box {
+	min-height: 180px;
+	border-radius: 16px;
+	border: 1px solid #e8e8ef;
+	background: radial-gradient(120% 120% at 10% 0%, #ffffff, #f6f7fb 60%),
+		linear-gradient(180deg, rgba(255, 255, 255, .6),
+		rgba(255, 255, 255, .4));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 10px;
+	overflow: hidden;
+	position: relative;
+}
+
+.preview-img {
+	max-height: 170px;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .12));
+	animation: fadeIn .45s ease-in-out both;
+}
+
+.preview-empty {
+	color: #8b90a0;
+	font-size: .9rem;
+}
+
+@
+keyframes fadeIn {
+	from {opacity: 0;
+	transform: scale(.985);
+}
+
+to {
+	opacity: 1;
+	transform: none;
+}
+
+}
+@media ( min-width : 768px) {
+	.preview-box {
+		min-height: 210px;
+	}
+	.preview-img {
+		max-height: 200px;
+	}
+}
+</style>
+
+					<!-- Selector + Preview -->
+					<form class="row g-3 align-items-end" method="get"
+						th:action="@{/admin/rifa}">
+						<div class="col-12 col-md-8">
+							<label class="form-label fw-semibold">Edición activa</label> <select
+								class="form-select" name="id" id="selectRifa">
+								<option th:if="${#lists.isEmpty(rifasActivas)}" disabled
+									selected>No hay rifas activas</option>
+								<option th:each="ri : ${rifasActivas}" th:value="${ri.id}"
+									th:text="${ri.nombre}"
+									th:selected="${rifaSeleccionada != null and ri.id == rifaSeleccionada.id}">
+								</option>
+							</select>
+						</div>
+
+						<!-- Vista previa, centrada -->
+						<div class="col-12 col-md-4">
+							<label class="form-label fw-semibold d-none d-md-block">Vista
+								previa</label>
+							<div class="preview-box">
+								<img
+									th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+									th:src="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+									th:alt="|Imagen de ${rifaSeleccionada.nombre}|"
+									class="preview-img" /> <span class="preview-empty"
+									th:if="${rifaSeleccionada == null or (#strings.isEmpty(rifaSeleccionada.pathImagen) and #strings.isEmpty(rifaSeleccionada.rutaImagen))}">
+									Sin imagen </span>
+							</div>
+							<a class="small mt-2 d-inline-block text-decoration-none"
+								th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+								th:href="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+								target="_blank" rel="noopener"> Abrir imagen en nueva
+								pestaña </a>
+						</div>
+					</form>
+				</div>
+
+
+				<div>
+					<br>
+				</div>
+				<div class="card p-3">
+					<h2 class="h6">
+						Selecciona tus Números : <span th:text="${numPorBoleto}"></span>
+					</h2>
+
+					<style>
+.num-btn {
+	min-width: 3.2rem;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+.num-btn.selected { /* azul cuando está elegido */
+	
+}
+</style>
+
+					<!-- Barra de acciones -->
+					<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+						<button type="button" class="btn btn-outline-primary btn-sm"
+							id="btnAuto">Selección automática</button>
+						<button type="button" class="btn btn-outline-secondary btn-sm"
+							id="btnClear">Limpiar selección</button>
+							
+							<div class="d-flex align-items-center gap-2">
+								<label class="form-label m-0">Boletos:</label> <select
+									id="selBoletos" class="form-select form-select-sm"
+									style="width: auto">
+									<option value="1" selected>1</option>
+									<option value="2">2</option>
+									<option value="3">3</option>
+									<option value="4">4</option>
+									<option value="5">5</option>
+									<option value="10">10</option>
+								</select>
+							</div>
+							
+							
+						<span class="small ms-auto"> Seleccionados: <strong
+							id="selCount">0</strong>/<span th:text="${numPorBoleto}">1</span>
+						</span>
+						
+						
+						
+						
+						
+						
+					</div>
+
+					<!-- Grilla de números -->
+					<div class="d-flex flex-wrap gap-2" id="gridNumeros"
+						th:with="dg=${digitosNumeros != null ? digitosNumeros : 2}"
+						th:attr="data-digits=${dg}">
+						<!-- DISPONIBLES: VERDE y CLICKABLE -->
+						<button type="button" class="btn btn-success btn-sm num-btn"
+							th:each="n : ${dispNumeros}"
+							th:text="${#numbers.formatInteger(n, dg)}"
+							th:attr="data-num=${n},
+                   data-label=${#numbers.formatInteger(n, dg)}">
+							01</button>
+
+						<!-- APARTADOS: AMARILLO y DESHABILITADO -->
+						<button type="button" class="btn btn-warning btn-sm num-btn"
+							th:each="n : ${ap}" th:text="${n}" disabled aria-disabled="true"
+							title="Apartado">01</button>
+
+						<!-- PAGADOS: NEGRO y DESHABILITADO -->
+						<button type="button" class="btn btn-dark btn-sm num-btn"
+							th:each="n : ${pag}" th:text="${n}" disabled aria-disabled="true"
+							title="Pagado">01</button>
+					</div>
+
+					<!-- Leyenda -->
+					<div class="mt-3 small d-flex align-items-center gap-3">
+						<span class="badge text-bg-success">Disponible</span> <span
+							th:text="${dispNumeros != null ? #lists.size(dispNumeros) : 0}">0</span>
+						<span class="badge text-bg-warning">Apartado</span> <span
+							th:text="${ap != null ? #lists.size(ap) : 0}">0</span> <span
+							class="badge text-bg-dark">Pagado</span> <span
+							th:text="${pag != null ? #lists.size(pag) : 0}">0</span>
+					</div>
+				</div>
+
+
+
+
+
+
+			</div>
+
+
+			<div class="col-lg-4">
+				<div class="card p-3">
+					<h2 class="h6">Datos del comprador</h2>
+					<form method="get" th:action="@{/admin/comprar}">
+						<input type="hidden" id="rifaId" name="rifaId"
+							th:value="${rifaSeleccionada != null ? rifaSeleccionada.id : (id != null ? id : 0)}" />
+						<div class="mb-2">
+							<label class="form-label">Número seleccionado</label> <input
+								id="numeroTicket" name="numeroTicket" type="text"
+								class="form-control" required readonly />
+							<div class="form-text">Se llena automáticamente con los
+								números elegidos (separados por comas).</div>
+						</div>
+
+						<!-- Barra de acciones -->
+<!-- 						<div class="d-flex flex-wrap gap-2 mb-3 align-items-center"> -->
+							
+
+
+<!-- 							<input type="hidden" name="cantidadBoletos" -->
+<!-- 								id="cantidadBoletosHidden" value="1" /> <span -->
+<!-- 								class="small ms-auto"> Seleccionados: <strong -->
+<!-- 								id="selCount">0</strong>/<span id="maxCount" -->
+<!-- 								th:text="${numPorBoleto}">1</span> -->
+<!-- 							</span> -->
+
+<!-- 							<button type="button" class="btn btn-outline-primary btn-sm" -->
+<!-- 								id="btnAuto">Selección automática</button> -->
+<!-- 							<button type="button" class="btn btn-outline-secondary btn-sm" -->
+<!-- 								id="btnClear">Limpiar selección</button> -->
+
+
+
+
+
+
+
+
+							<div class="mb-2">
+								<label class="form-label">Nombre(s)</label> <input name="nombre"
+									class="form-control" required />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Apellido paterno</label> <input
+									name="apellidoP" class="form-control" required />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Apellido materno</label> <input
+									name="apellidoM" class="form-control" />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Correo</label> <input name="email"
+									type="email" class="form-control" required />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Teléfono</label> <input
+									name="telefono" class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Municipio</label> <input
+									name="municipio" class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Estado</label> <input name="estado"
+									class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Código Postal</label> <input
+									name="codigoPostal" class="form-control" />
+							</div>
+
+							<div class="mb-3">
+								<label class="form-label">Tipo de pago</label> <select
+									class="form-control" name="tipoPagoId" required>
+									<option value="" disabled selected>Selecciona...</option>
+									<option th:each="tp : ${tiposPago}" th:value="${tp.id}"
+										th:text="${tp.nombre}"></option>
+								</select>
+							</div>
+
+							<button class="btn btn-primary w-100" type="submit">Apartar
+								boleto</button>
+					</form>
+
+				</div>
+			</div>
+
+
+
+		</div>
+	</main>
+
+	<th:block th:replace="~{fragments_admin :: scripts}"></th:block>
+
+
+
+
+	<style>
+/* Estilo simple de boleto */
+.ticket {
+	border-radius: 16px;
+	border: 1px dashed #c7cbe1;
+	background: #fff;
+	color: #1f2942;
+	position: relative;
+	overflow: hidden;
+}
+
+.ticket::before, .ticket::after {
+	content: "";
+	position: absolute;
+	top: 50%;
+	width: 22px;
+	height: 22px;
+	background: #f5f6fb;
+	border: 1px solid #e6e8f2;
+	border-radius: 50%;
+	transform: translateY(-50%);
+}
+
+.ticket::before {
+	left: -11px;
+}
+
+.ticket::after {
+	right: -11px;
+}
+
+.ticket-header {
+	background: linear-gradient(90deg, #2563eb, #1d4ed8);
+	color: #fff;
+	padding: 14px 16px;
+}
+
+.ticket-body {
+	padding: 16px;
+}
+
+.ticket-nums {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.pill {
+	background: #eef2ff;
+	color: #1d4ed8;
+	font-weight: 700;
+	padding: 6px 10px;
+	border-radius: 999px;
+	font-variant-numeric: tabular-nums;
+}
+
+.muted {
+	color: #6b7280;
+	font-size: .9rem;
+}
+</style>
+
+	<!-- Modal Boleto -->
+	<div class="modal fade" id="ticketModal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content border-0">
+				<div class="ticket">
+					<div
+						class="ticket-header d-flex justify-content-between align-items-center">
+						<div>
+							<div class="small opacity-75">Boleto</div>
+							<h5 class="m-0"
+								th:text="${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edicion'}">Rifa</h5>
+						</div>
+						<div class="text-end">
+							<div class="small opacity-75">Folio</div>
+							<div class="fw-bold"
+								th:text="${ticket != null ? ticket.folio : '—'}">ABC123</div>
+						</div>
+					</div>
+					<div class="ticket-body">
+						<div class="mb-2">
+							<div class="muted">Participa con</div>
+							<div class="ticket-nums">
+								<span class="pill"
+									th:each="n : ${ticket != null ? ticket.numeros : {}}"
+									th:text="${n}">0031</span>
+							</div>
+						</div>
+
+						<hr class="my-3">
+
+						<div class="row g-2">
+							<div class="col-8">
+								<div class="muted">Comprador</div>
+								<div
+									th:text="${ticket != null ? ticket.comprador.nombre + ticket.comprador.apellido_patrno + ticket.comprador.apellido_materno : ''}">Juan
+									Pérez</div>
+								<div class="small text-muted"
+									th:text="${ticket != null ? ticket.comprador.email : ''}">correo@ejemplo.com</div>
+								<div class="small text-muted"
+									th:text="${ticket != null ? ticket.comprador.telefono : ''}">55
+									0000 0000</div>
+							</div>
+							<div class="col-4 text-end">
+								<div class="muted">Fecha</div>
+								<div
+									th:text="${ticket != null ? #temporals.format(ticket.fechaCompra,'dd/MM/yyyy HH:mm') : ''}">26/09/2025
+									12:34</div>
+								<div class="muted mt-2">Total</div>
+								<!--               <div class="fs-5 fw-bold" th:text="${ticket != null && ticket.total != null ? ' $ ' + #numbers.formatDecimal(ticket.total,1,2) : '$ 0.00'}">$ 0.00</div> -->
+							</div>
+						</div>
+
+						<div class="d-flex justify-content-end gap-2 mt-3">
+							<button type="button" class="btn btn-outline-secondary"
+								data-bs-dismiss="modal">Cerrar</button>
+							<button type="button" class="btn btn-primary" id="btnTicketOk">Entendido</button>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  const mostrar = /*[[${mostrarTicket}]]*/ false;
+  console.log('[ticket] mostrarTicket =', mostrar);
+
+  if (!mostrar) return;
+
+  const modalEl = document.getElementById('ticketModal');
+  if (!modalEl) {
+    console.error('[ticket] No se encontró #ticketModal');
+    return;
+  }
+
+  if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+    console.error('[ticket] Bootstrap JS no está cargado. Asegura bootstrap.bundle.min.js');
+    return;
+  }
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: 'static', keyboard: false });
+  modal.show();
+
+  document.getElementById('btnTicketOk')?.addEventListener('click', () => {
+    // Regresa exactamente a la rifa actual
+    window.location.href = /*[[@{/admin/rifa(id=${rifaSeleccionada != null ? rifaSeleccionada.id : 0})}]]*/ '/admin/rifa';
+  });
+});
+/*]]>*/
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</html>
