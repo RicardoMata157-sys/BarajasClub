@@ -23,14 +23,12 @@ public class TioAndresApplication extends ResponseEntityExceptionHandler impleme
     }
     
     
-    @Value("${app.upload-dir}")
-    private String uploadDir;
-
+    @Value("${app.upload-dir}") String uploadDir;
     @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-      String location = Paths.get("/var/data/uploads").toAbsolutePath().toUri().toString();
-      registry.addResourceHandler("/app/uploads/**")
-              .addResourceLocations(location); // ej. file:/var/data/uploads/
+    public void addResourceHandlers(org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry registry) {
+      String location = java.nio.file.Paths.get(uploadDir).toAbsolutePath().toUri().toString(); // file:/...
+      registry.addResourceHandler("/var/data/uploads/**")
+              .addResourceLocations(location);
     }
     
     
