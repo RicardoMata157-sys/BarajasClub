@@ -141,11 +141,7 @@ public class AdminRaffleController {
 				 
 				 pathRifa.setPathImagen(publicUrl);
 
-//				String filename = Path.of(image.getOriginalFilename()).getFileName().toString();
-//				Path target = this.root.resolve(filename);
-//				System.out.println(target);
-//				Files.copy(image.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-//				pathRifa.setPathImagen(target.toString());
+
 			} catch (Exception e) {
 				throw new RuntimeException("No se pudo guardar el archivo", e);
 			}

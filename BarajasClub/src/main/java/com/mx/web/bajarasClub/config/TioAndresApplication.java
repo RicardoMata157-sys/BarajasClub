@@ -26,24 +26,24 @@ public class TioAndresApplication extends ResponseEntityExceptionHandler impleme
 	public static void main(String[] args) {
 		SpringApplication.run(TioAndresApplication.class, args);
 	}
-	
-	
-	 @PostConstruct
-	  public void init() throws Exception {
-	    // Crea /var/data/uploads (o la que definas) si no existe
-	    Files.createDirectories(Paths.get(uploadDir));
-	  }
-	 
-	 
-	 
-	 @Override
-	  public void addResourceHandlers(ResourceHandlerRegistry registry) {
-	    // OJO: el patrón es URL (no ruta del SO). /uploads/** es lo que servirás en el navegador
-	    String location = Paths.get(uploadDir).toAbsolutePath().toUri().toString(); // file:/var/data/uploads/
-	    registry.addResourceHandler("/uploads/**")
-	            .addResourceLocations(location);
-	 }
-	  
+
+	@PostConstruct
+	public void init() throws Exception {
+		// Crea /var/data/uploads (o la que definas) si no existe
+		Files.createDirectories(Paths.get(uploadDir));
+	}
+
+	@Override
+	public void addResourceHandlers(ResourceHandlerRegistry registry) {
+		// OJO: el patrón es URL (no ruta del SO). /uploads/** es lo que servirás en el
+		// navegador
+		String location = Paths.get(uploadDir).toAbsolutePath().toUri().toString(); // file:/var/data/uploads/
+		registry.addResourceHandler("/uploads/**").addResourceLocations(location);
+
+		registry.addResourceHandler("/**").addResourceLocations("classpath:/static/", "classpath:/public/",
+				"classpath:/resources/", "classpath:/META-INF/resources/");
+
+	}
 
 //  @Override
 //  public void addResourceHandlers(ResourceHandlerRegistry registry) {
