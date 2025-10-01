@@ -12,12 +12,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
-import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 
-@EnableWebMvc
 @Configuration
 @SpringBootApplication(scanBasePackages = "com.mx.web.bajarasClub")
 public class TioAndresApplication extends ResponseEntityExceptionHandler implements WebMvcConfigurer {
@@ -28,20 +26,24 @@ public class TioAndresApplication extends ResponseEntityExceptionHandler impleme
 	public static void main(String[] args) {
 		SpringApplication.run(TioAndresApplication.class, args);
 	}
-
-	@PostConstruct
-	public void init() throws Exception {
-		// Crea /var/data/uploads (o la que definas) si no existe
-		Files.createDirectories(Paths.get(uploadDir));
-	}
-
-	@Override
-	public void addResourceHandlers(ResourceHandlerRegistry registry) {
-		// OJO: el patrón es URL (no ruta del SO). /uploads/** es lo que servirás en el
-		// navegador
-		String location = Paths.get(uploadDir).toAbsolutePath().toUri().toString(); // file:/var/data/uploads/
-		registry.addResourceHandler("/uploads/**").addResourceLocations(location);
-	}
+	
+	
+	 @PostConstruct
+	  public void init() throws Exception {
+	    // Crea /var/data/uploads (o la que definas) si no existe
+	    Files.createDirectories(Paths.get(uploadDir));
+	  }
+	 
+	 
+	 
+	 @Override
+	  public void addResourceHandlers(ResourceHandlerRegistry registry) {
+	    // OJO: el patrón es URL (no ruta del SO). /uploads/** es lo que servirás en el navegador
+	    String location = Paths.get(uploadDir).toAbsolutePath().toUri().toString(); // file:/var/data/uploads/
+	    registry.addResourceHandler("/uploads/**")
+	            .addResourceLocations(location);
+	 }
+	  
 
 //  @Override
 //  public void addResourceHandlers(ResourceHandlerRegistry registry) {
