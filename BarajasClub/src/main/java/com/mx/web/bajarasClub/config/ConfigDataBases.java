@@ -57,7 +57,7 @@ public class ConfigDataBases {
 	private Map<String, Object> properties() {
 		Map<String, Object> jpaProperties = new HashMap<>();
 		jpaProperties.put(AvailableSettings.DIALECT, "org.hibernate.dialect.PostgreSQLDialect");
-		jpaProperties.put(AvailableSettings.HBM2DDL_AUTO, "update"); // se cambia dependiendo a la necesidad modificar a
+		jpaProperties.put(AvailableSettings.HBM2DDL_AUTO, "create"); // se cambia dependiendo a la necesidad modificar a
 																		// none si no se desea modificar el ddl
 		jpaProperties.put(AvailableSettings.SHOW_SQL, true);
 		jpaProperties.put(AvailableSettings.FORMAT_SQL, true);

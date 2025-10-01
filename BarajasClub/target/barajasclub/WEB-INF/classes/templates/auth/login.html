@@ -34,8 +34,8 @@
     .hero-side::before{
       content: "";
       position: absolute; inset: 0;
-      background-image: url('/img/barajas-club.png');
-      background-image: -webkit-image-set(url('/img/barajas-club.png') 1x);
+      background-image: url('/uploads/barajas-club.png');
+      background-image: -webkit-image-set(url('/uploads/barajas-club.png') 1x);
       /* Thymeleaf */
       background-image: none;
     }
@@ -47,7 +47,7 @@
     <!-- Lado visual -->
     <section class="hero-side d-none d-md-block">
       <div class="position-absolute top-0 start-0 w-100 h-100"
-           th:style="'background-image:url(' + @{/img/barajas-club.png} + '); background-size: contain; background-repeat:no-repeat; background-position:center; background-color:#f7efe2'">
+           th:style="'background-image:url(' + @{/uploads/barajas-club.png} + '); background-size: contain; background-repeat:no-repeat; background-position:center; background-color:#f7efe2'">
       </div>
       <!-- Gradiente para contraste -->
       <div class="position-absolute top-0 start-0 w-100 h-100"
@@ -64,7 +64,7 @@
       <div class="card shadow-lg border-0" style="max-width: 440px; width:100%; background: var(--card-bg); backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));">
         <div class="card-body p-4 p-md-5">
           <div class="text-center mb-4">
-            <img src="/img/barajas-club.png" th:src="@{/img/barajas-club.png}" alt="Barajas Club"
+            <img src="/uploads/barajas-club.png" th:src="@{/uploads/barajas-club.png}" alt="Barajas Club"
                  style="height: 64px; width:auto; object-fit: contain;" />
             <h1 class="h4 mt-3 mb-0 fw-bold">Bienvenido</h1>
             <p class="text-secondary mb-0">Inicia sesión para continuar</p>
