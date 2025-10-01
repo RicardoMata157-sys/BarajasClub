@@ -1,8 +1,8 @@
 package com.mx.web.bajarasClub.config;
 
-import java.nio.file.Path;
 import java.nio.file.Paths;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Configuration;
@@ -23,13 +23,15 @@ public class TioAndresApplication extends ResponseEntityExceptionHandler impleme
     }
     
     
-  @Override
-  public void addResourceHandlers(ResourceHandlerRegistry registry) {
-      Path uploadDir = Paths.get("uploads");
-      String uploadPath = uploadDir.toFile().getAbsolutePath();
+    @Value("${app.upload-dir}")
+    private String uploadDir;
+
+    @Override
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+      String location = Paths.get("/var/data/uploads").toAbsolutePath().toUri().toString();
       registry.addResourceHandler("/app/uploads/**")
-              .addResourceLocations("file:" + uploadPath + "/");
-  }
+              .addResourceLocations(location); // ej. file:/var/data/uploads/
+    }
     
     
 //    @Override
