@@ -27,7 +27,7 @@ public class TioAndresApplication extends ResponseEntityExceptionHandler impleme
     @Override
     public void addResourceHandlers(org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry registry) {
       String location = java.nio.file.Paths.get(uploadDir).toAbsolutePath().toUri().toString(); // file:/...
-      registry.addResourceHandler("/var/data/uploads/**")
+      registry.addResourceHandler("/var/data/uploads//**")
               .addResourceLocations(location);
     }
     
