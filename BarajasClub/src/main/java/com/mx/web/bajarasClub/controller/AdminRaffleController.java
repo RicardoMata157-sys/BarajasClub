@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.mx.web.bajarasClub.dto.RaffleForm;
 import com.mx.web.bajarasClub.model.EstadoEdicion;
@@ -107,16 +108,6 @@ public class AdminRaffleController {
 		nuevaRifa = new Rifa();
 
 		// Guardar imagen (si viene)
-//		if (image != null && !image.isEmpty()) {
-//			String fileName = System.currentTimeMillis() + "-" + StringUtils.cleanPath(image.getOriginalFilename());
-//			Path uploads = Paths.get("uploads");
-//			Files.createDirectories(uploads);
-//			Path target = uploads.resolve(fileName);
-//			try (InputStream in = image.getInputStream()) {
-//				Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
-//			}
-//			pathRifa.setPathImagen("/uploads/" + fileName);
-//		}
 
 		if (image != null && !image.isEmpty()) {
 			try {
@@ -163,9 +154,17 @@ public class AdminRaffleController {
 	}
 
 	@GetMapping("/editar")
-	public String editar(@PathVariable(name = "id", required = false) Integer id, Model model) {
+	public String editar(@PathVariable(name = "id", required = false) Integer id, Model model,RedirectAttributes ra) {
+		
+		
 		List<Rifa> edicionesCreadas = servicioRifa.listAll();
 		List<Numero> numDisp = new ArrayList<Numero>();
+		
+		if (edicionesCreadas == null || edicionesCreadas.isEmpty()) {
+			    ra.addFlashAttribute("info", "No hay rifas. Crea la primera.");
+			    return "redirect:/admin/rifas/nueva";
+		}
+		
 		model.addAttribute("rifas", edicionesCreadas);
 		edicionesCreadas.stream().findFirst().ifPresent(edicion -> {
 

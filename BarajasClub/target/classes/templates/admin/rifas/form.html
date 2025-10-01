@@ -1,6 +1,6 @@
-<!doctype html>
-<html lang="es">
-<head>
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <title>ALTA EDICIONES</title>
@@ -10,8 +10,8 @@
     .stepper .badge{font-weight:600}
     .numbers-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(64px,1fr)); gap:.5rem}
     .numbers-grid .cell{border:1px solid rgba(0,0,0,.1); border-radius:.5rem; padding:.5rem 0; text-align:center; font-variant-numeric:tabular-nums}
-  </style><!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
+  </style>
+
 <head th:replace="~{fragments_admin :: head('Admin - Nueva Rifa')}"></head>
 <body>
 	<header th:replace="~{fragments_admin :: navbar}"></header>
@@ -37,15 +37,15 @@
       <span class="badge text-bg-secondary">Formulario</span>
       
       <div class="d-flex justify-content-between align-items-center mb-3">
-     
-      
-    </div>
-      <div class="stepper d-flex gap-2 align-items-center">
+     <div class="stepper d-flex gap-2 align-items-center">
         <span class="badge text-bg-primary rounded-pill">1 · Detalles</span>
         <span class="badge text-bg-light rounded-pill">2 · Números</span>
         <span class="badge text-bg-light rounded-pill">3 · Imagen</span>
         <span class="badge text-bg-light rounded-pill">4 · Guardar</span>
       </div>
+      
+    </div>
+      
       
     </div>
   </div>

@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments_admin :: head('Admin - Editar Rifa')}"></head>
+<head th:replace="~{fragments_admin :: head('Admin - Editar EDICIONES')}"></head>
 <body>
 <header th:replace="~{fragments_admin :: navbar}"></header>
 
@@ -41,11 +41,23 @@
 
     <!-- ===================== LADO DERECHO: FORMULARIO + GRID ===================== -->
     <section class="col-12 col-lg-8">
+    
+       <!-- Placeholder si NO hay r seleccionada -->
+      <div th:if="${r == null}" class="alert alert-info">
+        Selecciona una rifa en la lista de la izquierda o crea una nueva.
+      </div>
+
+      <!-- Todo el contenido que usa ${r.*} va dentro de este wrapper -->
+      <div th:if="${r != null}">
+      </div>
+    
+    
+    
       <!-- Header -->
       <div class="d-flex align-items-center gap-3 mb-3">
         <img th:if="${r.pathImagen}" th:src="${r.pathImagen}" alt="premio" class="rounded" style="height: 60px">
         <div>
-          <h1 class="h5 mb-0" th:text="${r.nombre}">Rifa</h1>
+          <h1 class="h5 mb-0" th:text="${r != null ? r.nombre : 'Sin rifa seleccionada'}">Rifa</h1>
           <div class="text-muted" th:text="'Precio por boleto: $' + ${r.precioBoleto}">Precio</div>
         </div>
       </div>
@@ -155,44 +167,12 @@
     <span th:text="${pag != null ? #lists.size(pag) : 0}">0</span>
   </div>
 </div>
+</div>
+</section>
 
-<!--           <div class="ms-auto small"> -->
-<!--             <span class="badge text-bg-success">DISPONIBLE</span> -->
-<!--             <span class="badge text-bg-warning">APARTADO</span> -->
-<!--             <span class="badge text-bg-danger">VENDIDO</span> -->
-<!--           </div> -->
+
         </div>
-      </div>
-
-<!--       Grid de boletos -->
-<!--       <div id="numbersGrid" class="d-grid gap-2" -->
-<!--            style="grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));"> -->
-<!--         <div th:each="t : ${tickets}" class="card text-center ticket-card" -->
-<!--              th:attr="data-status=${t.estadoEdicion.nombre}"> -->
-<!--           <div class="card-body p-2"> -->
-<!--             <div class="fw-bold" th:text="${t.numeros}">1</div> -->
-
-<!--             <span class="badge mt-1" -->
-<!--                   th:classappend="${t.estadoEdicion.nombre == 'ACTIVA'} ? ' text-bg-success' : -->
-<!--                                   (${t.estadoEdicion.nombre == 'CERRADA'}   ? ' text-bg-warning' : -->
-<!--                                   (${t.estadoEdicion.nombre == 'PROXIMAMENTE'}    ? ' text-bg-danger'  : ' text-bg-secondary'))" -->
-<!--                   th:text="${t.estadoEdicion.nombre()}">DISPONIBLE</span> -->
-
-<!--             <form th:action="@{'/admin/rifas/tickets/' + ${t.id} + '/estado'}" method="post" class="mt-2"> -->
-<!--               <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}"/> -->
-<!--               <select name="estado" class="form-select form-select-sm"> -->
-<!--                 <option th:each="s : ${estadosRifa}" -->
-<!--                         th:value="${s}" -->
-<!--                         th:text="${s}" -->
-<!--                         th:selected="${s == t.estadoEdicion}"></option> -->
-<!--               </select> -->
-<!--               <button class="btn btn-sm btn-outline-primary mt-2">Guardar</button> -->
-<!--             </form> -->
-<!--           </div> -->
-<!--         </div> -->
-<!--       </div> -->
-<!--     </section> -->
-<!--   </div> -->
+    
 </main>
 
 <script>

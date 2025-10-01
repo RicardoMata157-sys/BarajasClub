@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	font-size: .9rem;
 }
 
-@
+
 keyframes fadeIn {
 	from {opacity: 0;
 	transform: scale(.985);
@@ -348,26 +348,7 @@ to {
 }
 </style>
 
-					<!-- Barra de acciones -->
-					<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-						<button type="button" class="btn btn-outline-primary btn-sm"
-							id="btnAuto">Selección automática</button>
-						<button type="button" class="btn btn-outline-secondary btn-sm"
-							id="btnClear">Limpiar selección</button>
-							
-							<div class="d-flex align-items-center gap-2">
-								<label class="form-label m-0">Boletos:</label> <select
-									id="selBoletos" class="form-select form-select-sm"
-									style="width: auto">
-									<option value="1" selected>1</option>
-									<option value="2">2</option>
-									<option value="3">3</option>
-									<option value="4">4</option>
-									<option value="5">5</option>
-									<option value="10">10</option>
-								</select>
-							</div>
-							
+				
 							
 						<span class="small ms-auto"> Seleccionados: <strong
 							id="selCount">0</strong>/<span th:text="${numPorBoleto}">1</span>
@@ -378,7 +359,7 @@ to {
 						
 						
 						
-					</div>
+					
 
 					<!-- Grilla de números -->
 					<div class="d-flex flex-wrap gap-2" id="gridNumeros"
@@ -436,22 +417,27 @@ to {
 								números elegidos (separados por comas).</div>
 						</div>
 
-						<!-- Barra de acciones -->
-<!-- 						<div class="d-flex flex-wrap gap-2 mb-3 align-items-center"> -->
+	                <!-- Barra de acciones -->
+					<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+						<button type="button" class="btn btn-outline-primary btn-sm"
+							id="btnAuto">Selección automática</button>
+						<button type="button" class="btn btn-outline-secondary btn-sm"
+							id="btnClear">Limpiar selección</button>
 							
+							<div class="d-flex align-items-center gap-2">
+								<label class="form-label m-0">Boletos:</label> <select
+									id="selBoletos" class="form-select form-select-sm"
+									style="width: auto">
+									<option value="1" selected>1</option>
+									<option value="2">2</option>
+									<option value="3">3</option>
+									<option value="4">4</option>
+									<option value="5">5</option>
+									<option value="10">10</option>
+								</select>
+							</div>
+							</div>
 
-
-<!-- 							<input type="hidden" name="cantidadBoletos" -->
-<!-- 								id="cantidadBoletosHidden" value="1" /> <span -->
-<!-- 								class="small ms-auto"> Seleccionados: <strong -->
-<!-- 								id="selCount">0</strong>/<span id="maxCount" -->
-<!-- 								th:text="${numPorBoleto}">1</span> -->
-<!-- 							</span> -->
-
-<!-- 							<button type="button" class="btn btn-outline-primary btn-sm" -->
-<!-- 								id="btnAuto">Selección automática</button> -->
-<!-- 							<button type="button" class="btn btn-outline-secondary btn-sm" -->
-<!-- 								id="btnClear">Limpiar selección</button> -->
 
 
 
@@ -501,6 +487,8 @@ to {
 										th:text="${tp.nombre}"></option>
 								</select>
 							</div>
+							
+							<input type="hidden" name="cantidadBoletos" id="cantidadBoletos" value="">
 
 							<button class="btn btn-primary w-100" type="submit">Apartar
 								boleto</button>
@@ -671,11 +659,18 @@ document.addEventListener('DOMContentLoaded', () => {
     // Regresa exactamente a la rifa actual
     window.location.href = /*[[@{/admin/rifa(id=${rifaSeleccionada != null ? rifaSeleccionada.id : 0})}]]*/ '/admin/rifa';
   });
+  
+
+  
 });
 /*]]>*/
 </script>
 
-
+<script>
+  document.getElementById('selBoletos').addEventListener('change', function () {
+    document.getElementById('cantidadBoletos').value = this.value;
+  });
+</script>
 
 
 
