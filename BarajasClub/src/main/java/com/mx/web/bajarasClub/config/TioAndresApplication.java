@@ -41,10 +41,6 @@ public class TioAndresApplication extends ResponseEntityExceptionHandler impleme
 		// navegador
 		String location = Paths.get(uploadDir).toAbsolutePath().toUri().toString(); // file:/var/data/uploads/
 		registry.addResourceHandler("/uploads/**").addResourceLocations(location);
-
-		registry.addResourceHandler("/**").addResourceLocations("classpath:/static/", "classpath:/public/",
-				"classpath:/resources/", "classpath:/META-INF/resources/");
-
 	}
 
 //  @Override
