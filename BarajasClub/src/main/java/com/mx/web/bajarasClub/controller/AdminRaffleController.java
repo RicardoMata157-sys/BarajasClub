@@ -45,11 +45,14 @@ public class AdminRaffleController {
 //    private final RaffleRepository raffleRepo;
 //    private final TicketRepository ticketRepo;
 
-	private final Path root;
+//	private final Path root;
 
-	public AdminRaffleController(@Value("${app.upload-dir}") String uploadDir) {
-		this.root = Paths.get(uploadDir).toAbsolutePath().normalize();
-	}
+//	public AdminRaffleController(@Value("${app.upload-dir}") String uploadDir) {
+//		this.root = Paths.get(uploadDir).toAbsolutePath().normalize();
+//	}
+
+	@Value("${app.upload-dir}")
+	private String uploadDir;
 
 	@Autowired
 	private ServiceEstadoRifa serviceEstadoRifa;
@@ -117,11 +120,32 @@ public class AdminRaffleController {
 
 		if (image != null && !image.isEmpty()) {
 			try {
-				String filename = Path.of(image.getOriginalFilename()).getFileName().toString();
-				Path target = this.root.resolve(filename);
-				System.out.println(target);
-				Files.copy(image.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-				pathRifa.setPathImagen(target + filename);
+				String original = image.getOriginalFilename();
+
+				String cleaned = java.text.Normalizer.normalize(original, java.text.Normalizer.Form.NFD)
+						.replaceAll("[^\\p{ASCII}]", "").replaceAll("[\\s]+", "-").replaceAll("[^-_.A-Za-z0-9]", "")
+						.toLowerCase();
+
+				Path target = Paths.get(uploadDir).resolve(cleaned).normalize();
+				Files.createDirectories(target.getParent());
+				image.transferTo(target);
+				
+				 String dbKey = cleaned;
+				 
+				 
+				 String publicUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder
+				            .fromCurrentContextPath()
+				            .path("/uploads/")
+				            .path(java.net.URLEncoder.encode(dbKey, java.nio.charset.StandardCharsets.UTF_8))
+				            .toUriString();
+				 
+				 pathRifa.setPathImagen(publicUrl);
+
+//				String filename = Path.of(image.getOriginalFilename()).getFileName().toString();
+//				Path target = this.root.resolve(filename);
+//				System.out.println(target);
+//				Files.copy(image.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+//				pathRifa.setPathImagen(target.toString());
 			} catch (Exception e) {
 				throw new RuntimeException("No se pudo guardar el archivo", e);
 			}
