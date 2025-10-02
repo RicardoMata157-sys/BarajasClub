@@ -135,6 +135,7 @@ public class AdminController {
 		// Aquí puedes guardar el ticket y comprador en la BD
 		List<Map<String, Object>> tickets = new ArrayList<>();
 		Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
+		 Map<String, Object> payload = new HashMap<>();
 		
 		 if (rifaSeleccionada == null) {
 		        ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
@@ -215,12 +216,12 @@ public class AdminController {
 	    // 8) Datos para la vista
 	    model.addAttribute("rifaSeleccionada", rifaSeleccionada);
 
-	    Map<String, Object> payload = new HashMap<>();
+	   
 	    payload.put("comprador", clienteGuardado);
 	    payload.put("tickets", tickets);
 	    payload.put("cantidadBoletos", cantidadBoletos);
 	    payload.put("numerosPorBoleto", porBoleto);
-
+	    
 	    ra.addFlashAttribute("ticketGroup", payload);
 	    ra.addFlashAttribute("mostrarTicket", true);
 

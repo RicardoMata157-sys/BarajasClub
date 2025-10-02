@@ -604,18 +604,18 @@ to {
 							<div class="col-8">
 								<div class="muted">Comprador</div>
 								<div
-									th:text="${ticket != null ? ticket.comprador.nombre + ticket.comprador.apellido_patrno + ticket.comprador.apellido_materno : ''}">Juan
+									th:text="${ticketGroup != null ? ticketGroup.comprador.nombre + ticketGroup.comprador.apellido_patrno + ticketGroup.comprador.apellido_materno : ''}">Juan
 									Pérez</div>
 								<div class="small text-muted"
-									th:text="${ticket != null ? ticket.comprador.email : ''}">correo@ejemplo.com</div>
+									th:text="${ticketGroup != null ? ticketGroup.comprador.email : ''}">correo@ejemplo.com</div>
 								<div class="small text-muted"
-									th:text="${ticket != null ? ticket.comprador.telefono : ''}">55
+									th:text="${ticketGroup != null ? ticketGroup.comprador.telefono : ''}">55
 									0000 0000</div>
 							</div>
 							<div class="col-4 text-end">
 								<div class="muted">Fecha</div>
 								<div
-									th:text="${ticket != null ? #temporals.format(ticket.fechaCompra,'dd/MM/yyyy HH:mm') : ''}">26/09/2025
+									th:text="${tickets != null ? #temporals.format(tickets.get(0).fechaCompra,'dd/MM/yyyy HH:mm') : ''}">26/09/2025
 									12:34</div>
 								<div class="muted mt-2">Total</div>
 								<!--               <div class="fs-5 fw-bold" th:text="${ticket != null && ticket.total != null ? ' $ ' + #numbers.formatDecimal(ticket.total,1,2) : '$ 0.00'}">$ 0.00</div> -->
