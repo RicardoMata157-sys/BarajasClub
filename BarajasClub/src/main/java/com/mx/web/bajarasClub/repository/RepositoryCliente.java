@@ -12,5 +12,7 @@ public interface RepositoryCliente extends JpaRepository<Cliente, Integer> {
 	
 	
 	List<Cliente> findByEmailAndTelefono(String email,String telefono);
+	
+	List<Cliente> findFirstByEmailIgnoreCaseOrTelefono(String email, String telefono);
 
 }

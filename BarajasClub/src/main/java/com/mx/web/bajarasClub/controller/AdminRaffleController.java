@@ -65,6 +65,8 @@ public class AdminRaffleController {
 
 	@Autowired
 	private ServiceNumero serviceNumero;
+	
+	
 
 //    public AdminRaffleController(RaffleRepository raffleRepo, TicketRepository ticketRepo) {
 //        this.raffleRepo = raffleRepo;
@@ -159,6 +161,7 @@ public class AdminRaffleController {
 		
 		List<Rifa> edicionesCreadas = servicioRifa.listAll();
 		List<Numero> numDisp = new ArrayList<Numero>();
+		List<Numero> numVendidos = new ArrayList<Numero>();
 		
 		if (edicionesCreadas == null || edicionesCreadas.isEmpty()) {
 			    ra.addFlashAttribute("info", "No hay rifas. Crea la primera.");
@@ -172,14 +175,31 @@ public class AdminRaffleController {
 			model.addAttribute("estadoSeleccionado", edicion.getEstadoEdicion());
 
 			edicion.getNumeros().stream().forEach(numerosDisponibles -> {
-				numDisp.add(numerosDisponibles);
+				if (numerosDisponibles.getBoleto() == null) {
+					numDisp.add(numerosDisponibles);
+				}
+				
+				if(numerosDisponibles.getBoleto() != null) {
+					if(numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
+						numVendidos.add(numerosDisponibles);
+						
+					}
+				}
+				
 
+			
 			});
-
+			BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(edicion.getPrecioBoleto(), numVendidos);
+			model.addAttribute("montoRecaudado", montoRecaudado);
+			
+			
+			
 			model.addAttribute("numDisp", numDisp);
+			model.addAttribute("numVendidos", numVendidos);
 			BigDecimal montoEsperado = NumeroGenerator.calcularMontoEsperado(edicion.getMaxValor(),
 					edicion.getNumerosPorBoleto(), BigDecimal.valueOf(edicion.getPrecioBoleto()), false);
 			model.addAttribute("montoEsperado", montoEsperado);
+			
 		});
 
 		return "admin/rifas/editar";
@@ -198,7 +218,7 @@ public class AdminRaffleController {
 		int sizeNumero = r.getMaxValor();
 		int digitosNumero = r.getDigitos();
 		int numBoletos = r.getNumerosPorBoleto();
-
+		List<Numero> numVendidos = new ArrayList<Numero>();
 		List<Numero> numDisp = new ArrayList<Numero>();
 		if (r.getNumeros().isEmpty()) {
 			List<String> valorNumeros = NumeroGenerator.generarPorCantidad(digitosNumero, sizeNumero);
@@ -216,12 +236,25 @@ public class AdminRaffleController {
 			if (numerosDisponibles.getBoleto() == null) {
 				numDisp.add(numerosDisponibles);
 			}
+			
+			if(numerosDisponibles.getBoleto() != null) {
+				if(numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
+					numVendidos.add(numerosDisponibles);
+					
+				}
+			}
 
 		});
 
 		model.addAttribute("tickets", r);
 
+		BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(r.getPrecioBoleto(), numVendidos);
+		model.addAttribute("montoRecaudado", montoRecaudado);
+		
+		
+		
 		model.addAttribute("numDisp", numDisp);
+		model.addAttribute("numVendidos", numVendidos);
 		BigDecimal montoEsperado = NumeroGenerator.calcularMontoEsperado(r.getMaxValor(), r.getNumerosPorBoleto(),
 				BigDecimal.valueOf(r.getPrecioBoleto()), false);
 		model.addAttribute("montoEsperado", montoEsperado);
@@ -364,19 +397,6 @@ public class AdminRaffleController {
 		return serviceEstadoRifa.consultaEdicionEstado(idEstado);
 	}
 
-	private List<Integer> buildNumbers() {// (RaffleForm form) {
-		LinkedHashSet<Integer> set = new LinkedHashSet<>();
-//        if (form.numberFrom != null && form.numberTo != null && form.numberFrom <= form.numberTo) {
-//            for (int n = form.numberFrom; n <= form.numberTo; n++) set.add(n);
-//        }
-//        if (form.customNumbersCsv != null && !form.customNumbersCsv.isBlank()) {
-//            String[] parts = form.customNumbersCsv.split("[,\\s]+");
-//            for (String p : parts) {
-//                try { set.add(Integer.parseInt(p.trim())); } catch (NumberFormatException ignored) {}
-//            }
-//        }
-		if (set.isEmpty())
-			throw new IllegalArgumentException("Debes indicar un rango o una lista de números.");
-		return new ArrayList<>(set);
-	}
+	
+
 }

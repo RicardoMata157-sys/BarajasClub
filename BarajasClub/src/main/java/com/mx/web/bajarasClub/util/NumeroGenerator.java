@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -14,10 +13,29 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 
+import com.mx.web.bajarasClub.model.Numero;
+
 public class NumeroGenerator {
 
- 
+	static final int MONEY_SCALE = 2;
 	
+	static final RoundingMode MONEY_RM = RoundingMode.HALF_UP;
+	
+	public static BigDecimal montoPorNumero(Double precioPorNumero, List<Numero> numVendidos) {
+	    BigDecimal precio = (precioPorNumero == null)
+	            ? BigDecimal.ZERO
+	            : BigDecimal.valueOf(precioPorNumero);
+
+	    long totalNumeros = (numVendidos == null) ? 0L : numVendidos.stream()
+	            .filter(Objects::nonNull)
+	            // si tienes un flag/estado de vendido en Numero, descomenta:
+	            // .filter(Numero::isVendido)
+	            .count();
+
+	    return precio
+	            .multiply(BigDecimal.valueOf(totalNumeros))
+	            .setScale(MONEY_SCALE, MONEY_RM);
+	}
 	
 	
 	
@@ -48,7 +66,14 @@ public class NumeroGenerator {
 
 
 	
-	
+	public static BigDecimal calcularTotal(BigDecimal precioBoleto, Integer cantidad) {
+	    if (precioBoleto == null || cantidad == null || cantidad <= 0) {
+	        return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+	    }
+	    return precioBoleto
+	            .multiply(BigDecimal.valueOf(cantidad))
+	            .setScale(2, RoundingMode.HALF_UP);
+	}
 	
 	
 	

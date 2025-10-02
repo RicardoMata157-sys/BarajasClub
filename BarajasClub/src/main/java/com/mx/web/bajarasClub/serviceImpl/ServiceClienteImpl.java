@@ -1,5 +1,8 @@
 package com.mx.web.bajarasClub.serviceImpl;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +28,17 @@ public class ServiceClienteImpl implements ServiceCliente {
 		return repositoryCliente.save(cliente);
 
 		
+	}
+
+	@Override
+	public List<Cliente> findByEmailOrTelefono(String email, String telefono) {
+		if ((email == null || email.isBlank()) && (telefono == null || telefono.isBlank())) {
+	        return new ArrayList<Cliente>();
+	    }
+		 return repositoryCliente.findFirstByEmailIgnoreCaseOrTelefono(
+			        email != null && !email.isBlank() ? email : null,
+			        telefono != null && !telefono.isBlank() ? telefono : null
+			    );
 	}
 
 }

@@ -1,5 +1,6 @@
 package com.mx.web.bajarasClub.controller;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -72,6 +73,43 @@ public class AdminController {
 //		this.tRepo = tRepo;
 //		this.service = service;
 //	}
+	
+	
+	
+	@GetMapping("/clientes/check")
+	@ResponseBody
+	public Map<String, Object> checkCliente(
+	    @RequestParam(required = false) String email,
+	    @RequestParam(required = false) String telefono) {
+
+	    Map<String, Object> out = new HashMap<>();
+	    List<Cliente> encontrados  = serviceCliente.findByEmailOrTelefono(
+	        (email != null && !email.isBlank()) ? email.trim() : null,
+	        (telefono != null && !telefono.isBlank()) ? telefono.trim() : null
+	    );
+
+	    
+	    Cliente c = (encontrados != null && !encontrados.isEmpty()) ? encontrados.get(0) : null;
+	    out.put("exists", c != null);
+	    
+	    if (c != null) {
+	        out.put("id", c.getIdCliente());
+	        out.put("nombre", String.format("%s %s %s",
+	            nullToEmpty(c.getNombre()),
+	            nullToEmpty(c.getApellido_patrno()),
+	            nullToEmpty(c.getApellido_materno())
+	        ).replaceAll("\\s+", " ").trim());
+	        out.put("email", nullToEmpty(c.getEmail()));
+	        out.put("telefono", nullToEmpty(c.getTelefono()));
+	    }
+
+	    return out;
+	}
+
+	private static String nullToEmpty(String s){ return s == null ? "" : s; }
+	
+	
+	
 
 	@GetMapping(value = "/admin/comprar/{rifaId}", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
@@ -209,50 +247,24 @@ public class AdminController {
 	        t.put("fechaCompra", boleto.getFechaCompra());
 	        tickets.add(t);
 	    }
+		
+		BigDecimal total = NumeroGenerator.calcularTotal(BigDecimal.valueOf(rifaSeleccionada.getPrecioBoleto()), cantidadBoletos);
 
 	    // 7) Marcar números como vendidos (todos a la vez)
 	    serviceNumero.actualizaNumeros(numeroSeleccionados);
 
 	    // 8) Datos para la vista
 	    model.addAttribute("rifaSeleccionada", rifaSeleccionada);
-
-	   
+	    payload.put("numeros", numeros);
 	    payload.put("comprador", clienteGuardado);
+	    payload.put("precioUnitario", rifaSeleccionada.getPrecioBoleto());
 	    payload.put("tickets", tickets);
 	    payload.put("cantidadBoletos", cantidadBoletos);
 	    payload.put("numerosPorBoleto", porBoleto);
-	    
+	    payload.put("total", total);
 	    ra.addFlashAttribute("ticketGroup", payload);
 	    ra.addFlashAttribute("mostrarTicket", true);
 
-//		Boleto boleto = new Boleto();
-//		boleto.setRifa(rifaSeleccionada);
-//		boleto.setCliente(clienteGuardad);
-//		boleto.setEstadoBoleto(estadoBoleto);
-//		boleto.setTipoPago(tipoPago);
-//		boleto.setCliente(clienteGuardad);
-//		boleto.setNumeros(numeroSeleccionados);
-//		boleto.setFechaCompra(LocalDateTime.now());
-//		boleto.setFolio(NumeroGenerator.generarFolio(boleto.getFechaCompra(), numeros, clienteGuardad.getIdCliente()));
-//		// TODO: Lógica para marcar el boleto como apartado
-//		ticket.put("folio", boleto.getFolio());
-//		servicioBoletos.guardaBoletoClienteAsignado(boleto);
-//		numeroSeleccionados.stream().forEach(numero -> {
-//			numero.setBoleto(boleto);
-//		});
-//		ticket.put("numeros", numeros);
-//        serviceNumero.actualizaNumeros(numeroSeleccionados);
-//		// Devolver un mensaje de confirmación a la vista
-//		model.addAttribute("rifaSeleccionada", rifaSeleccionada);
-//		;
-//			
-//		 rifaSeleccionada.getBoletos().stream().findFirst().ifPresent(compador -> {
-//			 ticket.put("comprador", compador.getCliente());
-//		});
-//
-//		 ticket.put("fechaCompra", boleto.getFechaCompra());
-//		ra.addFlashAttribute("ticket", ticket);
-//		ra.addFlashAttribute("mostrarTicket", true);
 		return "redirect:/admin/rifa";
 	}
 
