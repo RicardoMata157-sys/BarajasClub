@@ -11,7 +11,7 @@
   
 </head>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-
+<th:block th:replace="~{fragments :: scripts}"></th:block>
 <body>
 <header th:fragment="navbar">
   <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
@@ -25,6 +25,7 @@
           <li class="nav-item"><a class="nav-link active" href="/">Inicio</a></li>
           <li class="nav-item"><a class="nav-link" href="/admin/rifas/editar">Administrar Ediciones</a></li>
           <li class="nav-item"><a class="nav-link" href="/admin/rifa">Venta de Boletos</a></li>
+           <li class="nav-item"><a class="nav-link" href="/admin/tickets">Administracion Boletos</a></li>
         </ul>
         <div class="d-flex gap-2">
          <form th:action="@{/logout}" method="post"

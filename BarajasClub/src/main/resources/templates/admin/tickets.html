@@ -1,43 +1,254 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments :: head('Admin - Boletos')}"></head>
+<head th:replace="~{fragments_admin :: head('Admin - Boletos')}"></head>
+<th:block th:replace="~{fragments_admin :: scripts}"></th:block>
 <body>
-	<header th:replace="~{fragments :: navbar}"></header>
+	<header th:replace="~{fragments_admin :: navbar}"></header>
 	<main class="container py-4">
-		<h1 class="h5">
-<!-- 			Administrar boletos — <span th:text="${r.title}">Rifa</span> -->
-		</h1>
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h1 class="h5 m-0">Administrar boletos</h1>
+      <div class="text-muted small">Filtra, revisa pago y cambia estado</div>
+    </div>
+    <a th:href="@{/admin/rifas/form}" class="btn btn-sm btn-outline-secondary">Volver</a>
+  </div>
 
+  <!-- Filtros -->
+  <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/tickets}">
+    <div class="col-12 col-md-4">
+      <label class="form-label mb-1">Buscar</label>
+      <input type="text" name="q" class="form-control form-control-sm"
+             placeholder="Folio, rifa, comprador, email, teléfono"
+             th:value="${param.q}" />
+    </div>
+    <div class="col-6 col-md-3">
+      <label class="form-label mb-1">Estado</label>
+      <select name="estado" class="form-select form-select-sm">
+        <option value="">VENDIDOS + APARTADOS</option>
+        <option value="VENDIDO" th:selected="${param.estado=='VENDIDO'}">VENDIDO</option>
+        <option value="APARTADO" th:selected="${param.estado=='APARTADO'}">APARTADO</option>
+        <option value="CANCELADO" th:selected="${param.estado=='CANCELADO'}">CANCELADO</option>
+      </select>
+    </div>
+    <div class="col-6 col-md-2">
+      <label class="form-label mb-1">Rifa</label>
+      <select name="rifaId" class="form-select form-select-sm">
+        <option value="">Todas</option>
+        <option th:each="r : ${rifas}"
+                th:value="${r.id}"
+                th:selected="${param.rifaId == ${r.id}}"
+                th:text="${r.nombre}"></option>
+      </select>
+    </div>
+    <div class="col-12 col-md-3 text-end">
+      <button class="btn btn-sm btn-primary">Aplicar filtros</button>
+    </div>
+  </form>
 
-		<table class="table table-sm align-middle">
-			<thead>
-				<tr>
-					<th>#</th>
-					<th>Estado</th>
-					<th>Acciones</th>
-				</tr>
-			</thead>
-			<tbody>
-				<tr th:each="t : ${tickets}">
-					<td th:text="${t.numero}">1</td>
-					<td><span class="badge"
-						th:classappend="${t.status.name()=='DISPONIBLE'}?' text-bg-success':''"
-						th:text="${t.status}">DISPONIBLE</span></td>
-					<td>
-						<form th:action="@{'/admin/tickets/' + ${t.id} + '/estado'}"
-							method="post" class="d-inline">
-							<select name="estado"
-								class="form-select form-select-sm w-auto d-inline-block">
-								<option
-									th:each="s : ${T(com.tioandres.rifas.model.Ticket.Status).values()}"
-									th:value="${s}" th:text="${s}" th:selected="${s==t.status}"></option>
-							</select>
-							<button class="btn btn-sm btn-outline-primary">Guardar</button>
-						</form>
-					</td>
-				</tr>
-			</tbody>
-		</table>
-	</main>
+  <style>
+    .tbl-sticky thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 1; }
+    .badge-state { font-weight: 600; }
+    .badge-apartado { background: #fff3cd; color: #856404; border: 1px solid #ffe8a1; }
+    .badge-vendido  { background: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
+    .badge-cancelado{ background: #e2e3e5; color: #41464b; border: 1px solid #d3d6d8; }
+    .chip { border: 1px solid #dee2e6; border-radius: 999px; padding: .1rem .5rem; font-size: .8rem; background: #f8f9fa; }
+    .table-sm td, .table-sm th { vertical-align: middle; }
+  </style>
+
+  <!-- Tabla de boletos -->
+  <div class="table-responsive tbl-sticky" style="max-height: 65vh;">
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th style="width:36px;">#</th>
+          <th>Folio</th>
+          <th>Rifa</th>
+          <th>Comprador</th>
+          <th>Números</th>
+          <th>Fecha</th>
+          <th>Pago</th>
+          <th>Estado</th>
+          <th style="width: 260px;">Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="t, it : ${tickets}"
+            th:data-id="${t.id}"
+            th:data-estado="${t.estado}"
+            th:data-pago="${t.pagoRealizado}">
+          <td class="text-muted" th:text="${it.index + 1}">1</td>
+
+          <!-- Folio (fallback a número si no tienes folio) -->
+          <td class="fw-semibold" th:text="${t.folio != null ? t.folio : t.numero}">ABC123</td>
+
+          <td th:text="${t.rifa != null ? t.rifa.nombre : '—'}">Rifa X</td>
+
+          <td>
+            <div th:text="${t.cliente != null ? t.cliente.nombreCompleto : '—'}">Juan Pérez</div>
+            <div class="small text-muted">
+              <span th:text="${t.cliente != null ? t.cliente.email : ''}">correo@ejemplo.com</span>
+              <span th:if="${t.cliente != null && t.cliente.telefono != null}"> · </span>
+              <span th:text="${t.cliente != null ? t.cliente.telefono : ''}">55 0000 0000</span>
+            </div>
+          </td>
+
+          <td>
+            <div class="d-flex flex-wrap gap-1">
+              <span class="chip" th:each="n : ${t.numeros}" th:text="${n}">0007</span>
+            </div>
+          </td>
+
+          <td th:text="${t.fechaCompra != null ? #temporals.format(t.fechaCompra,'dd/MM/yyyy HH:mm') : '—'}">
+            01/10/2025 14:20
+          </td>
+
+          <!-- Pago -->
+          <td>
+            <span th:if="${t.pagoRealizado}" class="badge text-bg-success">Pagado</span>
+            <span th:unless="${t.pagoRealizado}" class="badge text-bg-warning">Pendiente</span>
+            <div class="small text-muted" th:text="${t.tipoPago != null ? t.tipoPago.nombre : ''}">Tarjeta</div>
+          </td>
+
+          <!-- Estado -->
+          <td>
+            <span class="badge badge-state"
+                  th:classappend="${t.estado.name()=='APARTADO'} ? ' badge-apartado' :
+                                  ${t.estado.name()=='VENDIDO'}  ? ' badge-vendido'  :
+                                  ${t.estado.name()=='CANCELADO'}? ' badge-cancelado' : ''"
+                  th:text="${t.estado}">APARTADO</span>
+          </td>
+
+          <!-- Acciones -->
+          <td>
+            <form th:action="@{'/admin/tickets/' + ${t.id} + '/estado'}" method="post" class="d-flex flex-wrap gap-2 align-items-center ticket-form">
+              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+              <input type="hidden" name="confirmPago" value="false" />
+              <select name="estado" class="form-select form-select-sm w-auto estado-select">
+                <!-- Opción: pásame la lista de estados desde el controlador como 'estados' -->
+                <option th:each="s: ${estados}" th:value="${s}" th:text="${s}" th:selected="${s==t.estado}"></option>
+              </select>
+              <button type="submit" class="btn btn-sm btn-primary guardar-btn">Guardar</button>
+              <a th:href="@{'/admin/tickets/' + ${t.id}}" class="btn btn-sm btn-outline-secondary">Detalle</a>
+            </form>
+          </td>
+        </tr>
+        <tr th:if="${#lists.isEmpty(tickets)}">
+          <td colspan="9" class="text-center text-muted py-4">No hay boletos para los filtros seleccionados.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Modal: Validar pago -->
+  <div class="modal fade" id="validarPagoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0">
+        <div class="modal-header">
+          <h6 class="modal-title m-0">Confirmar pago</h6>
+          <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Estás por cambiar el estado a <strong>VENDIDO</strong>.</p>
+          <div class="border rounded p-2 bg-light mb-2">
+            <div>Folio: <strong id="vpFolio">—</strong></div>
+            <div>Comprador: <span id="vpCliente">—</span></div>
+            <div>Importe (ref.): <span id="vpImporte">—</span></div>
+            <div>Método: <span id="vpMetodo">—</span></div>
+          </div>
+          <div class="form-check">
+            <input id="vpCheck" type="checkbox" class="form-check-input">
+            <label for="vpCheck" class="form-check-label">Confirmo que el usuario realizó el pago</label>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button id="vpConfirmBtn" class="btn btn-primary" disabled>Confirmar y guardar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  const modalEl = document.getElementById('validarPagoModal');
+  const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+  const vpCheck = document.getElementById('vpCheck');
+  const vpConfirmBtn = document.getElementById('vpConfirmBtn');
+  const vpFolio = document.getElementById('vpFolio');
+  const vpCliente = document.getElementById('vpCliente');
+  const vpImporte = document.getElementById('vpImporte');
+  const vpMetodo = document.getElementById('vpMetodo');
+
+  let pendingForm = null;
+  let pendingSelect = null;
+  let prevValue = null;
+
+  vpCheck.addEventListener('change', () => {
+    vpConfirmBtn.disabled = !vpCheck.checked;
+  });
+
+  // Interceptar submit para validar pago si corresponde
+  document.querySelectorAll('.ticket-form').forEach(form => {
+    const select = form.querySelector('.estado-select');
+    const row = form.closest('tr');
+
+    // Guardar valor anterior al cambiar el select
+    select.addEventListener('focus', () => { select.dataset.prev = select.value; });
+    select.addEventListener('change', () => { /* visual */ });
+
+    form.addEventListener('submit', (e) => {
+      const nuevo = select.value;
+      const pagoRealizado = (row.dataset.pago === 'true'); // Thymeleaf llena data-pago
+      const estadoActual = row.dataset.estado;
+
+      // Si se intenta pasar a VENDIDO sin pago → modal de confirmación
+      if (nuevo === 'VENDIDO' && !pagoRealizado) {
+        e.preventDefault();
+
+        // Llenar info modal (usa datos visibles en la fila)
+        vpCheck.checked = false;
+        vpConfirmBtn.disabled = true;
+        vpFolio.textContent = row.querySelector('td:nth-child(2)')?.textContent?.trim() || '—';
+        vpCliente.textContent = row.querySelector('td:nth-child(4) > div:first-child')?.textContent?.trim() || '—';
+        vpImporte.textContent = (row.querySelector('td:nth-child(7) .badge')?.textContent?.includes('Pagado'))
+                                  ? 'Pagado' : 'Pendiente';
+        vpMetodo.textContent = row.querySelector('td:nth-child(7) .small')?.textContent?.trim() || '—';
+
+        pendingForm = form;
+        pendingSelect = select;
+        prevValue = select.dataset.prev || estadoActual;
+
+        modal.show();
+      } else {
+        // Submit normal
+      }
+    });
+  });
+
+  // Confirmar en el modal
+  vpConfirmBtn.addEventListener('click', () => {
+    if (!pendingForm) return;
+    // Marcar confirmación de pago para que el backend lo procese (si corresponde)
+    const confirmPagoInput = pendingForm.querySelector('input[name="confirmPago"]');
+    if (confirmPagoInput) confirmPagoInput.value = 'true';
+    modal.hide();
+    pendingForm.submit();
+  });
+
+  // Si se cancela el modal, revertir selección
+  modalEl.addEventListener('hidden.bs.modal', () => {
+    if (pendingSelect && prevValue != null) {
+      pendingSelect.value = prevValue;
+    }
+    pendingForm = null;
+    pendingSelect = null;
+    prevValue = null;
+  });
+});
+/*]]>*/
+</script>
+
 </body>
 </html>

@@ -8,7 +8,10 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+
+import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -364,5 +367,69 @@ public class AdminController {
 //	model.addAttribute("ap", apartados); model.addAttribute("pag", pagados);
 		return "admin/raffle_detail";
 	}
+	
+	
+	
+	@GetMapping("/tickets")
+    public String listarTickets(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) EstadoBoleto estado,
+            @RequestParam(required = false) Long rifaId,
+            Model model) {
+
+        // Estados mostrados por defecto si no seleccionan uno explícito
+//        Set<EstadoBoleto> estadosFiltro = (estado != null)
+//                ? Set.of(estado)
+//                : Set.of(EstadoBoleto.APARTADO, EstadoBoleto.VENDIDO);
+
+        // Data para filtros
+//        model.addAttribute("rifas", rifaService.findAllLite()); // id + nombre
+//        model.addAttribute("estados", Arrays.asList(EstadoBoleto.values()));
+
+        // Búsqueda
+//        List<Boleto> tickets = ticketService.buscarTickets(q, estadosFiltro, rifaId);
+
+//        model.addAttribute("tickets", tickets);
+        return "admin/tickets"; // tu template tickets.html
+    }
+
+    /** Cambio de estado con validación de pago (y confirmación si hace falta) */
+    @PostMapping("/tickets/{id}/estado")
+    @Transactional
+    public String cambiarEstado(
+            @PathVariable Long id,
+            @RequestParam EstadoBoleto estado,
+            @RequestParam(defaultValue = "false") boolean confirmPago,
+            RedirectAttributes ra) {
+
+//        Boleto b = ticketService.getById(id)
+//                .orElseThrow(() -> new IllegalArgumentException("Boleto no encontrado"));
+
+        // Si se va a VENDIDO, debe existir pago; si no hay -> exigir confirmación del modal
+//        if (estado == EstadoBoleto.VENDIDO && !Boolean.TRUE.equals(b.getPagoRealizado())) {
+//            if (!confirmPago) {
+//                ra.addFlashAttribute("error",
+//                        "Para marcar como VENDIDO debes confirmar que el pago fue realizado.");
+//                // Redirige con la búsqueda por folio para que lo vean arriba
+//                String query = b.getFolio() != null ? b.getFolio() : String.valueOf(b.getId());
+//                return "redirect:/admin/tickets?q=" + UriUtils.encode(query, StandardCharsets.UTF_8);
+//            } else {
+//                // Confirmación explícita del modal: se marca pago
+//                b.setPagoRealizado(true);
+//                if (b.getFechaPago() == null) {
+//                    b.setFechaPago(OffsetDateTime.now());
+//                }
+//            }
+//        }
+//
+//        // Actualiza estado (puedes validar transiciones si quieres)
+//        b.setEstado(estado);
+//        ticketService.save(b);
+//
+//        ra.addFlashAttribute("ok",
+//                "Boleto " + (b.getFolio() != null ? b.getFolio() : b.getId()) +
+//                " actualizado a " + estado.name());
+        return "redirect:/admin/tickets";
+    }
 
 }
