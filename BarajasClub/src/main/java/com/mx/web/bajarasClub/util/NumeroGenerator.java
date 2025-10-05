@@ -143,7 +143,7 @@ public class NumeroGenerator {
 
         String fmt = "%0" + digitos + "d";
         List<String> out = new ArrayList<>(cantidad);
-        for (int i = 1; i <= cantidad; i++) {
+        for (int i = 0; i <= cantidad; i++) {
             out.add(String.format(fmt, i));
         }
         return out;
