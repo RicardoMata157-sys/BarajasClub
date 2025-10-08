@@ -2,6 +2,30 @@
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments_admin :: head('Comprar boleto')}"></head>
 
+<script>
+  // Hace crecer el textarea al contenido, con tope
+  function autoGrowTextarea(el) {
+    if (!el) return;
+    el.classList.remove('scrolled');
+    el.style.height = 'auto';                // recalcular desde 0
+    const max = parseInt(getComputedStyle(el).maxHeight, 10);
+    el.style.height = Math.min(el.scrollHeight, max) + 'px';
+    if (el.scrollHeight > max) el.classList.add('scrolled'); // activa scroll si rebasó
+  }
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('selBoletos');
+  const hidden = document.getElementById('cantidadBoletos');
+  if (!sel || !hidden) return;
+  // set inicial
+  hidden.value = sel.value;
+  // sync en cambios
+  sel.addEventListener('change', () => hidden.value = sel.value);
+});
+</script>
 
 <script th:inline="javascript">
 /*<![CDATA[*/
@@ -41,12 +65,18 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   function refreshInput(){
-    const arr = Array.from(seleccion)
-      .map(norm)
-      .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
-    input.value = arr.join(', ');
-    if (selCount) selCount.textContent = String(arr.length);
-  }
+	  const arr = Array.from(seleccion)
+	    .map(norm)
+	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+
+	  const input = document.getElementById('numeroTicket');
+	  if (!input) return;
+
+	  input.value = arr.join(', ');
+	  autoGrowTextarea(input);                  // <<--- ¡clave para que crezca!
+	  if (selCount) selCount.textContent = String(arr.length);
+	}
+
 
   function makeBtn(label, state){
     // label ya viene normalizado por backend; normalizamos también para estado seleccionado
@@ -174,6 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const data = await res.json();
 
     totalItems = Number(data.total || 0);
+    
+    updateLegendFromData(data); 
 
     buildGridPayload(data);
     buildPaginator(data.totalPages || 1);
@@ -267,6 +299,46 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshInput();
   }
 });
+
+
+
+function updateLegendFromData(data) {
+	  // Preferimos campos de conteo si existen para no depender de arrays gigantes
+	  const dispTotal = Number(
+	    data?.total ?? data?.dispTotal ?? (Array.isArray(data?.dispAll) ? data.dispAll.length
+	                               : (Array.isArray(data?.disp) ? data.disp.length : 0))
+	  );
+	  const apTotal  = Number(data?.apCount  ?? (Array.isArray(data?.ap)  ? data.ap.length  : 0));
+	  const pagTotal = Number(data?.pagCount ?? (Array.isArray(data?.pag) ? data.pag.length : 0));
+
+	  const d = document.getElementById('countDisp');
+	  const a = document.getElementById('countAp');
+	  const p = document.getElementById('countPag');
+
+	  if (d) d.textContent = dispTotal;
+	  if (a) a.textContent = apTotal;
+	  if (p) p.textContent = pagTotal;
+	}
+
+
+
+function refreshInput() {
+	  const arr = Array.from(seleccion)
+	    .map(n => String(n).padStart(digits, '0'))
+	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+
+	  const input = document.getElementById('numeroTicket');
+	  if (!input) return;
+
+	  input.value = arr.join(', ');
+	  autoGrowTextarea(input);   // <-- ¡clave!
+	  const selCount = document.getElementById('selCount');
+	  if (selCount) selCount.textContent = String(arr.length);
+	}
+
+
+
+
 /*]]>*/
 </script>
 
@@ -344,16 +416,35 @@ to {
 		max-height: 200px;
 	}
 }
+
+
+
+  .autosize {
+  overflow: hidden;
+  resize: none;
+  line-height: 1.4;
+  min-height: 2.4rem;
+  max-height: 40vh;         /* antes: 12rem */
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  white-space: pre-wrap;
+}
+.autosize.scrolled { overflow-y: auto; }
+
+
+
+
+
+
 </style>
 
 					<!-- Selector + Preview -->
 					<form class="row g-3 align-items-end" method="get"
-						th:action="@{/admin/rifa}">
+						th:action="@{/admin/edicion}">
 						<div class="col-12 col-md-8">
 							<label class="form-label fw-semibold">Edición activa</label> <select
 								class="form-select" name="id" id="selectRifa">
 								<option th:if="${#lists.isEmpty(rifasActivas)}" disabled
-									selected>No hay rifas activas</option>
+									selected>No hay ediciones activas</option>
 								<option th:each="ri : ${rifasActivas}" th:value="${ri.id}"
 									th:text="${ri.nombre}"
 									th:selected="${rifaSeleccionada != null and ri.id == rifaSeleccionada.id}">
@@ -363,23 +454,39 @@ to {
 
 						<!-- Vista previa, centrada -->
 						<div class="col-12 col-md-4">
-							<label class="form-label fw-semibold d-none d-md-block">Vista
-								previa</label>
-							<div class="preview-box">
-								<img
-									th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
-									th:src="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
-									th:alt="|Imagen de ${rifaSeleccionada.nombre}|"
-									class="preview-img" /> <span class="preview-empty"
-									th:if="${rifaSeleccionada == null or (#strings.isEmpty(rifaSeleccionada.pathImagen) and #strings.isEmpty(rifaSeleccionada.rutaImagen))}">
-									Sin imagen </span>
-							</div>
-							<a class="small mt-2 d-inline-block text-decoration-none"
-								th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
-								th:href="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
-								target="_blank" rel="noopener"> Abrir imagen en nueva
-								pestaña </a>
-						</div>
+  <label class="form-label fw-semibold d-none d-md-block">Vista previa</label>
+
+  <!-- Calcula una vez la URL final -->
+  <div class="preview-box"
+       th:with="imgUrl=${rifaSeleccionada != null 
+                        ? (#strings.isEmpty(rifaSeleccionada.pathImagen) 
+                           ? rifaSeleccionada.rutaImagen 
+                           : rifaSeleccionada.pathImagen) 
+                        : null}">
+
+    <!-- Muestra imagen solo si hay URL no vacía -->
+    <img th:if="${!#strings.isEmpty(imgUrl)}"
+         th:src="@{${imgUrl}}"
+         th:alt="|Imagen de ${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Rifa'}|"
+         class="preview-img"
+         onerror="
+           this.classList.add('d-none');
+           const empty = this.closest('.preview-box').querySelector('.preview-empty');
+           if (empty) empty.classList.remove('d-none');
+         " />
+
+    <!-- Fallback: “Sin imagen” si no hay URL o si carga falla -->
+    <span class="preview-empty"
+          th:unless="${!#strings.isEmpty(imgUrl)}">Sin imagen</span>
+  </div>
+
+  <!-- Enlace solo si hay URL válida -->
+  <a class="small mt-2 d-inline-block text-decoration-none"
+     th:if="${!#strings.isEmpty(imgUrl)}"
+     th:href="@{${imgUrl}}"
+     target="_blank" rel="noopener">Abrir imagen en nueva pestaña</a>
+</div>
+
 					</form>
 				</div>
 
@@ -420,20 +527,37 @@ to {
 					<!-- Grilla de números -->
 
 
-					<div
-						class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-						<div id="pageMeta" class="small text-muted">—</div>
-						<div class="d-flex align-items-center gap-2">
-							<label class="form-label m-0 small">Por página</label> <select
-								id="pageSizeSelect" class="form-select form-select-sm"
-								style="width: auto">
-								<option value="100">100</option>
-								<option value="200">200</option>
-								<option value="500" selected>500</option>
-								<option value="1000">1000</option>
-							</select>
-						</div>
-					</div>
+					<!-- (IZQUIERDA) Meta de paginación + Por página + Boletos -->
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+  <div id="pageMeta" class="small text-muted">—</div>
+
+  <div class="d-flex align-items-center gap-3 flex-wrap">
+    <!-- Por página -->
+    <div class="d-flex align-items-center gap-2">
+      <label class="form-label m-0 small">Por página</label>
+      <select id="pageSizeSelect" class="form-select form-select-sm" style="width:auto">
+        <option value="100">100</option>
+        <option value="200">200</option>
+        <option value="500" selected>500</option>
+        <option value="1000">1000</option>
+      </select>
+    </div>
+
+    <!-- Boletos (MOVIDO AQUÍ) -->
+    <div class="d-flex align-items-center gap-2">
+      <label class="form-label m-0 small">Boletos</label>
+      <select id="selBoletos" class="form-select form-select-sm" style="width:auto">
+        <option value="1" selected>1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+        <option value="4">4</option>
+        <option value="5">5</option>
+        <option value="10">10</option>
+      </select>
+    </div>
+  </div>
+</div>
+
 
 					<!-- Paginador -->
 					<nav class="mt-2">
@@ -473,15 +597,21 @@ to {
 					</div>
 
 
-					<!-- Leyenda -->
-					<div class="mt-3 small d-flex align-items-center gap-3">
-						<span class="badge text-bg-success">Disponible</span> <span
-							th:text="${dispNumeros != null ? #lists.size(dispNumeros) : 0}">0</span>
-						<span class="badge text-bg-warning">Apartado</span> <span
-							th:text="${ap != null ? #lists.size(ap) : 0}">0</span> <span
-							class="badge text-bg-dark">Pagado</span> <span
-							th:text="${pag != null ? #lists.size(pag) : 0}">0</span>
-					</div>
+				<!-- Leyenda -->
+<div class="mt-3 small d-flex align-items-center gap-3">
+  <span class="badge text-bg-success">Disponible</span>
+  <span id="countDisp"
+        th:text="${numDisp != null ? #lists.size(numDisp) : 0}">0</span>
+
+  <span class="badge text-bg-warning">Apartado</span>
+  <span id="countAp"
+        th:text="${ap != null ? #lists.size(ap) : 0}">0</span>
+
+  <span class="badge text-bg-dark">Pagado</span>
+  <span id="countPag"
+        th:text="${pag != null ? #lists.size(pag) : 0}">0</span>
+</div>
+
 				</div>
 
 
@@ -499,12 +629,13 @@ to {
 						<input type="hidden" id="rifaId" name="rifaId"
 							th:value="${rifaSeleccionada != null ? rifaSeleccionada.id : (id != null ? id : 0)}" />
 						<div class="mb-2">
-							<label class="form-label">Número seleccionado</label> <input
-								id="numeroTicket" name="numeroTicket" type="text"
-								class="form-control" required readonly />
+							<label class="form-label">Números seleccionados</label>
+							<textarea id="numeroTicket" name="numeroTicket"
+								class="form-control autosize" rows="1" wrap="soft" readonly></textarea>
 							<div class="form-text">Se llena automáticamente con los
 								números elegidos (separados por comas).</div>
 						</div>
+
 
 						<!-- Barra de acciones -->
 						<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
@@ -513,19 +644,7 @@ to {
 							<button type="button" class="btn btn-outline-secondary btn-sm"
 								id="btnClear">Limpiar selección</button>
 
-							<div class="d-flex align-items-center gap-2">
-								<label class="form-label m-0">Boletos:</label> <select
-									id="selBoletos" class="form-select form-select-sm"
-									style="width: auto">
-									<option value="1" selected>1</option>
-									<option value="2">2</option>
-									<option value="3">3</option>
-									<option value="4">4</option>
-									<option value="5">5</option>
-									<option value="10">10</option>
-								</select>
-							</div>
-						</div>
+							
 
 
 
@@ -690,10 +809,10 @@ to {
 				<!-- Header -->
 				<div class="modal-header py-2">
 					<div>
-						<div class="header-subtle">Rifa</div>
+						<div class="header-subtle">Edición</div>
 						<h6 class="m-0"
 							th:text="${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición'}">Nombre
-							de la Rifa</h6>
+							de la Edición</h6>
 					</div>
 					<div class="text-end">
 						<div class="header-subtle">Boletos</div>
@@ -862,7 +981,8 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('[ticket] mostrarTicket =', mostrar);
 
   if (!mostrar) return;
-
+  const input = document.getElementById('numeroTicket');
+  autoGrowTextarea(input);
   const modalEl = document.getElementById('ticketModal');
   if (!modalEl) {
     console.error('[ticket] No se encontró #ticketModal');
@@ -879,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btnTicketOk')?.addEventListener('click', () => {
     // Regresa exactamente a la rifa actual
-    window.location.href = /*[[@{/admin/rifa(id=${rifaSeleccionada != null ? rifaSeleccionada.id : 0})}]]*/ '/admin/rifa';
+    window.location.href = /*[[@{/admin/edicion(id=${rifaSeleccionada != null ? rifaSeleccionada.id : 0})}]]*/ '/admin/edicion';
   });
   
 
