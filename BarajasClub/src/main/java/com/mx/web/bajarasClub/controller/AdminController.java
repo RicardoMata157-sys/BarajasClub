@@ -104,7 +104,7 @@ public class AdminController {
 		        
 		        
 		        if (numero.getBoleto() != null && numero.getBoleto().getEstadoBoleto() != null) {
-		        	numeroRifaDisponibles.add(numero.getValor());
+		        	
 		            estado = numero.getBoleto().getEstadoBoleto().getNombre();
 		        }
 
@@ -113,10 +113,11 @@ public class AdminController {
 		        // - Con boleto y estado = "DISPONIBLE" => DISPONIBLE (por si así lo modelaste)
 		        // - "APARTADO" y "LIQUIDADO"/"PAGADO" según tus nombres reales
 		        if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
+		        	numeroRifaDisponibles.add(numero.getValor());
 		            disponibles.add(numero.getValor()); // String ya listo para pintar
 		        } else if ("APARTADO".equalsIgnoreCase(estado)) {
 		            apartados.add(numero.getValor());
-		        } else if ("LIQUIDADO".equalsIgnoreCase(estado) || "PAGADO".equalsIgnoreCase(estado)) {
+		        } else if ("VENDIDO".equalsIgnoreCase(estado) ) {
 		        	numeroRifaPagodos.add(numero.getValor());
 		            pagados.add(numero.getValor());
 		        } else {
@@ -157,7 +158,7 @@ public class AdminController {
 
 		    // Para la leyenda (elige una de estas dos estrategias):
 //		    body.put("ap", ap);              // 1) listas completas (si no son muy grandes)
-//		    body.put("pag", pag);
+		    body.put("pag", pagados);
 
 		    // o bien, si no quieres mandar listas largas:
 //		    body.put("apCount", ap.size());  // 2) solo conteos
