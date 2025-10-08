@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -77,6 +78,97 @@ public class AdminController {
 //		this.service = service;
 //	}
 	
+	// AdminController.java
+	@GetMapping(value = "/rifa/{id}/numeros-simple", produces = MediaType.APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public ResponseEntity<Map<String, Object>> numerosSimplePaged(
+	        @PathVariable Integer id,
+	        @RequestParam(defaultValue = "1") int page,
+	        @RequestParam(defaultValue = "120") int size, Model model) {
+
+		List<String> numeroRifaDisponibles = new ArrayList<String>();
+		List<String> numeroRifaPagodos = new ArrayList<String>();
+		
+	    // 1) Trae listas (ajusta a tu servicio real)
+		     List<String> disponibles = new ArrayList<>();
+		    List<String> apartados   = new ArrayList<>();
+		    List<String> pagados     = new ArrayList<>();
+		    Rifa rifa = servicioRifa.obtenerRifaPorId(id);
+		    
+		    rifa.getNumeros().forEach(numero -> {
+		        // Evitar NPE y comparar Strings correctamente
+		        String estado = null;
+		        
+		        
+		        
+		        
+		        
+		        if (numero.getBoleto() != null && numero.getBoleto().getEstadoBoleto() != null) {
+		        	numeroRifaDisponibles.add(numero.getValor());
+		            estado = numero.getBoleto().getEstadoBoleto().getNombre();
+		        }
+
+		        // Regla de negocio típica:
+		        // - Sin boleto => DISPONIBLE
+		        // - Con boleto y estado = "DISPONIBLE" => DISPONIBLE (por si así lo modelaste)
+		        // - "APARTADO" y "LIQUIDADO"/"PAGADO" según tus nombres reales
+		        if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
+		            disponibles.add(numero.getValor()); // String ya listo para pintar
+		        } else if ("APARTADO".equalsIgnoreCase(estado)) {
+		            apartados.add(numero.getValor());
+		        } else if ("LIQUIDADO".equalsIgnoreCase(estado) || "PAGADO".equalsIgnoreCase(estado)) {
+		        	numeroRifaPagodos.add(numero.getValor());
+		            pagados.add(numero.getValor());
+		        } else {
+		            // Si hay más estados, decide a dónde van o ignóralos
+		        }
+		    });
+
+		    // Ordena numéricamente (para Strings “01”, “2”, “003”, etc.)
+		    Comparator<String> numCmp = Comparator.comparingInt(s -> {
+		        try { return Integer.parseInt(s); } catch (Exception e) { return Integer.MAX_VALUE; }
+		    });
+		    disponibles.sort(numCmp);
+		    
+		    
+		 // Paginación sobre DISPONIBLES
+		    int total = disponibles.size();
+		    int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
+		    page = Math.max(1, Math.min(page, totalPages));
+		    int from = Math.max(0, (page - 1) * size);
+		    int to   = Math.min(total, from + size);
+
+		    List<String> sliceDisp = disponibles.subList(from, to); 
+
+		    int digits = disponibles.stream().mapToInt(String::length).max().orElse(2);
+		    // - numPorBoleto: si lo tienes en la rifa
+		    Integer numPorBoleto = (rifa.getNumerosPorBoleto() != null) ? rifa.getNumerosPorBoleto() : 1;
+
+		    Map<String, Object> body = new HashMap<>();
+		    body.put("page", page);
+		    body.put("size", size);
+		    body.put("total", total);        // total DISPONIBLES (toda la rifa)
+		    body.put("totalPages", totalPages);
+		    body.put("digits", digits);
+		    body.put("numPorBoleto", numPorBoleto);
+
+		    // Datos para la grilla
+		    body.put("disp", sliceDisp);     // disponibles de ESTA página
+
+		    // Para la leyenda (elige una de estas dos estrategias):
+//		    body.put("ap", ap);              // 1) listas completas (si no son muy grandes)
+//		    body.put("pag", pag);
+
+		    // o bien, si no quieres mandar listas largas:
+//		    body.put("apCount", ap.size());  // 2) solo conteos
+//		    body.put("pagCount", pag.size());
+	    return ResponseEntity.ok(body);
+	}
+
+	
+	
+	
+
 	
 	
 	@GetMapping("/clientes/check")
@@ -291,7 +383,7 @@ public class AdminController {
 
 	private List<Rifa> edicionesActivas = new ArrayList();
 
-	@GetMapping("/rifa")
+	@GetMapping("/edicion")
 	public String detalleRifa(@RequestParam(name = "id", required = false) Integer id, Model model) {
 		List<String> numeroRifaDisponibles = new ArrayList<String>();
 		List<String> numeroRifaPagodos = new ArrayList<String>();
@@ -318,7 +410,6 @@ public class AdminController {
 			});
 
 			model.addAttribute("rifasActivas", edicionesActivas);
-			rifaSeleccionada.getNumeros();
 			model.addAttribute("numPorBoleto", rifaSeleccionada.getNumerosPorBoleto());
 
 			model.addAttribute("digitosNumeros", rifaSeleccionada.getDigitos());

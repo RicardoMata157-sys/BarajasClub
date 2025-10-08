@@ -6,53 +6,188 @@
 <script th:inline="javascript">
 /*<![CDATA[*/
 document.addEventListener('DOMContentLoaded', () => {
-  // Base de cálculo
-  let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;
-  let RIFA_ID        = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
-  const BASE         = /*[[@{/}]]*/ '/';
+  // --- Estado global ---
+  let RIFA_ID = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
+  const BASE  = /*[[@{/}]]*/ '/';
 
-  // UI
-  const grid    = document.getElementById('gridNumeros');
-  const input   = document.getElementById('numeroTicket');
-  const selBoletos   = document.getElementById('selBoletos');
-  const maxCountSpan = document.getElementById('maxCount');
-  const selCountSpan = document.getElementById('selCount');
-  const cantBoletosH = document.getElementById('cantidadBoletosHidden');
-  const btnAuto  = document.getElementById('btnAuto');
-  const btnClear = document.getElementById('btnClear');
+  const grid       = document.getElementById('gridNumeros');
+  const input      = document.getElementById('numeroTicket');
+  const selCount   = document.getElementById('selCount');
+  const selBoletos = document.getElementById('selBoletos');
+  const btnAuto    = document.getElementById('btnAuto');
+  const btnClear   = document.getElementById('btnClear');
+  const paginator  = document.getElementById('paginator');
+  const pageMeta   = document.getElementById('pageMeta');
+  const pageSizeSel= document.getElementById('pageSizeSelect');
 
-  // Estado
-  let CANT_BOLETOS = Number(selBoletos?.value || 1);
+  // Paginación
+  let currentPage  = 1;
+  let pageSize     = Number(sessionStorage.getItem('raffle.pageSize') || pageSizeSel?.value || 1000);
+  let totalPages   = 1;
+  let totalItems   = 0;
+  let digits       = Number(grid?.dataset?.digits || 2); // respaldo si backend no manda "digits"
+
+  // Selección y tope
   const seleccion = new Set();
-
-  // MAX dinámico = numPorBoleto * cantidad de boletos
+  let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;
+  let CANT_BOLETOS   = Number(selBoletos?.value || 1);
   const getMAX = () => NUM_POR_BOLETO * CANT_BOLETOS;
 
-  function refreshMaxUI(){
-    if (maxCountSpan) maxCountSpan.textContent = String(getMAX());
-  }
+  // ---- Utilidades ----
+  const norm = (n) => {
+    // limpia y pad-left al tamaño "digits" actual
+    const raw = String(n).replace(/[^\d]/g, '');
+    return raw.padStart(digits, '0');
+  };
 
   function refreshInput(){
-    const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+    const arr = Array.from(seleccion)
+      .map(norm)
+      .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
     input.value = arr.join(', ');
-    if (selCountSpan) selCountSpan.textContent = String(arr.length);
+    if (selCount) selCount.textContent = String(arr.length);
   }
 
-  function clearSelection(){
-    seleccion.clear();
-    grid?.querySelectorAll('.num-btn.selected').forEach(b => {
-      b.classList.remove('btn-primary','selected');
-      if (!b.disabled) b.classList.add('btn-success');
+  function makeBtn(label, state){
+    // label ya viene normalizado por backend; normalizamos también para estado seleccionado
+    const lab = norm(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm num-btn';
+    btn.textContent = lab;
+    btn.dataset.label = lab;
+    btn.dataset.num   = String(parseInt(lab,10));
+
+    if (state === 'disp') {
+      if (seleccion.has(lab)) {
+        btn.classList.add('btn-primary','selected');
+      } else {
+        btn.classList.add('btn-success');
+      }
+    } else if (state === 'ap') {
+      btn.classList.add('btn-warning'); btn.disabled = true; btn.title='Apartado';
+    } else {
+      btn.classList.add('btn-dark'); btn.disabled = true; btn.title='Pagado';
+    }
+    return btn;
+  }
+
+  function setPageMeta(page, size, total){
+    if (!pageMeta) return;
+    const from = total === 0 ? 0 : ((page-1)*size)+1;
+    const to   = Math.min(total, page*size);
+    pageMeta.textContent = `Mostrando ${from}–${to} de ${total}`;
+  }
+
+  function addPageItem(ul, text, page, {disabled=false, active=false, aria='' }={}){
+    const li = document.createElement('li');
+    li.className = `page-item ${disabled?'disabled':''} ${active?'active':''}`;
+    const a = document.createElement('a');
+    a.className = 'page-link';
+    a.href='#';
+    a.textContent = text;
+    if (aria) a.setAttribute('aria-label', aria);
+    a.addEventListener('click', (e)=> {
+      e.preventDefault();
+      if (disabled || page === currentPage) return;
+      currentPage = page;
+      fetchAndRender(currentPage);
     });
+    li.appendChild(a);
+    ul.appendChild(li);
+  }
+
+  function addEllipsis(ul){
+    const li = document.createElement('li');
+    li.className = 'page-item disabled';
+    li.innerHTML = `<span class="page-link">…</span>`;
+    ul.appendChild(li);
+  }
+
+  // Paginador con ventana (máx. 7 botones numéricos)
+  function buildPaginator(tp){
+    totalPages = Math.max(1, tp);
+    paginator.innerHTML = '';
+    const ul = paginator;
+
+    const MAX_NUM = 7;
+    const windowHalf = Math.floor(MAX_NUM/2);
+
+    let start = Math.max(1, currentPage - windowHalf);
+    let end   = Math.min(totalPages, start + MAX_NUM - 1);
+    start     = Math.max(1, end - MAX_NUM + 1);
+
+    // first/prev
+    addPageItem(ul, '«', 1, { disabled: currentPage===1, aria:'Primera' });
+    addPageItem(ul, '‹', Math.max(1, currentPage-1), { disabled: currentPage===1, aria:'Anterior' });
+
+    if (start > 1) {
+      addPageItem(ul, '1', 1, { active: currentPage===1 });
+      if (start > 2) addEllipsis(ul);
+    }
+
+    for (let p=start; p<=end; p++){
+      addPageItem(ul, String(p), p, { active: p===currentPage });
+    }
+
+    if (end < totalPages) {
+      if (end < totalPages-1) addEllipsis(ul);
+      addPageItem(ul, String(totalPages), totalPages, { active: currentPage===totalPages });
+    }
+
+    // next/last
+    addPageItem(ul, '›', Math.min(totalPages, currentPage+1), { disabled: currentPage===totalPages, aria:'Siguiente' });
+    addPageItem(ul, '»', totalPages, { disabled: currentPage===totalPages, aria:'Última' });
+  }
+
+  function buildGridPayload(data){
+    // Sincroniza "digits" por si backend lo define
+    digits = Number(data.digits ?? digits ?? 2);
+    NUM_POR_BOLETO = Number(data.numPorBoleto ?? NUM_POR_BOLETO);
+
+    // data.disp = disponibles de ESTA página (Strings ya listos)
+    const dispOnPage = (data.disp || []).map(norm);
+
+    // Ordena: seleccionados primero
+    const selOnPage  = dispOnPage.filter(l => seleccion.has(l));
+    const restOnPage = dispOnPage.filter(l => !seleccion.has(l));
+
+    grid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    selOnPage.forEach(l => frag.appendChild(makeBtn(l, 'disp')));
+    restOnPage.forEach(l => frag.appendChild(makeBtn(l, 'disp')));
+
+    (data.ap  || []).map(norm).forEach(l => frag.appendChild(makeBtn(l, 'ap')));
+    (data.pag || []).map(norm).forEach(l => frag.appendChild(makeBtn(l, 'pag')));
+
+    grid.appendChild(frag);
+
+    // meta
+    setPageMeta(data.page || 1, data.size || pageSize, data.total || 0);
+  }
+
+  async function fetchAndRender(page){
+    if (!RIFA_ID) return;
+    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+    const res = await fetch(url, { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+
+    totalItems = Number(data.total || 0);
+
+    buildGridPayload(data);
+    buildPaginator(data.totalPages || 1);
     refreshInput();
   }
 
-  function toggleButton(btn){
+  // Delegación clicks en grilla
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.num-btn');
     if (!btn || btn.disabled) return;
-    const label = btn.dataset.label || btn.textContent.trim();
+    const label = norm(btn.dataset.label || btn.textContent.trim());
     const isOn  = seleccion.has(label);
     const MAX   = getMAX();
-    if (!isOn && seleccion.size >= MAX) return; // no exceder el tope
+    if (!isOn && seleccion.size >= MAX) return;
 
     if (isOn){
       seleccion.delete(label);
@@ -64,156 +199,78 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.classList.add('btn-primary','selected');
     }
     refreshInput();
-  }
+  });
 
-  // Clicks en grilla
-  grid?.addEventListener('click', (e)=>{
-    const btn = e.target.closest('.num-btn');
-    if (!btn) return;
-    if (btn.classList.contains('btn-success') || btn.classList.contains('btn-primary')){
-      toggleButton(btn);
+  // Selección automática -> añade faltantes normalizados y vuelve a página 1
+  btnAuto?.addEventListener('click', async () => {
+    const faltan = getMAX() - seleccion.size;
+    if (faltan <= 0 || !RIFA_ID) return;
+
+    // ¡OJO!: Asegúrate que tu endpoint sea /admin/rifa/{id}/auto-numeros y regrese array de Strings
+    const url = `${BASE}admin/rifa/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
+    try{
+      const res = await fetch(url, { cache:'no-store' });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      const nums = await res.json(); // ej. ["01","15","23"]
+      nums.map(norm).forEach(n => seleccion.add(n));
+
+      currentPage = 1;                  // verlos en la primera página
+      await fetchAndRender(currentPage);
+    } catch(err){
+      console.error('[autoPick] error:', err);
     }
   });
 
   // Limpiar
-  btnClear?.addEventListener('click', clearSelection);
+  btnClear?.addEventListener('click', () => {
+    seleccion.clear();
+    fetchAndRender(currentPage);
+  });
 
-  // Cambio de cantidad de boletos => recalcular tope y ajustar selección si excede
+  // Cambio cantidad de boletos -> recalcula tope y recorta si hace falta
   selBoletos?.addEventListener('change', () => {
     CANT_BOLETOS = Number(selBoletos.value || 1);
-    if (cantBoletosH) cantBoletosH.value = String(CANT_BOLETOS);
-    refreshMaxUI();
-
-    // Si ya te pasaste del nuevo MAX, limpiamos por simplicidad (o podrías deseleccionar los últimos)
     const MAX = getMAX();
-    if (seleccion.size > MAX) clearSelection();
-
+    if (seleccion.size > MAX) {
+      const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+      while (arr.length > MAX) arr.pop();
+      seleccion.clear();
+      arr.forEach(x => seleccion.add(x));
+    }
     refreshInput();
   });
 
-  // Autoselección pide justo los faltantes del nuevo MAX
-  async function autoPick(){
-    const faltantes = getMAX() - seleccion.size;
-    if (faltantes <= 0 || !Number(RIFA_ID)) return;
+  // Selector de tamaño de página
+  pageSizeSel?.addEventListener('change', () => {
+    pageSize = Number(pageSizeSel.value || 120);
+    sessionStorage.setItem('raffle.pageSize', String(pageSize));
+    currentPage = 1;
+    fetchAndRender(currentPage);
+  });
 
-    const url = `${BASE}admin/rifa/${RIFA_ID}/auto-numeros?faltan=${faltantes}`;
-    try{
-      const res = await fetch(url, { method:'GET', cache:'no-store' });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      const txt = await res.text();
-      const numeros = (()=>{ try{ return JSON.parse(txt); }catch{ return []; } })();
-      numeros.forEach(n => {
-        const btn = grid?.querySelector(`.num-btn[data-num='${n}']`);
-        if (btn) toggleButton(btn);
-      });
-    } catch(err){
-      console.error('[autoPick] error:', err);
-    }
-  }
-  btnAuto?.addEventListener('click', autoPick);
-
-  // Si cambias de rifa por AJAX, asegúrate de actualizar NUM_POR_BOLETO con lo que te regrese el backend
-  // y luego llama refreshMaxUI(). (Tu segundo bloque ya lo hace cuando lee data.numPorBoleto.)
+  // Cambio de rifa
+  document.getElementById('selectRifa')?.addEventListener('change', async (e) => {
+    const newId = Number(e.target.value);
+    if (!newId) return;
+    RIFA_ID = newId;
+    seleccion.clear();
+    currentPage = 1;
+    await fetchAndRender(currentPage);
+  });
 
   // Inicial
-  if (cantBoletosH) cantBoletosH.value = String(CANT_BOLETOS);
-  refreshMaxUI();
-  refreshInput();
+  if (RIFA_ID) {
+    // sincroniza selector si había preferencia guardada
+    if (pageSizeSel) pageSizeSel.value = String(pageSize);
+    fetchAndRender(currentPage);
+  } else {
+    refreshInput();
+  }
 });
 /*]]>*/
-
-
-document.addEventListener('DOMContentLoaded', () => {
-	  let MAX     = /*[[${numPorBoleto}]]*/ 1;  // usa let para poder actualizar
-	  let RIFA_ID = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
-
-	  const BASE     = /*[[@{/}]]*/ '/';
-	  const selRifa  = document.getElementById('selectRifa');
-	  const grid     = document.getElementById('gridNumeros');
-	  const input    = document.getElementById('numeroTicket');
-	  const selCount = document.getElementById('selCount');
-
-	  const seleccion = new Set();
-
-	  function refreshInput(){
-	    const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
-	    input.value = arr.join(', ');
-	    if (selCount) selCount.textContent = String(arr.length);
-	  }
-
-	  function clearGridAndSelection(){
-	    seleccion.clear();
-	    grid.innerHTML = '';           // limpia completamente la grilla
-	    input.value = '';              // limpia el input
-	    if (selCount) selCount.textContent = '0';
-	  }
-
-	  function makeBtn(label, state){
-	    const btn = document.createElement('button');
-	    btn.type = 'button';
-	    btn.className = 'btn btn-sm num-btn';
-	    btn.textContent = label;
-	    btn.dataset.label = label;
-	    btn.dataset.num   = String(parseInt(label,10)); // crudo por si lo ocupas
-	    if (state === 'disp') btn.classList.add('btn-success');
-	    else if (state === 'ap') { btn.classList.add('btn-warning'); btn.disabled = true; btn.title='Apartado'; }
-	    else { btn.classList.add('btn-dark'); btn.disabled = true; btn.title='Pagado'; }
-	    return btn;
-	  }
-
-	  function buildGrid(data){
-	    MAX = Number(data.numPorBoleto ?? MAX);
-	    const frag = document.createDocumentFragment();
-	    (data.disp||[]).forEach(l => frag.appendChild(makeBtn(l, 'disp')));
-	    (data.ap  ||[]).forEach(l => frag.appendChild(makeBtn(l, 'ap')));
-	    (data.pag ||[]).forEach(l => frag.appendChild(makeBtn(l, 'pag')));
-	    grid.appendChild(frag);
-	  }
-
-	  // Delegación para clicks en la grilla reconstruida
-	  grid.addEventListener('click', (e)=>{
-	    const btn = e.target.closest('.num-btn');
-	    if (!btn || btn.disabled) return;
-	    const label = btn.dataset.label || btn.textContent.trim();
-	    const isOn = seleccion.has(label);
-	    if (!isOn && seleccion.size >= MAX) return;
-	    if (isOn){ seleccion.delete(label); btn.classList.remove('btn-primary','selected'); btn.classList.add('btn-success'); }
-	    else { seleccion.add(label); btn.classList.remove('btn-success'); btn.classList.add('btn-primary','selected'); }
-	    refreshInput();
-	  });
-
-	  // Cambiar rifa -> AJAX + reconstrucción
-	  selRifa?.addEventListener('change', async (e) => {
-	    const newId = Number(e.target.value);
-	    if (!newId) return;
-	    e.preventDefault?.();
-
-	    RIFA_ID = newId;                        // actualiza id
-	    clearGridAndSelection();                // limpia UI previa
-
-	    try {
-	      const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?_=${Date.now()}`;
-	      const res = await fetch(url, { cache: 'no-store' });
-	      if (!res.ok) throw new Error('HTTP '+res.status);
-	      const data = await res.json();
-	      buildGrid(data);                      // carga nueva grilla
-	      refreshInput();
-	    } catch (err) {
-	      console.error('Error AJAX, fallback a navegación', err);
-	      window.location.href = `${BASE}admin/rifa?id=${encodeURIComponent(newId)}&_=${Date.now()}`;
-	    }
-	  });
-	});
-
-
-
-
-
-
-
-
-/*]]>*/
 </script>
+
+
 
 
 
@@ -361,9 +418,41 @@ to {
 
 
 					<!-- Grilla de números -->
+
+
+					<div
+						class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+						<div id="pageMeta" class="small text-muted">—</div>
+						<div class="d-flex align-items-center gap-2">
+							<label class="form-label m-0 small">Por página</label> <select
+								id="pageSizeSelect" class="form-select form-select-sm"
+								style="width: auto">
+								<option value="100">100</option>
+								<option value="200">200</option>
+								<option value="500" selected>500</option>
+								<option value="1000">1000</option>
+							</select>
+						</div>
+					</div>
+
+					<!-- Paginador -->
+					<nav class="mt-2">
+						<ul id="paginator"
+							class="pagination pagination-sm justify-content-center mb-0"></ul>
+					</nav>
+
+
 					<div class="d-flex flex-wrap gap-2" id="gridNumeros"
 						th:with="dg=${digitosNumeros != null ? digitosNumeros : 2}"
 						th:attr="data-digits=${dg}">
+
+						<!-- Meta de paginación + selector de tamaño -->
+
+
+
+
+
+
 						<!-- DISPONIBLES: VERDE y CLICKABLE -->
 						<button type="button" class="btn btn-success btn-sm num-btn"
 							th:each="n : ${dispNumeros}"
@@ -382,6 +471,7 @@ to {
 							th:each="n : ${pag}" th:text="${n}" disabled aria-disabled="true"
 							title="Pagado">01</button>
 					</div>
+
 
 					<!-- Leyenda -->
 					<div class="mt-3 small d-flex align-items-center gap-3">
@@ -490,8 +580,8 @@ to {
 						</div>
 
 						<input type="hidden" name="cantidadBoletos" id="cantidadBoletos"
-							value="">
-							<input type="hidden" name="clienteId" id="clienteId" />
+							value=""> <input type="hidden" name="clienteId"
+							id="clienteId" />
 
 						<button class="btn btn-primary w-100" type="submit">Comprar
 							boleto</button>
@@ -511,6 +601,23 @@ to {
 
 
 	<style>
+	
+	
+
+/* Paginador limpio */
+.pagination .page-link { border: 0; }
+.pagination .page-item.active .page-link {
+  background: #1d4ed8;
+}
+.pagination .page-item.disabled .page-link {
+  opacity: .5;
+}
+#pageMeta { min-height: 1.5rem; }
+
+	
+	
+	
+	
 /* Estilo simple de boleto */
 .ticket {
 	border-radius: 16px;
@@ -709,33 +816,43 @@ to {
 			</div>
 		</div>
 	</div>
-	
-	
-	
-	<div class="modal fade" id="clienteExistenteModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content border-0">
-      <div class="modal-header">
-        <h6 class="modal-title m-0">Cliente ya registrado</h6>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-      </div>
-      <div class="modal-body">
-        <p class="mb-2">Encontramos un cliente con ese correo o teléfono:</p>
-        <div class="p-2 rounded border bg-light">
-          <div><strong id="cliNombre">—</strong></div>
-          <div class="small text-muted">Email: <span id="cliEmail">—</span></div>
-          <div class="small text-muted">Teléfono: <span id="cliTel">—</span></div>
-        </div>
-        <p class="mt-2 mb-0">¿Quieres usar este cliente para la compra?</p>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-        <button id="btnUsarCliente" class="btn btn-primary">Usar cliente</button>
-      </div>
-    </div>
-  </div>
-</div>
-	
+
+
+
+	<div class="modal fade" id="clienteExistenteModal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content border-0">
+				<div class="modal-header">
+					<h6 class="modal-title m-0">Cliente ya registrado</h6>
+					<button type="button" class="btn-close" data-bs-dismiss="modal"
+						aria-label="Cerrar"></button>
+				</div>
+				<div class="modal-body">
+					<p class="mb-2">Encontramos un cliente con ese correo o
+						teléfono:</p>
+					<div class="p-2 rounded border bg-light">
+						<div>
+							<strong id="cliNombre">—</strong>
+						</div>
+						<div class="small text-muted">
+							Email: <span id="cliEmail">—</span>
+						</div>
+						<div class="small text-muted">
+							Teléfono: <span id="cliTel">—</span>
+						</div>
+					</div>
+					<p class="mt-2 mb-0">¿Quieres usar este cliente para la compra?</p>
+				</div>
+				<div class="modal-footer">
+					<button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+					<button id="btnUsarCliente" class="btn btn-primary">Usar
+						cliente</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
 
 
 	<script th:inline="javascript">
@@ -777,7 +894,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 </script>
 
-<script th:inline="javascript">
+	<script th:inline="javascript">
 /*<![CDATA[*/
 document.addEventListener('DOMContentLoaded', () => {
   const BASE      = /*[[@{/}]]*/ '/';

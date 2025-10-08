@@ -17,6 +17,8 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.util.StringUtils;
@@ -26,6 +28,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
@@ -155,6 +158,26 @@ public class AdminRaffleController {
 
 	}
 
+	@GetMapping(value = "/rifa/{id}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public ResponseEntity<List<String>> autoPick(
+	        @PathVariable Long rifaId,
+	        @RequestParam(defaultValue = "1") Integer faltan) {
+
+		int req = (faltan == null || faltan < 0) ? 0 : faltan;
+		// Usa una de las dos estrategias:
+		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(rifaId, faltan);
+		
+//		    ra.addFlashAttribute("ticket", ticket);
+//
+		return ResponseEntity.ok(nums);
+	}
+	
+	
+	
+	
+	
+	
 	@GetMapping("/editar")
 	public String editar(@PathVariable(name = "id", required = false) Integer id, Model model,RedirectAttributes ra) {
 		
@@ -294,14 +317,33 @@ public class AdminRaffleController {
 		}
 
 		if (image != null && !image.isEmpty()) {
-			String fileName = System.currentTimeMillis() + "-" + StringUtils.cleanPath(image.getOriginalFilename());
-			Path uploads = Paths.get("uploads");
-			Files.createDirectories(uploads);
-			Path target = uploads.resolve(fileName);
-			try (InputStream in = image.getInputStream()) {
-				Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+			try {
+				String original = image.getOriginalFilename();
+
+				String cleaned = java.text.Normalizer.normalize(original, java.text.Normalizer.Form.NFD)
+						.replaceAll("[^\\p{ASCII}]", "").replaceAll("[\\s]+", "-").replaceAll("[^-_.A-Za-z0-9]", "")
+						.toLowerCase();
+
+				Path target = Paths.get(uploadDir).resolve(cleaned).normalize();
+				Files.createDirectories(target.getParent());
+				image.transferTo(target);
+				
+				 String dbKey = cleaned;
+				 
+				 
+				 String publicUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder
+				            .fromCurrentContextPath()
+				            .path("/uploads/")
+				            .path(java.net.URLEncoder.encode(dbKey, java.nio.charset.StandardCharsets.UTF_8))
+				            .toUriString();
+				 
+				 rifaActualizada.setPathImagen(publicUrl);
+
+
+			} catch (Exception e) {
+				throw new RuntimeException("No se pudo guardar el archivo", e);
 			}
-			rifaActualizada.setPathImagen("/uploads/" + fileName);
+
 		}
 
 		servicioRifa.actualizaRifaService(rifaActualizada);
