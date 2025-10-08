@@ -273,7 +273,7 @@ public class AdminController {
 		
 		 if (rifaSeleccionada == null) {
 		        ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
-		        return "redirect:/admin/rifa";
+		        return "redirect:/admin/edicion";
 		    }
 		
 		
@@ -292,7 +292,7 @@ public class AdminController {
             ra.addFlashAttribute("error",
                 "Debes seleccionar exactamente " + totalEsperado +
                 " números (" + porBoleto + " por boleto × " + cantidadBoletos + ").");
-            return "redirect:/admin/rifa";
+            return "redirect:/admin/edicion";
         }
         
         
@@ -361,7 +361,7 @@ public class AdminController {
 	    ra.addFlashAttribute("ticketGroup", payload);
 	    ra.addFlashAttribute("mostrarTicket", true);
 
-		return "redirect:/admin/rifa";
+		return "redirect:/admin/edicion";
 	}
 
 	@GetMapping(value = "/rifa/{rifaId}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)

@@ -843,47 +843,33 @@ function refreshInput() {
 					</div>
 
 					<!-- Lista de boletos -->
-					<div class="section-title mb-2">Boletos generados</div>
-					<div class="vstack vstack-compact"
-						th:if="${ticketGroup != null and ticketGroup.tickets != null}">
-						<!-- Boleto (item compacto) -->
-						<div class="ticket-item"
-							th:each="t, iter : ${ticketGroup.tickets}">
-							<div class="d-flex justify-content-between align-items-start">
-								<div>
-									<div class="header-subtle">
-										Boleto <span th:text="${iter.index + 1}">1</span>
-									</div>
-									<div class="muted">
-										Folio: <span class="fw-semibold" th:text="${t.folio}">ABC123</span>
-									</div>
-								</div>
-								<div class="text-end">
-									<div class="header-subtle">Fecha</div>
-									<div
-										th:text="${t.fechaCompra != null ? #temporals.format(t.fechaCompra,'dd/MM/yyyy HH:mm') : ''}">
-										26/09/2025 12:34</div>
-									<div class="header-subtle mt-1">Precio</div>
-									<div class="fw-semibold"
-										th:text="${ticketGroup.precioUnitario != null 
-                               ? '$ ' + #numbers.formatDecimal(ticketGroup.precioUnitario, 1, 2) 
-                               : '$ 0.00'}">$
-										0.00</div>
-								</div>
-							</div>
+					<!-- Resumen compacto (folios + números consolidados) -->
+<div class="section-title mb-2">Resumen de compra</div>
 
-							<div class="ticket-body mt-2">
-								<div class="mb-2">
-									<div class="muted">Participa con</div>
-									<div class="ticket-nums d-flex flex-wrap gap-1">
-										<span class="pill badge bg-secondary"
-											th:each="n : ${t.numeros}" th:text="${n}">0031</span>
-									</div>
-								</div>
-							</div>
+<!-- Folios (compacto) -->
+<div class="mb-3" th:if="${ticketGroup != null and ticketGroup.tickets != null}">
+  <div class="header-subtle mb-1">Folios</div>
+  <div class="d-flex flex-wrap gap-1">
+    <span class="badge rounded-pill text-bg-light border"
+          th:each="t : ${ticketGroup.tickets}"
+          th:text="${t.folio}">ABC123</span>
+  </div>
+</div>
 
-						</div>
-					</div>
+<!-- Números consolidados (sin dividir por boleto) -->
+<div th:if="${ticketGroup != null and ticketGroup.tickets != null}">
+  <div class="header-subtle mb-1">Participa con</div>
+
+  <!-- Usamos th:block para “aplanar” las listas de números de todos los boletos -->
+  <div class="ticket-nums d-flex flex-wrap gap-1">
+    <th:block th:each="t : ${ticketGroup.tickets}">
+      <span class="pill badge bg-secondary"
+            th:each="n : ${t.numeros}"
+            th:text="${n}">0031</span>
+    </th:block>
+  </div>
+</div>
+
 
 
 
