@@ -5,7 +5,7 @@
 <meta name="_csrf" th:content="${_csrf.token}"/>
 <meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 
-<input type="hidden" id="rifaId" value="${rifa.id}">
+
 
 </head>
 
@@ -23,6 +23,11 @@
 
 
 <script>
+
+// document.getElementById('selectRifa')?.addEventListener('change', (e) => {
+// 	  e.target.form?.submit();                 // GET /admin/edicion?id=<valor>
+// 	});
+
 document.addEventListener('DOMContentLoaded', () => {
   const sel = document.getElementById('selBoletos');
   const hidden = document.getElementById('cantidadBoletos');
@@ -217,20 +222,40 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function fetchAndRender(page){
-    if (!RIFA_ID) return;
-    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
-    const res = await fetch(url, { cache:'no-store' });
-    if (!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
+	  if (!RIFA_ID) return;
+	  const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+	  const res = await fetch(url, { cache:'no-store' });
+	  if (!res.ok) throw new Error('HTTP '+res.status);
+	  const data = await res.json();
 
-    totalItems = Number(data.total || 0);
-    
-    updateLegendFromData(data); 
+	  // 1) Título desde JSON
+	  const h1 = document.querySelector('h1.h4.mb-3');
+	  if (h1 && data.nombreRifaSeleccionada) {
+	    h1.textContent = data.nombreRifaSeleccionada;
+	  }
 
-    buildGridPayload(data);
-    buildPaginator(data.totalPages || 1);
-    refreshInput();
-  }
+	  // 2) Imagen de preview desde JSON
+	  const box  = document.querySelector('.preview-box');
+	  const img  = box?.querySelector('img.preview-img');
+	  const empty= box?.querySelector('.preview-empty');
+	  if (img && data.imgUrl) {
+	    img.src = data.imgUrl;
+	    img.classList.remove('d-none');
+	    empty?.classList.add('d-none');
+	  } else {
+	    img?.classList.add('d-none');
+	    empty?.classList.remove('d-none');
+	  }
+
+	  // 3) Leyenda (cuenta de disponibles/apartados/pagados)
+	  updateLegendFromData(data);
+
+	  // 4) Grilla + paginador (tu código ya lo hace)
+	  buildGridPayload(data);
+	  buildPaginator(data.totalPages || 1);
+	  refreshInput();
+	}
+
 
   // Delegación clicks en grilla
 //   grid.addEventListener('click', (e) => {
@@ -494,7 +519,7 @@ function refreshInput() {
 	<header th:replace="~{fragments_admin :: navbar}"></header>
 	<main class="container py-4">
 		<h1 class="h4 mb-3"
-			th:text="${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'EDICIÓN'}">EDICIÓN</h1>
+			th:text="${nombreRifaSeleccionada != null ? nombreRifaSeleccionada : 'EDICIÓN'}">EDICIÓN</h1>
 
 
 

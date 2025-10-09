@@ -81,6 +81,7 @@ public class AdminController {
 //	}
 	
 	// AdminController.java
+	@Transactional()
 	@GetMapping(value = "/rifa/{id}/numeros-simple", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public ResponseEntity<Map<String, Object>> numerosSimplePaged(
@@ -96,6 +97,13 @@ public class AdminController {
 		    List<String> apartados   = new ArrayList<>();
 		    List<String> pagados     = new ArrayList<>();
 		    Rifa rifa = servicioRifa.obtenerRifaPorId(id);
+		    
+		    String imgUrl = null;
+	        if (rifa.getPathImagen()!=null && !rifa.getPathImagen().isBlank()) {
+	            imgUrl = rifa.getPathImagen();
+	        } else if (rifa.getPathImagen()!=null && !rifa.getPathImagen().isBlank()) {
+	            imgUrl = rifa.getPathImagen();
+	        }
 		    
 		    rifa.getNumeros().forEach(numero -> {
 		        // Evitar NPE y comparar Strings correctamente
@@ -131,6 +139,8 @@ public class AdminController {
 		            pagados.add(numero.getValor());
 		        }
 		        
+		        
+		      
 		        
 //		        if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
 //		        	numeroRifaDisponibles.add(numero.getValor());
@@ -180,10 +190,10 @@ public class AdminController {
 //		    body.put("ap", ap);              // 1) listas completas (si no son muy grandes)
 		    body.put("pag", pagados);
 
-		    // o bien, si no quieres mandar listas largas:
-//		    body.put("apCount", ap.size());  // 2) solo conteos
-//		    body.put("pagCount", pag.size());
-	    return ResponseEntity.ok(body);
+		    body.put("nombreRifaSeleccionada", rifa.getNombre());
+		    body.put("imgUrl", imgUrl);
+
+		    return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
 	}
 
 	

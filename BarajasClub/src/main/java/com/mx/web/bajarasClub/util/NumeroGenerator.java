@@ -132,22 +132,21 @@ public class NumeroGenerator {
      * con relleno de ceros.
      */
     public static List<String> generarPorCantidad(int digitos, int cantidad) {
-        validarDigitos(digitos);
+        validarDigitos(digitos);                  // e.g., digitos >= 1
         if (cantidad < 0) throw new IllegalArgumentException("cantidad debe ser >= 0");
 
-        int limitePorDigitos = (int) Math.pow(10, digitos);
-        if (cantidad > limitePorDigitos) {
-            // Opcional: podrías lanzar excepción en vez de recortar
-            cantidad = limitePorDigitos; // 000..999 si digitos=3
-        }
+        long limitePorDigitos = (long) Math.pow(10, digitos); // 10^digitos
+        // No se pueden generar más que los que caben con ese número de dígitos
+        int toGenerate = (int) Math.min((long) cantidad, limitePorDigitos);
 
         String fmt = "%0" + digitos + "d";
-        List<String> out = new ArrayList<>(cantidad);
-        for (int i = 0; i <= cantidad; i++) {
+        List<String> out = new ArrayList<>(toGenerate);
+        for (int i = 0; i < toGenerate; i++) {   // <--- OJO: aquí va '<', no '<='
             out.add(String.format(fmt, i));
         }
         return out;
     }
+
 
     /**
      * Genera un rango arbitrario DESDE..HASTA (ambos INCLUSIVOS),
