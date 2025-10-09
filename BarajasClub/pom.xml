@@ -86,7 +86,7 @@
 			
 				<configuration>
 					<mainClass>
-						com.mx.web.bajarasClub.config.TioAndresApplication</mainClass>
+						com.mx.web.bajarasClub.config.BarajasClub</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
