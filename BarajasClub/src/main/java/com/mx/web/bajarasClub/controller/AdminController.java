@@ -87,7 +87,8 @@ public class AdminController {
 	public ResponseEntity<Map<String, Object>> numerosSimplePaged(
 	        @PathVariable Integer id,
 	        @RequestParam(defaultValue = "1") int page,
-	        @RequestParam(defaultValue = "120") int size, Model model) {
+	        @RequestParam(defaultValue = "120") int size, Model model
+	        ) {
 
 		List<String> numeroRifaDisponibles = new ArrayList<String>();
 		List<String> numeroRifaPagodos = new ArrayList<String>();
@@ -381,6 +382,8 @@ public class AdminController {
 
 	    // 8) Datos para la vista
 	    model.addAttribute("rifaSeleccionada", rifaSeleccionada);
+	    payload.put("rifaId", rifaSeleccionada.getId());
+	    payload.put("nombreRifa", rifaSeleccionada.getNombre());
 	    payload.put("numeros", numeros);
 	    payload.put("comprador", clienteGuardado);
 	    payload.put("precioUnitario", rifaSeleccionada.getPrecioBoleto());
@@ -390,6 +393,10 @@ public class AdminController {
 	    payload.put("total", total);
 	    ra.addFlashAttribute("ticketGroup", payload);
 	    ra.addFlashAttribute("mostrarTicket", true);
+
+	    // importante: conserva la edición seleccionada en el redirect
+	    ra.addAttribute("id", rifaSeleccionada.getId());
+	    model.addAttribute("nombreRifaSeleccionada", rifaSeleccionada.getNombre());
 
 		return "redirect:/admin/edicion";
 	}

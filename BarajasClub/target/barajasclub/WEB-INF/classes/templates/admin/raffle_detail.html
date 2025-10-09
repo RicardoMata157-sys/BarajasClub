@@ -2,8 +2,8 @@
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{fragments_admin :: head('Comprar boleto')}">
 
-<meta name="_csrf" th:content="${_csrf.token}"/>
-<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+<meta name="_csrf" th:content="${_csrf.token}" />
+<meta name="_csrf_header" th:content="${_csrf.headerName}" />
 
 
 
@@ -28,6 +28,19 @@
 // 	  e.target.form?.submit();                 // GET /admin/edicion?id=<valor>
 // 	});
 
+
+function updateMaxUI() {
+  // Máximo permitido = boletos x números por boleto
+  const max = getMAX();
+  const sMax = document.getElementById('spanMaxSel');
+  if (sMax) sMax.textContent = String(max);
+
+  // Encabezado “Selecciona tus Números : <numPorBoleto>”
+  const sNPB = document.getElementById('spanNumPorBoleto');
+  if (sNPB) sNPB.textContent = String(NUM_POR_BOLETO);
+}
+
+
 document.addEventListener('DOMContentLoaded', () => {
   const sel = document.getElementById('selBoletos');
   const hidden = document.getElementById('cantidadBoletos');
@@ -41,6 +54,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <script th:inline="javascript">
 /*<![CDATA[*/
+	
+let clienteModal = null;
+let ticketModal  = null;
 document.addEventListener('DOMContentLoaded', () => {
   // --- Estado global ---
   let RIFA_ID = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
@@ -55,7 +71,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const paginator  = document.getElementById('paginator');
   const pageMeta   = document.getElementById('pageMeta');
   const pageSizeSel= document.getElementById('pageSizeSelect');
-
+  const spanNumPorBoleto= document.getElementById('spanNumPorBoleto');
+  
   
 //   const btnClear = document.getElementById('btnClear');
   const rifaId = Number(document.getElementById('rifaId').value);
@@ -66,7 +83,12 @@ document.addEventListener('DOMContentLoaded', () => {
 	  return { token, header };
 	})();
   
-  
+  if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+	    const elCliente = document.getElementById('clienteExistenteModal');
+	    const elTicket  = document.getElementById('ticketModal');
+	    if (elCliente) clienteModal = bootstrap.Modal.getOrCreateInstance(elCliente);
+	    if (elTicket)  ticketModal  = bootstrap.Modal.getOrCreateInstance(elTicket);
+	  }
   
   
   // Paginación
@@ -78,9 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Selección y tope
   const seleccion = new Set();
-  let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;
-  let CANT_BOLETOS   = Number(selBoletos?.value || 1);
-  const getMAX = () => NUM_POR_BOLETO * CANT_BOLETOS;
+//   let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;
+//   let CANT_BOLETOS   = Number(selBoletos?.value || 1);
+//   const getMAX = () => NUM_POR_BOLETO * CANT_BOLETOS;
 
   // ---- Utilidades ----
   const norm = (n) => {
@@ -88,6 +110,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const raw = String(n).replace(/[^\d]/g, '');
     return raw.padStart(digits, '0');
   };
+  
+  
+  let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;  // se sobrescribe con el JSON
+  let CANT_BOLETOS   = Number(document.getElementById('selBoletos')?.value || 1);
+
+  const getMAX = () =>
+    (Number(NUM_POR_BOLETO) || 1) * (Number(CANT_BOLETOS) || 1);
+
+  function updateMaxUI() {
+    const npb = document.getElementById('spanNumPorBoleto');
+    const max = document.getElementById('spanMaxSel');
+    if (npb) npb.textContent = String(NUM_POR_BOLETO);
+    if (max) max.textContent = String(getMAX());
+  }
+
+  function trimSelectionToMax() {
+    const MAX = getMAX();
+    if (seleccion.size <= MAX) return;
+    const arr = Array.from(seleccion)
+      .map(n => String(n).padStart(digits, '0'))
+      .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+    while (arr.length > MAX) arr.pop();
+    seleccion.clear();
+    arr.forEach(n => seleccion.add(n));
+  }
+
+  
+  
+  
+  
+  
 
   function refreshInput(){
 	  const arr = Array.from(seleccion)
@@ -98,9 +151,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	  if (!input) return;
 
 	  input.value = arr.join(', ');
-	  autoGrowTextarea(input);                  // <<--- ¡clave para que crezca!
+	  autoGrowTextarea(input);
 	  if (selCount) selCount.textContent = String(arr.length);
+// 	  if (spanNumPorBoleto) spanNumPorBoleto.textContent = String(arr.length);
+
+	  updateMaxUI(); // <-- ¡clave! refresca Y con el MAX actual
 	}
+
 
 
   function makeBtn(label, state){
@@ -288,6 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
 	    updateLegendFromData(data); 
 
 	    buildGridPayload(data);
+	    updateMaxUI(); 
 	    buildPaginator(data.totalPages || 1);
 	    refreshInput();
 	  }
@@ -370,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
   async function setSeleccionServidor({ label, selected }) {
 	  const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
 	    method: 'POST',
-	    credentials: 'same-origin', // manda la cookie de sesión
+	    credentials: 'same-origin',
 	    headers: {
 	      'Content-Type': 'application/json',
 	      ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
@@ -378,16 +436,13 @@ document.addEventListener('DOMContentLoaded', () => {
 	    body: JSON.stringify({
 	      numero: label,
 	      seleccionado: !!selected,
-	      rifaId: rifaId
+	      rifaId: RIFA_ID            // ← antes enviabas el hidden inicial
 	    })
 	  });
-
-	  if (!res.ok) {
-	    const txt = await res.text();
-	    throw new Error(txt || `HTTP ${res.status}`);
-	  }
+	  if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
 	  return res.json();
 	}
+
 
   
   
@@ -460,17 +515,27 @@ async function limpiarSeleccion() {
   
 
   // Cambio cantidad de boletos -> recalcula tope y recorta si hace falta
-  selBoletos?.addEventListener('change', () => {
-    CANT_BOLETOS = Number(selBoletos.value || 1);
-    const MAX = getMAX();
-    if (seleccion.size > MAX) {
-      const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
-      while (arr.length > MAX) arr.pop();
-      seleccion.clear();
-      arr.forEach(x => seleccion.add(x));
-    }
-    refreshInput();
-  });
+//  selBoletos?.addEventListener('change', () => {
+//   CANT_BOLETOS = Number(selBoletos.value || 1);
+//   const MAX = getMAX();
+//   if (seleccion.size > MAX) {
+//     const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+//     while (arr.length > MAX) arr.pop();
+//     seleccion.clear();
+//     arr.forEach(x => seleccion.add(x));
+//   }
+//   updateMaxUI();           // <<--- NUEVO
+//   refreshInput();
+// });
+  
+//   const selBoletos = document.getElementById('selBoletos');
+selBoletos?.addEventListener('change', () => {
+  CANT_BOLETOS = Number(selBoletos.value || 1);
+  updateMaxUI();
+  trimSelectionToMax();
+  refreshInput(); // tu función que actualiza el textarea y el contador X
+});
+
 
   // Selector de tamaño de página
   pageSizeSel?.addEventListener('change', () => {
@@ -481,14 +546,21 @@ async function limpiarSeleccion() {
   });
 
   // Cambio de rifa
-  document.getElementById('selectRifa')?.addEventListener('change', async (e) => {
-    const newId = Number(e.target.value);
-    if (!newId) return;
-    RIFA_ID = newId;
-    seleccion.clear();
-    currentPage = 1;
-    await fetchAndRender(currentPage);
-  });
+// Usa un puntero al hidden para mantenerlo sincronizado:
+const rifaIdHidden = document.getElementById('rifaId');
+
+// En el change de edición, además de setear RIFA_ID, sincroniza el hidden:
+document.getElementById('selectRifa')?.addEventListener('change', async (e) => {
+  const newId = Number(e.target.value);
+  if (!newId) return;
+  RIFA_ID = newId;
+  if (rifaIdHidden) rifaIdHidden.value = String(RIFA_ID); // ← CLAVE
+  seleccion.clear();
+  currentPage = 1;
+  await fetchAndRender(currentPage);
+  updateMaxUI();
+});
+
 
   // Inicial
   if (RIFA_ID) {
@@ -522,19 +594,19 @@ function updateLegendFromData(data) {
 
 
 
-function refreshInput() {
-	  const arr = Array.from(seleccion)
-	    .map(n => String(n).padStart(digits, '0'))
-	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+// function refreshInput() {
+// 	  const arr = Array.from(seleccion)
+// 	    .map(n => String(n).padStart(digits, '0'))
+// 	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
 
-	  const input = document.getElementById('numeroTicket');
-	  if (!input) return;
+// 	  const input = document.getElementById('numeroTicket');
+// 	  if (!input) return;
 
-	  input.value = arr.join(', ');
-	  autoGrowTextarea(input);   // <-- ¡clave!
-	  const selCount = document.getElementById('selCount');
-	  if (selCount) selCount.textContent = String(arr.length);
-	}
+// 	  input.value = arr.join(', ');
+// 	  autoGrowTextarea(input);   // <-- ¡clave!
+// 	  const selCount = document.getElementById('selCount');
+// 	  if (selCount) selCount.textContent = String(arr.length);
+// 	}
 
 
 
@@ -597,7 +669,6 @@ function refreshInput() {
 	font-size: .9rem;
 }
 
-
 @media ( min-width : 768px) {
 	.preview-box {
 		min-height: 210px;
@@ -607,29 +678,25 @@ function refreshInput() {
 	}
 }
 
-
-
-  .autosize {
-  overflow: hidden;
-  resize: none;
-  line-height: 1.4;
-  min-height: 2.4rem;
-  max-height: 40vh;         /* antes: 12rem */
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  white-space: pre-wrap;
+.autosize {
+	overflow: hidden;
+	resize: none;
+	line-height: 1.4;
+	min-height: 2.4rem;
+	max-height: 40vh; /* antes: 12rem */
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		"Liberation Mono", monospace;
+	white-space: pre-wrap;
 }
-.autosize.scrolled { overflow-y: auto; }
 
-
-
-
-
-
+.autosize.scrolled {
+	overflow-y: auto;
+}
 </style>
 
 					<!-- Selector + Preview -->
 					<form class="row g-3 align-items-end" method="get"
-						th:action="@{/admin/edicion}">
+						th:action="@{/admin/rifa/${RIFA_ID}/numeros-simple}">
 						<div class="col-12 col-md-8">
 							<label class="form-label fw-semibold">Edición activa</label> <select
 								class="form-select" name="id" id="selectRifa">
@@ -644,38 +711,37 @@ function refreshInput() {
 
 						<!-- Vista previa, centrada -->
 						<div class="col-12 col-md-4">
-  <label class="form-label fw-semibold d-none d-md-block">Vista previa</label>
+							<label class="form-label fw-semibold d-none d-md-block">Vista
+								previa</label>
 
-  <!-- Calcula una vez la URL final -->
-  <div class="preview-box"
-       th:with="imgUrl=${rifaSeleccionada != null 
+							<!-- Calcula una vez la URL final -->
+							<div class="preview-box"
+								th:with="imgUrl=${rifaSeleccionada != null 
                         ? (#strings.isEmpty(rifaSeleccionada.pathImagen) 
                            ? rifaSeleccionada.rutaImagen 
                            : rifaSeleccionada.pathImagen) 
                         : null}">
 
-    <!-- Muestra imagen solo si hay URL no vacía -->
-    <img th:if="${!#strings.isEmpty(imgUrl)}"
-         th:src="@{${imgUrl}}"
-         th:alt="|Imagen de ${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Rifa'}|"
-         class="preview-img"
-         onerror="
+								<!-- Muestra imagen solo si hay URL no vacía -->
+								<img th:if="${!#strings.isEmpty(imgUrl)}" th:src="@{${imgUrl}}"
+									th:alt="|Imagen de ${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Rifa'}|"
+									class="preview-img"
+									onerror="
            this.classList.add('d-none');
            const empty = this.closest('.preview-box').querySelector('.preview-empty');
            if (empty) empty.classList.remove('d-none');
          " />
 
-    <!-- Fallback: “Sin imagen” si no hay URL o si carga falla -->
-    <span class="preview-empty"
-          th:unless="${!#strings.isEmpty(imgUrl)}">Sin imagen</span>
-  </div>
+								<!-- Fallback: “Sin imagen” si no hay URL o si carga falla -->
+								<span class="preview-empty"
+									th:unless="${!#strings.isEmpty(imgUrl)}">Sin imagen</span>
+							</div>
 
-  <!-- Enlace solo si hay URL válida -->
-  <a class="small mt-2 d-inline-block text-decoration-none"
-     th:if="${!#strings.isEmpty(imgUrl)}"
-     th:href="@{${imgUrl}}"
-     target="_blank" rel="noopener">Abrir imagen en nueva pestaña</a>
-</div>
+							<!-- Enlace solo si hay URL válida -->
+							<a class="small mt-2 d-inline-block text-decoration-none"
+								th:if="${!#strings.isEmpty(imgUrl)}" th:href="@{${imgUrl}}"
+								target="_blank" rel="noopener">Abrir imagen en nueva pestaña</a>
+						</div>
 
 					</form>
 				</div>
@@ -685,9 +751,22 @@ function refreshInput() {
 					<br>
 				</div>
 				<div class="card p-3">
-					<h2 class="h6">
-						Selecciona tus Números : <span th:text="${numPorBoleto}"></span>
-					</h2>
+					
+				<!-- título -->
+<h2 class="h6">
+  Números por boletos :
+  <span id="spanNumPorBoleto" th:text="${numPorBoleto}">1</span>
+</h2>
+
+<!-- contador -->
+<span class="small ms-auto">
+  Seleccionados: <strong id="selCount">0</strong> /
+  <strong id="spanMaxSel" th:text="${numPorBoleto}">1</strong>
+</span>
+
+
+
+
 
 					<style>
 .num-btn {
@@ -703,9 +782,9 @@ function refreshInput() {
 
 
 
-					<span class="small ms-auto"> Seleccionados: <strong
-						id="selCount">0</strong>/<span th:text="${numPorBoleto}">1</span>
-					</span>
+<!-- 					<span class="small ms-auto"> Seleccionados: <strong -->
+<!-- 						id="selCount">0</strong>/<span th:text="${numPorBoleto}">1</span> -->
+<!-- 					</span> -->
 
 
 
@@ -718,35 +797,38 @@ function refreshInput() {
 
 
 					<!-- (IZQUIERDA) Meta de paginación + Por página + Boletos -->
-<div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-  <div id="pageMeta" class="small text-muted">—</div>
+					<div
+						class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+						<div id="pageMeta" class="small text-muted">—</div>
 
-  <div class="d-flex align-items-center gap-3 flex-wrap">
-    <!-- Por página -->
-    <div class="d-flex align-items-center gap-2">
-      <label class="form-label m-0 small">Por página</label>
-      <select id="pageSizeSelect" class="form-select form-select-sm" style="width:auto">
-        <option value="100">100</option>
-        <option value="200">200</option>
-        <option value="500" selected>500</option>
-        <option value="1000">1000</option>
-      </select>
-    </div>
+						<div class="d-flex align-items-center gap-3 flex-wrap">
+							<!-- Por página -->
+							<div class="d-flex align-items-center gap-2">
+								<label class="form-label m-0 small">Por página</label> <select
+									id="pageSizeSelect" class="form-select form-select-sm"
+									style="width: auto">
+									<option value="100">100</option>
+									<option value="200">200</option>
+									<option value="500" selected>500</option>
+									<option value="1000">1000</option>
+								</select>
+							</div>
 
-    <!-- Boletos (MOVIDO AQUÍ) -->
-    <div class="d-flex align-items-center gap-2">
-      <label class="form-label m-0 small">Boletos</label>
-      <select id="selBoletos" class="form-select form-select-sm" style="width:auto">
-        <option value="1" selected>1</option>
-        <option value="2">2</option>
-        <option value="3">3</option>
-        <option value="4">4</option>
-        <option value="5">5</option>
-        <option value="10">10</option>
-      </select>
-    </div>
-  </div>
-</div>
+							<!-- Boletos (MOVIDO AQUÍ) -->
+							<div class="d-flex align-items-center gap-2">
+								<label class="form-label m-0 small">Boletos</label> <select
+									id="selBoletos" class="form-select form-select-sm"
+									style="width: auto">
+									<option value="1" selected>1</option>
+									<option value="2">2</option>
+									<option value="3">3</option>
+									<option value="4">4</option>
+									<option value="5">5</option>
+									<option value="10">10</option>
+								</select>
+							</div>
+						</div>
+					</div>
 
 
 					<!-- Paginador -->
@@ -787,20 +869,18 @@ function refreshInput() {
 					</div>
 
 
-				<!-- Leyenda -->
-<div class="mt-3 small d-flex align-items-center gap-3">
-  <span class="badge text-bg-success">Disponible</span>
-  <span id="countDisp"
-        th:text="${numDisp != null ? #lists.size(numDisp) : 0}">0</span>
+					<!-- Leyenda -->
+					<div class="mt-3 small d-flex align-items-center gap-3">
+						<span class="badge text-bg-success">Disponible</span> <span
+							id="countDisp"
+							th:text="${numDisp != null ? #lists.size(numDisp) : 0}">0</span>
 
-  <span class="badge text-bg-warning">Apartado</span>
-  <span id="countAp"
-        th:text="${ap != null ? #lists.size(ap) : 0}">0</span>
+						<span class="badge text-bg-warning">Apartado</span> <span
+							id="countAp" th:text="${ap != null ? #lists.size(ap) : 0}">0</span>
 
-  <span class="badge text-bg-dark">Pagado</span>
-  <span id="countPag"
-        th:text="${pag != null ? #lists.size(pag) : 0}">0</span>
-</div>
+						<span class="badge text-bg-dark">Pagado</span> <span id="countPag"
+							th:text="${pag != null ? #lists.size(pag) : 0}">0</span>
+					</div>
 
 				</div>
 
@@ -834,7 +914,6 @@ function refreshInput() {
 							<button type="button" class="btn btn-outline-secondary btn-sm"
 								id="btnClear">Limpiar selección</button>
 
-							
 
 
 
@@ -844,56 +923,57 @@ function refreshInput() {
 
 
 
-						<div class="mb-2">
-							<label class="form-label">Nombre(s)</label> <input name="nombre"
-								class="form-control" required />
-						</div>
-						<div class="mb-2">
-							<label class="form-label">Apellido paterno</label> <input
-								name="apellidoP" class="form-control" required />
-						</div>
-						<div class="mb-2">
-							<label class="form-label">Apellido materno</label> <input
-								name="apellidoM" class="form-control" />
-						</div>
-						<div class="mb-2">
-							<label class="form-label">Correo</label> <input id="email"
-								name="email" type="email" class="form-control" />
-						</div>
-						<div class="mb-3">
-							<label class="form-label">Teléfono</label> <input id="telefono"
-								name="telefono" class="form-control" inputmode="tel"
-								pattern="^\+?\d{10,15}$" />
-							<div class="form-text">10–15 dígitos, permite + opcional.</div>
-						</div>
-						<div class="mb-3">
-							<label class="form-label">Municipio</label> <input
-								name="municipio" class="form-control" />
-						</div>
-						<div class="mb-3">
-							<label class="form-label">Estado</label> <input name="estado"
-								class="form-control" />
-						</div>
-						<div class="mb-3">
-							<label class="form-label">Código Postal</label> <input
-								name="codigoPostal" class="form-control" />
-						</div>
 
-						<div class="mb-3">
-							<label class="form-label">Tipo de pago</label> <select
-								class="form-control" name="tipoPagoId" required>
-								<option value="" disabled selected>Selecciona...</option>
-								<option th:each="tp : ${tiposPago}" th:value="${tp.id}"
-									th:text="${tp.nombre}"></option>
-							</select>
-						</div>
+							<div class="mb-2">
+								<label class="form-label">Nombre(s)</label> <input name="nombre"
+									class="form-control" required />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Apellido paterno</label> <input
+									name="apellidoP" class="form-control" required />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Apellido materno</label> <input
+									name="apellidoM" class="form-control" />
+							</div>
+							<div class="mb-2">
+								<label class="form-label">Correo</label> <input id="email"
+									name="email" type="email" class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Teléfono</label> <input id="telefono"
+									name="telefono" class="form-control" inputmode="tel"
+									pattern="^\+?\d{10,15}$" />
+								<div class="form-text">10–15 dígitos, permite + opcional.</div>
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Municipio</label> <input
+									name="municipio" class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Estado</label> <input name="estado"
+									class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Código Postal</label> <input
+									name="codigoPostal" class="form-control" />
+							</div>
 
-						<input type="hidden" name="cantidadBoletos" id="cantidadBoletos"
-							value=""> <input type="hidden" name="clienteId"
-							id="clienteId" />
+							<div class="mb-3">
+								<label class="form-label">Tipo de pago</label> <select
+									class="form-control" name="tipoPagoId" required>
+									<option value="" disabled selected>Selecciona...</option>
+									<option th:each="tp : ${tiposPago}" th:value="${tp.id}"
+										th:text="${tp.nombre}"></option>
+								</select>
+							</div>
 
-						<button class="btn btn-primary w-100" type="submit">Comprar
-							boleto</button>
+							<input type="hidden" name="cantidadBoletos" id="cantidadBoletos"
+								value=""> <input type="hidden" name="clienteId"
+								id="clienteId" />
+
+							<button class="btn btn-primary w-100" type="submit">Comprar
+								boleto</button>
 					</form>
 
 				</div>
@@ -910,23 +990,24 @@ function refreshInput() {
 
 
 	<style>
-	
-	
 
 /* Paginador limpio */
-.pagination .page-link { border: 0; }
-.pagination .page-item.active .page-link {
-  background: #1d4ed8;
+.pagination .page-link {
+	border: 0;
 }
-.pagination .page-item.disabled .page-link {
-  opacity: .5;
-}
-#pageMeta { min-height: 1.5rem; }
 
-	
-	
-	
-	
+.pagination .page-item.active .page-link {
+	background: #1d4ed8;
+}
+
+.pagination .page-item.disabled .page-link {
+	opacity: .5;
+}
+
+#pageMeta {
+	min-height: 1.5rem;
+}
+
 /* Estilo simple de boleto */
 .ticket {
 	border-radius: 16px;
@@ -997,21 +1078,41 @@ function refreshInput() {
 
 
 				<!-- Header -->
-				<div class="modal-header py-2">
-					<div>
-						<div class="header-subtle">Edición</div>
-						<h6 class="m-0"
-							th:text="${rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición'}">Nombre
-							de la Edición</h6>
-					</div>
-					<div class="text-end">
-						<div class="header-subtle">Boletos</div>
-						<div class="fw-bold"
-							th:text="${ticketGroup != null ? ticketGroup.cantidadBoletos : 0}">0</div>
-					</div>
-					<button type="button" class="btn-close ms-2"
-						data-bs-dismiss="modal" aria-label="Close"></button>
-				</div>
+				<!-- Header (bonito y robusto) -->
+<div th:with="
+     rifaNombreFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa')
+                       ? ticketGroup['nombreRifa']
+                       : (nombreRifaSeleccionada != null ? nombreRifaSeleccionada
+                           : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición'))},
+     boletosFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos')
+                       ? ticketGroup['cantidadBoletos'] : (cantidadBoletos != null ? cantidadBoletos : 0)},
+     npbFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                       ? ticketGroup['numerosPorBoleto'] : (numPorBoleto != null ? numPorBoleto : 1)}
+" class="modal-header py-2">
+  <div class="d-flex align-items-center gap-2">
+    <div class="rounded-circle d-inline-flex align-items-center justify-content-center"
+         style="width:36px;height:36px;background:#f1f3f5;">
+      <i class="bi bi-ticket-perforated"></i>
+    </div>
+    <div>
+      <div class="text-muted small mb-1">Edición</div>
+     <h6 class="m-0"
+  th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa')
+             ? ticketGroup['nombreRifa']
+             : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">
+  Edición
+</h6>
+
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2 ms-auto">
+    <span class="badge text-bg-light border">Boletos: <span th:text="${boletosFinal}">0</span></span>
+    <span class="badge text-bg-light border">Núm x boleto: <span th:text="${npbFinal}">1</span></span>
+    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+  </div>
+</div>
+
 
 
 				<!-- Body (scrollable) -->
@@ -1019,56 +1120,59 @@ function refreshInput() {
 					<!-- Comprador -->
 					<div class="mb-3">
 						<div class="section-title mb-1">Comprador</div>
-						<div class="row g-2">
+						<div class="row g-2"
+							th:with="comp=${ticketGroup != null ? ticketGroup['comprador'] : null}">
 							<div class="col-8">
 								<div
-									th:text="${ticketGroup != null 
-                              ? ticketGroup.comprador.nombre + ' ' 
-                                + ticketGroup.comprador.apellido_patrno + ' ' 
-                                + ticketGroup.comprador.apellido_materno 
-                              : ''}">Nombre
-									Completo</div>
+									th:text="${comp != null 
+                     ? ( (comp['nombre'] != null ? comp['nombre'] : '') + ' ' 
+                         + (comp['apellido_patrno'] != null ? comp['apellido_patrno'] : '') + ' ' 
+                         + (comp['apellido_materno'] != null ? comp['apellido_materno'] : '') )
+                     : ''}">
+									Nombre Completo</div>
 								<div class="small text-muted"
-									th:text="${ticketGroup != null ? ticketGroup.comprador.email : ''}">correo@ejemplo.com</div>
+									th:text="${comp != null ? comp['email'] : ''}">correo@ejemplo.com</div>
 								<div class="small text-muted"
-									th:text="${ticketGroup != null ? ticketGroup.comprador.telefono : ''}">55
-									0000 0000</div>
+									th:text="${comp != null ? comp['telefono'] : ''}">55 0000
+									0000</div>
 							</div>
 							<div class="col-4 text-end">
 								<div class="header-subtle">Núm. por boleto</div>
 								<div class="fw-semibold"
-									th:text="${ticketGroup != null ? ticketGroup.numerosPorBoleto : 1}">1</div>
+									th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                   ? ticketGroup['numerosPorBoleto'] : 1}">1</div>
 							</div>
 						</div>
+
 					</div>
 
 					<!-- Lista de boletos -->
 					<!-- Resumen compacto (folios + números consolidados) -->
-<div class="section-title mb-2">Resumen de compra</div>
+					<div class="section-title mb-2">Resumen de compra</div>
 
-<!-- Folios (compacto) -->
-<div class="mb-3" th:if="${ticketGroup != null and ticketGroup.tickets != null}">
-  <div class="header-subtle mb-1">Folios</div>
-  <div class="d-flex flex-wrap gap-1">
-    <span class="badge rounded-pill text-bg-light border"
-          th:each="t : ${ticketGroup.tickets}"
-          th:text="${t.folio}">ABC123</span>
-  </div>
-</div>
+					<!-- Folios (compacto) -->
+					<div class="mb-3"
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Folios</div>
+						<div class="d-flex flex-wrap gap-1">
+							<span class="badge rounded-pill text-bg-light border"
+								th:each="t : ${ticketGroup['tickets']}"
+								th:text="${#maps.containsKey(t,'folio') ? t['folio'] : t}">ABC123</span>
+						</div>
+					</div>
 
-<!-- Números consolidados (sin dividir por boleto) -->
-<div th:if="${ticketGroup != null and ticketGroup.tickets != null}">
-  <div class="header-subtle mb-1">Participa con</div>
+					<div
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Participa con</div>
+						<div class="ticket-nums d-flex flex-wrap gap-1">
+							<th:block th:each="t : ${ticketGroup['tickets']}">
+								<span class="pill badge bg-secondary"
+									th:each="n : ${#maps.containsKey(t,'numeros') ? t['numeros'] : {}}"
+									th:text="${n}">0031</span>
+							</th:block>
+						</div>
+					</div>
 
-  <!-- Usamos th:block para “aplanar” las listas de números de todos los boletos -->
-  <div class="ticket-nums d-flex flex-wrap gap-1">
-    <th:block th:each="t : ${ticketGroup.tickets}">
-      <span class="pill badge bg-secondary"
-            th:each="n : ${t.numeros}"
-            th:text="${n}">0031</span>
-    </th:block>
-  </div>
-</div>
 
 
 
@@ -1079,18 +1183,17 @@ function refreshInput() {
 					<!-- Total -->
 					<div class="d-flex justify-content-between align-items-center">
 						<div class="muted">
-							<span>Total de boletos:</span> <strong
-								th:text="${ticketGroup != null ? ticketGroup.cantidadBoletos : 0}">0</strong>
-							<span class="ms-2">· Números por boleto:</span> <strong
-								th:text="${ticketGroup != null ? ticketGroup.numerosPorBoleto : 1}">1</strong>
+							<span>Total de boletos:</span> <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos')
+                   ? ticketGroup['cantidadBoletos'] : 0}">0</strong>
+							<span class="ms-2">· Números por boleto:</span> <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                   ? ticketGroup['numerosPorBoleto'] : 1}">1</strong>
 						</div>
 						<div class="text-end">
 							<div class="muted">Total</div>
 							<div class="fs-5 fw-bold"
-								th:text="${ticketGroup != null && ticketGroup.total != null 
-                         ? '$ ' + #numbers.formatDecimal(ticketGroup.total, 1, 2) 
-                         : '$ 0.00'}">$
-								0.00</div>
+     th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'total')
+               ? '$ ' + #numbers.formatDecimal(ticketGroup['total'], 1, 2)
+               : '$ 0.00'}">$ 0.00</div>
 						</div>
 					</div>
 
@@ -1175,7 +1278,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('btnTicketOk')?.addEventListener('click', () => {
     // Regresa exactamente a la rifa actual
-    window.location.href = /*[[@{/admin/edicion(id=${rifaSeleccionada != null ? rifaSeleccionada.id : 0})}]]*/ '/admin/edicion';
+	  window.location.href = /*[[@{/admin/edicion(id=${
+		  ticketGroup != null and #maps.containsKey(ticketGroup,'rifaId') 
+		  ? ticketGroup['rifaId'] 
+		  : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)
+		})}]]*/ '/admin/edicion';
+
+
+
   });
   
 
@@ -1246,6 +1356,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const res = await fetch(`${BASE}admin/clientes/check?${params.toString()}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const data = await res.json();
+      
+      
+
+   // 1) Toma numPorBoleto de la rifa activa (viene en tu JSON)
+//    NUM_POR_BOLETO = Number(data.numPorBoleto ?? NUM_POR_BOLETO);
+
+   // 2) Refresca UI (texto “Selecciona tus Números : …” y “X / Y”)
+//    updateMaxUI();
+
+//    // 3) Si ya había selección y ahora el MAX es menor, recórtala
+//    trimSelectionToMax();
+
 
       if (data && data.exists) {
         // llena modal
