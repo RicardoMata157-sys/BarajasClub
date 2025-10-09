@@ -1,5 +1,6 @@
 package com.mx.web.bajarasClub.serviceImpl;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.transaction.Transactional;
@@ -12,59 +13,94 @@ import com.mx.web.bajarasClub.model.Rifa;
 import com.mx.web.bajarasClub.repository.RepositoryNumero;
 import com.mx.web.bajarasClub.service.ServiceNumero;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class ServiceNumeroImpl implements ServiceNumero {
 
 	@Autowired
 	private RepositoryNumero repositoryNumero;
-	
-	
-	
+
 	@Override
 	public void guardaNumeroRifa(Numero numero) {
-		
+
 		repositoryNumero.save(numero);
 
 	}
-
-
 
 	@Override
 	public List<Numero> regresaNumerosRifaActializada(Rifa rifa) {
 		return repositoryNumero.findByrifa(rifa);
 	}
 
-
-
 	@Override
 	public void actualizaNumeros(List<Numero> numero) {
 		repositoryNumero.saveAll(numero);
-		
+
 	}
-
-
 
 	@Override
 	@Transactional
 	public int deleteByRifaIdAndNumero(Rifa rifa, List<String> borrables) {
 		return repositoryNumero.deletNumeroRifa(rifa.getId(), borrables);
-		
+
 	}
-
-
 
 	@Override
+	@Transactional
 	public List<String> regresaNumerosRandomBaseDisponibles(Long rifaId, int lim) {
-		// TODO Auto-generated method stub
-		return repositoryNumero.pickRandomDisponibles(rifaId, lim);
+		List<String> nums = new ArrayList<String>();
+		List<Integer> idNums = new ArrayList<Integer>();
+		repositoryNumero.pickRandomDisponibles(rifaId, lim).stream().forEach(numero -> {
+			nums.add(numero.getValor());
+			idNums.add(numero.getIdNumero());
+		});
+		actulizaEstadoSeleccionado(idNums);
+
+		return nums;
 	}
-
-
 
 	@Override
 	public List<Numero> regresaNumerosSeleccionados(Rifa rifa, List<String> seleccionados) {
 		// TODO Auto-generated method stub
 		return repositoryNumero.regresaNumeroSeleccionado(rifa.getId(), seleccionados);
 	}
+
+	@Transactional
+	@Override
+	public int actulizaEstadoSeleccionado(List<Integer> ids) {
+
+		return repositoryNumero.actulizaEstadoSeleccionado(ids);
+	}
+
+	
+	@Transactional
+	@Override
+	public int limpiarSeleccion(List<String> numeroIds, Integer rifaId) {
+		// TODO Auto-generated method stub
+		 return repositoryNumero.actulizaEstadoDeseleccionado(numeroIds,rifaId);
+	}
+
+	@Transactional
+	@Override
+	public int limpiarSeleccionUnico(String numero, Integer rifaId) {
+		// TODO Auto-generated method stub
+		Numero numeroData = repositoryNumero.consultaNumeroEstadoSeleccion(rifaId,numero);
+		if(numeroData.getSeleccionado()) {
+			return repositoryNumero.actulizaEstadoSeleccionadoUnico(rifaId, numero,false);
+		}
+		if(!numeroData.getSeleccionado()) {
+			return repositoryNumero.actulizaEstadoSeleccionadoUnico(rifaId, numero,true);
+		}
+		
+		return 0;
+		
+		
+		 
+	}
+
+
+	
 
 }

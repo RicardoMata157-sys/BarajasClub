@@ -1,5 +1,6 @@
 package com.mx.web.bajarasClub.model;
 
+import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
 import javax.persistence.ForeignKey;
@@ -25,6 +26,9 @@ public class Numero {
 	@ManyToOne(fetch = FetchType.LAZY, optional = true)
 	@JoinColumn(name = "boleto_id", nullable = true, foreignKey = @ForeignKey(name = "fk_numero_boleto"))
 	private Boleto boleto;
+	
+	@Column(nullable = false)
+	private Boolean seleccionado = false;
 	
 	
 
@@ -57,6 +61,38 @@ public class Numero {
 	
 
 	
+
+	public Integer getIdNumero() {
+		return idNumero;
+	}
+
+
+
+
+
+	public void setIdNumero(Integer idNumero) {
+		this.idNumero = idNumero;
+	}
+
+
+
+
+
+	public Boolean getSeleccionado() {
+		return seleccionado;
+	}
+
+
+
+
+
+	public void setSeleccionado(Boolean seleccionado) {
+		this.seleccionado = seleccionado;
+	}
+
+
+
+
 
 	public Rifa getRifa() {
 		return rifa;

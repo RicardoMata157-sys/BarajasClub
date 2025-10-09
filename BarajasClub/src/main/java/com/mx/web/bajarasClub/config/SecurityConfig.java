@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
@@ -138,6 +139,11 @@ public class SecurityConfig implements WebMvcConfigurer {
             // CSRF habilitado por defecto (bien para formularios)
             
             ;
+        
+        http.csrf(csrf -> csrf
+        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/*/limpiar-auto", "POST"))
+        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/*/seleccion", "POST"))
+        		);
 
         return http.build();
     }

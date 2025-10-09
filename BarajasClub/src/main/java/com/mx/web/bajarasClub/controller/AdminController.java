@@ -9,7 +9,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 
 import javax.transaction.Transactional;
@@ -23,12 +22,15 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.mx.web.bajarasClub.dto.CompraRequest;
+import com.mx.web.bajarasClub.dto.LimpiarSeleccionRequest;
+import com.mx.web.bajarasClub.dto.SeleccionNumeroRequest;
 import com.mx.web.bajarasClub.model.Boleto;
 import com.mx.web.bajarasClub.model.Cliente;
 import com.mx.web.bajarasClub.model.EstadoBoleto;
@@ -112,17 +114,35 @@ public class AdminController {
 		        // - Sin boleto => DISPONIBLE
 		        // - Con boleto y estado = "DISPONIBLE" => DISPONIBLE (por si así lo modelaste)
 		        // - "APARTADO" y "LIQUIDADO"/"PAGADO" según tus nombres reales
-		        if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
-		        	numeroRifaDisponibles.add(numero.getValor());
-		            disponibles.add(numero.getValor()); // String ya listo para pintar
-		        } else if ("APARTADO".equalsIgnoreCase(estado)) {
-		            apartados.add(numero.getValor());
-		        } else if ("VENDIDO".equalsIgnoreCase(estado) ) {
+		        
+		        if(!numero.getSeleccionado()) {
+		        	  if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
+		        		  numeroRifaDisponibles.add(numero.getValor());
+				            disponibles.add(numero.getValor()); // String ya listo para pintar
+		        	  }
+		        }
+		        
+		        if("APARTADO".equalsIgnoreCase(estado)) {
+		        	 apartados.add(numero.getValor());
+		        }
+		        
+		        if ("VENDIDO".equalsIgnoreCase(estado) ) {
 		        	numeroRifaPagodos.add(numero.getValor());
 		            pagados.add(numero.getValor());
-		        } else {
-		            // Si hay más estados, decide a dónde van o ignóralos
 		        }
+		        
+		        
+//		        if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
+//		        	numeroRifaDisponibles.add(numero.getValor());
+//		            disponibles.add(numero.getValor()); // String ya listo para pintar
+//		        } else if ("APARTADO".equalsIgnoreCase(estado)) {
+//		            apartados.add(numero.getValor());
+//		        } else if ("VENDIDO".equalsIgnoreCase(estado) ) {
+//		        	numeroRifaPagodos.add(numero.getValor());
+//		            pagados.add(numero.getValor());
+//		        } else {
+//		            // Si hay más estados, decide a dónde van o ignóralos
+//		        }
 		    });
 
 		    // Ordena numéricamente (para Strings “01”, “2”, “003”, etc.)
@@ -377,6 +397,39 @@ public class AdminController {
 		return ResponseEntity.ok(nums);
 	}
 
+	
+	
+	@PostMapping(value = "/rifa/{rifaId}/limpiar-auto")
+	public ResponseEntity<Map<String, Object>> limpiarPick(
+            @PathVariable Integer rifaId,
+            @RequestBody LimpiarSeleccionRequest req) {
+
+		 int updated = serviceNumero.limpiarSeleccion(req.getNumeroIds(), rifaId);
+//
+		  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+	}
+	
+	
+	@PostMapping(value = "/rifa/{rifaId}/seleccion")
+	public ResponseEntity<Map<String, Object>> setSeleccion(
+		    @PathVariable Integer rifaId,
+		    @RequestBody SeleccionNumeroRequest req) {
+
+		System.out.print("");
+		 int updated = serviceNumero.limpiarSeleccionUnico(req.getNumero(), rifaId);
+//
+		  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+//		return ResponseEntity.ok(null);
+	}
+	
+	
+	
+	
+	
+	
+	
+	
+	
 	@ModelAttribute("tiposPago")
 	public List<TipoPago> cargarTiposPago() {
 		return serviceTipoPago.getAllTipoPagos();
@@ -392,8 +445,10 @@ public class AdminController {
 		if (id != null) {
 			Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
 			rifaSeleccionada.getNumeros().stream().forEach(numero -> {
-				if (numero.getBoleto() == null || numero.getBoleto().getEstadoBoleto().getNombre() == "DISPONIBLE") {
-					numeroRifaDisponibles.add(numero.getValor());
+				if (numero.getBoleto() == null || numero.getBoleto().getEstadoBoleto().getNombre() == "DISPONIBLE" ) {
+					if(!numero.getSeleccionado()) {
+						numeroRifaDisponibles.add(numero.getValor());
+					}
 				}
 				
 				if(numero.getBoleto() != null) {
@@ -426,8 +481,11 @@ public class AdminController {
 			model.addAttribute("rifasActivas", edicionesActivas);
 			edicionesActivas.stream().findFirst().ifPresent(edicion -> {
 				edicion.getNumeros().stream().forEach(numero -> {
-					if(numero.getBoleto() == null) {
-						numeroRifaDisponibles.add(numero.getValor());
+						if(!numero.getSeleccionado()) {
+							if (numero.getBoleto() == null || numero.getBoleto().getEstadoBoleto().getNombre() == "DISPONIBLE" ) {
+							numeroRifaDisponibles.add(numero.getValor());
+						}
+						
 					}
 					if(numero.getBoleto() != null) {
 						if(numero.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {

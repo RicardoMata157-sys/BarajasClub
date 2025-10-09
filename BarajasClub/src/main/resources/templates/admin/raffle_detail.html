@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments_admin :: head('Comprar boleto')}"></head>
+<head th:replace="~{fragments_admin :: head('Comprar boleto')}">
+
+<meta name="_csrf" th:content="${_csrf.token}"/>
+<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+<input type="hidden" id="rifaId" value="${rifa.id}">
+
+</head>
 
 <script>
   // Hace crecer el textarea al contenido, con tope
@@ -44,6 +51,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const pageMeta   = document.getElementById('pageMeta');
   const pageSizeSel= document.getElementById('pageSizeSelect');
 
+  
+//   const btnClear = document.getElementById('btnClear');
+  const rifaId = Number(document.getElementById('rifaId').value);
+  
+  const CSRF = (() => {
+	  const token  = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+	  const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+	  return { token, header };
+	})();
+  
+  
+  
+  
   // Paginación
   let currentPage  = 1;
   let pageSize     = Number(sessionStorage.getItem('raffle.pageSize') || pageSizeSel?.value || 1000);
@@ -213,26 +233,109 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Delegación clicks en grilla
-  grid.addEventListener('click', (e) => {
-    const btn = e.target.closest('.num-btn');
-    if (!btn || btn.disabled) return;
-    const label = norm(btn.dataset.label || btn.textContent.trim());
-    const isOn  = seleccion.has(label);
-    const MAX   = getMAX();
-    if (!isOn && seleccion.size >= MAX) return;
+//   grid.addEventListener('click', (e) => {
+//     const btn = e.target.closest('.num-btn');
+//     if (!btn || btn.disabled) return;
+//     const label = norm(btn.dataset.label || btn.textContent.trim());
+//     const isOn  = seleccion.has(label);
+//     const MAX   = getMAX();
+//     if (!isOn && seleccion.size >= MAX) return;
 
+//     if (isOn){
+//       seleccion.delete(label);
+//       btn.classList.remove('btn-primary','selected');
+//       btn.classList.add('btn-success');
+//     } else {
+//       seleccion.add(label);
+//       btn.classList.remove('btn-success');
+//       btn.classList.add('btn-primary','selected');
+//     }
+//     refreshInput();
+//   });
+
+  
+  grid.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.num-btn');
+  if (!btn || btn.disabled) return;
+
+  // usa el label tal como lo guardas (si puedes, mejor usa data-id con el ID real de BD)
+  const label = norm(btn.dataset.label || btn.textContent);
+  const isOn  = seleccion.has(label);
+  const MAX   = getMAX();
+  if (!isOn && seleccion.size >= MAX) return;
+
+  // Optimistic UI
+  btn.disabled = true;
+  let prevClasses = btn.className;
+
+  try {
     if (isOn){
+      // quitar en UI
       seleccion.delete(label);
       btn.classList.remove('btn-primary','selected');
       btn.classList.add('btn-success');
+
+      // persistir en servidor
+      await setSeleccionServidor({ label, selected: false });
     } else {
+      // poner en UI
       seleccion.add(label);
       btn.classList.remove('btn-success');
       btn.classList.add('btn-primary','selected');
+
+      // persistir en servidor
+      await setSeleccionServidor({ label, selected: true });
     }
     refreshInput();
-  });
+  } catch (err) {
+    console.error('Fallo al persistir selección:', err);
+    // rollback UI/estado local
+    btn.className = prevClasses;
+    if (isOn) {
+      // queríamos deseleccionar pero falló → restaura
+      seleccion.add(label);
+    } else {
+      // queríamos seleccionar pero falló → quita
+      seleccion.delete(label);
+    }
+    alert('No se pudo actualizar en el servidor. Intenta de nuevo.');
+  } finally {
+    btn.disabled = false;
+  }
+});
+  
+  
+  
+  async function setSeleccionServidor({ label, selected }) {
+	  const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
+	    method: 'POST',
+	    credentials: 'same-origin', // manda la cookie de sesión
+	    headers: {
+	      'Content-Type': 'application/json',
+	      ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+	    },
+	    body: JSON.stringify({
+	      numero: label,
+	      seleccionado: !!selected,
+	      rifaId: rifaId
+	    })
+	  });
 
+	  if (!res.ok) {
+	    const txt = await res.text();
+	    throw new Error(txt || `HTTP ${res.status}`);
+	  }
+	  return res.json();
+	}
+
+  
+  
+  
+  
+  
+  
+  
+  
   // Selección automática -> añade faltantes normalizados y vuelve a página 1
   btnAuto?.addEventListener('click', async () => {
     const faltan = getMAX() - seleccion.size;
@@ -254,10 +357,46 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Limpiar
-  btnClear?.addEventListener('click', () => {
+//   btnClear?.addEventListener('click', () => {
+//     seleccion.clear();
+//     fetchAndRender(currentPage);
+//   });
+  
+  
+async function limpiarSeleccion() {
+  const ids = Array.from(seleccion);
+  if (!ids.length) {
     seleccion.clear();
-    fetchAndRender(currentPage);
+    return fetchAndRender(currentPage);
+  }
+  
+  
+  const token  = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+  const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+
+  const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/limpiar-auto`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { [header]: token } : {})
+    },
+    body: JSON.stringify({ numeroIds: ids })
   });
+
+  if (!res.ok) throw new Error(await res.text());
+
+  seleccion.clear();
+  await fetchAndRender(currentPage);
+}
+  
+  
+  
+  btnClear?.addEventListener('click', async (e) => {
+	  try { await limpiarSeleccion(); }
+	  catch (err) { console.error(err); alert('No se pudo limpiar la selección.'); }
+	});
+  
+  
 
   // Cambio cantidad de boletos -> recalcula tope y recorta si hace falta
   selBoletos?.addEventListener('change', () => {

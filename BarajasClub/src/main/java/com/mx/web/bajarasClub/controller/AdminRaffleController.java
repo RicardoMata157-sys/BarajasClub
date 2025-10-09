@@ -1,12 +1,10 @@
 package com.mx.web.bajarasClub.controller;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -21,17 +19,18 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
+import com.mx.web.bajarasClub.dto.LimpiarSeleccionRequest;
 import com.mx.web.bajarasClub.dto.RaffleForm;
 import com.mx.web.bajarasClub.model.EstadoEdicion;
 import com.mx.web.bajarasClub.model.Numero;
@@ -172,6 +171,10 @@ public class AdminRaffleController {
 //
 		return ResponseEntity.ok(nums);
 	}
+	
+	
+	
+	
 	
 	
 	
