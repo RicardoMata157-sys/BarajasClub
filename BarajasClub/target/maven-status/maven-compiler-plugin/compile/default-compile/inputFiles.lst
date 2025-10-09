@@ -1,41 +1,41 @@
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/serviceImpl/RaflleServiceImpl.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/EstadoEdicion.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/serviceImpl/ServiceTipoPagoImpl.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/config/SecurityConfig.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/controller/GlobalExceptionHandler.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/service/ServiceNumero.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/service/ServiceCliente.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/Rifa.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/Boleto.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/repository/RepositoryEstadoBoleto.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/controller/AdminController.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/EstadoBoleto.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/TipoPago.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/dto/RaffleForm.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/repository/RaffleRepository.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/repository/RespoitoryBoleto.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/config/ConfigDataBases.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/controller/HomeController.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/util/NumeroGenerator.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/serviceImpl/ServiceClienteImpl.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/Cliente.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/Numero.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/controller/AdminRaffleController.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/service/RaffleService.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/service/ServiceEstadoBoleto.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/repository/RepositoryEstadoRifas.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/serviceImpl/ServicioBoletosImpl.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/service/ServiceEstadoRifa.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/dto/SeleccionNumeroRequest.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/repository/RepositoryNumero.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/repository/RepositoryCliente.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/serviceImpl/ServiceEstadoRifaImpl.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/service/ServiceTipoPago.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/serviceImpl/ServiceNumeroImpl.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/serviceImpl/ServicioEstadoBoleto.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/service/ServicioBoletos.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/dto/LimpiarSeleccionRequest.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/model/Usuario_Sitema.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/repository/RepositoryTipoPago.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/config/TioAndresApplication.java
-/Users/ricardomatacrisostomo/Documents/BarajasClub/BarajasClub/src/main/java/com/mx/web/bajarasClub/dto/CompraRequest.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServiceClienteImpl.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\Numero.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\RaflleServiceImpl.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\dto\LimpiarSeleccionRequest.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\config\ConfigDataBases.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\dto\SeleccionNumeroRequest.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\ServiceNumero.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\Rifa.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServicioBoletosImpl.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\ServiceTipoPago.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServiceEstadoRifaImpl.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\ServiceEstadoBoleto.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RepositoryCliente.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\config\SecurityConfig.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\util\NumeroGenerator.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\TipoPago.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\config\BarajasClub.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\controller\AdminRaffleController.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RaffleRepository.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RepositoryTipoPago.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\ServiceCliente.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\EstadoEdicion.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\Cliente.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServiceTipoPagoImpl.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RepositoryEstadoRifas.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\ServiceEstadoRifa.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServicioEstadoBoleto.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RepositoryNumero.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\ServicioBoletos.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\controller\HomeController.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\controller\AdminController.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RespoitoryBoleto.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\dto\CompraRequest.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\RaffleService.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\Usuario_Sitema.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\Boleto.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\EstadoBoleto.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RepositoryEstadoBoleto.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\controller\GlobalExceptionHandler.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\dto\RaffleForm.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServiceNumeroImpl.java

@@ -18,13 +18,13 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 @Configuration
 @SpringBootApplication(scanBasePackages = "com.mx.web.bajarasClub")
-public class TioAndresApplication extends ResponseEntityExceptionHandler implements WebMvcConfigurer {
+public class BarajasClub extends ResponseEntityExceptionHandler implements WebMvcConfigurer {
 
 	@Value("${app.upload-dir}")
 	private String uploadDir;
 
 	public static void main(String[] args) {
-		SpringApplication.run(TioAndresApplication.class, args);
+		SpringApplication.run(BarajasClub.class, args);
 	}
 	
 	
