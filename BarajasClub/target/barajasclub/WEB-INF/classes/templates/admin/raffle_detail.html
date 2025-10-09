@@ -221,40 +221,76 @@ document.addEventListener('DOMContentLoaded', () => {
     setPageMeta(data.page || 1, data.size || pageSize, data.total || 0);
   }
 
+//   async function fetchAndRender(page){
+// 	  if (!RIFA_ID) return;
+// 	  const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+// 	  const res = await fetch(url, { cache:'no-store' });
+// 	  if (!res.ok) throw new Error('HTTP '+res.status);
+// 	  const data = await res.json();
+
+// 	  // 1) Título desde JSON
+// 	  const h1 = document.querySelector('h1.h4.mb-3');
+// 	  if (h1 && data.nombreRifaSeleccionada) {
+// 	    h1.textContent = data.nombreRifaSeleccionada;
+// 	  }
+
+// 	  // 2) Imagen de preview desde JSON
+// 	  const box  = document.querySelector('.preview-box');
+// 	  const img  = box?.querySelector('img.preview-img');
+// 	  const empty= box?.querySelector('.preview-empty');
+// 	  if (img && data.imgUrl) {
+// 	    img.src = data.imgUrl;
+// 	    img.classList.remove('d-none');
+// 	    empty?.classList.add('d-none');
+// 	  } else {
+// 	    img?.classList.add('d-none');
+// 	    empty?.classList.remove('d-none');
+// 	  }
+
+// 	  // 3) Leyenda (cuenta de disponibles/apartados/pagados)
+// 	  updateLegendFromData(data);
+
+// 	  // 4) Grilla + paginador (tu código ya lo hace)
+// 	  buildGridPayload(data);
+// 	  buildPaginator(data.totalPages || 1);
+// 	  refreshInput();
+// 	}
+
+
   async function fetchAndRender(page){
-	  if (!RIFA_ID) return;
-	  const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
-	  const res = await fetch(url, { cache:'no-store' });
-	  if (!res.ok) throw new Error('HTTP '+res.status);
-	  const data = await res.json();
+	    if (!RIFA_ID) return;
+	    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+	    const res = await fetch(url, { cache:'no-store' });
+	    if (!res.ok) throw new Error('HTTP '+res.status);
+	    const data = await res.json();
 
-	  // 1) Título desde JSON
-	  const h1 = document.querySelector('h1.h4.mb-3');
-	  if (h1 && data.nombreRifaSeleccionada) {
-	    h1.textContent = data.nombreRifaSeleccionada;
+	    totalItems = Number(data.total || 0);
+	    
+	    // 1) Título desde JSON
+		  const h1 = document.querySelector('h1.h4.mb-3');
+		  if (h1 && data.nombreRifaSeleccionada) {
+		    h1.textContent = data.nombreRifaSeleccionada;
+		  }
+	    
+	    // 2) Imagen de preview desde JSON
+		  const box  = document.querySelector('.preview-box');
+		  const img  = box?.querySelector('img.preview-img');
+		  const empty= box?.querySelector('.preview-empty');
+		  if (img && data.imgUrl) {
+		    img.src = data.imgUrl;
+		    img.classList.remove('d-none');
+		    empty?.classList.add('d-none');
+		  } else {
+		    img?.classList.add('d-none');
+		    empty?.classList.remove('d-none');
+		  }
+	    
+	    updateLegendFromData(data); 
+
+	    buildGridPayload(data);
+	    buildPaginator(data.totalPages || 1);
+	    refreshInput();
 	  }
-
-	  // 2) Imagen de preview desde JSON
-	  const box  = document.querySelector('.preview-box');
-	  const img  = box?.querySelector('img.preview-img');
-	  const empty= box?.querySelector('.preview-empty');
-	  if (img && data.imgUrl) {
-	    img.src = data.imgUrl;
-	    img.classList.remove('d-none');
-	    empty?.classList.add('d-none');
-	  } else {
-	    img?.classList.add('d-none');
-	    empty?.classList.remove('d-none');
-	  }
-
-	  // 3) Leyenda (cuenta de disponibles/apartados/pagados)
-	  updateLegendFromData(data);
-
-	  // 4) Grilla + paginador (tu código ya lo hace)
-	  buildGridPayload(data);
-	  buildPaginator(data.totalPages || 1);
-	  refreshInput();
-	}
 
 
   // Delegación clicks en grilla
