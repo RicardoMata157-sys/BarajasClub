@@ -1,0 +1,683 @@
+<!-- templates/detalle.html -->
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+
+
+
+
+
+<style>
+  /* ...lo que ya tienes... */
+
+  /* Paginador: que no se salga y se vea compacto */
+  .paginator-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #paginator.pagination {
+    flex-wrap: wrap;            /* permite saltar de línea si hace falta */
+    gap: .25rem;
+  }
+  
+  #pageMeta {
+	min-height: 1.5rem;
+}
+  #paginator .page-item { margin: 0; }
+  #paginator .page-link {
+    min-width: 2.25rem;         /* botones más compactos */
+    text-align: center;
+    border-radius: .5rem;
+    padding: .25rem .5rem;
+  }
+  /* Elipsis desactivadas visualmente */
+  #paginator .page-item.disabled .page-link { cursor: default; }
+</style>
+
+
+
+
+
+
+<style>
+  .bg-hero {
+    background: radial-gradient(120% 120% at 80% 10%, #0d6efd 0%, #151824 60%, #0b0e16 100%);
+  }
+  .text-shadow { text-shadow: 0 2px 8px rgba(0,0,0,.35); }
+  .glass {
+    backdrop-filter: blur(8px);
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 1rem;
+  }
+  .raffle-card {
+    border: 1px solid rgba(0,0,0,.06);
+    transition: transform .15s ease, box-shadow .15s ease;
+    overflow: hidden;
+    border-radius: 1rem;
+  }
+  .raffle-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.12); }
+  .ratio > img { object-fit: cover; }
+  .img-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 45%);
+  }
+  .badge-estado { position: absolute; top: .75rem; right: .75rem; z-index: 3; }
+  .price-tag {
+    font-weight: 700; font-size: 1.05rem;
+  }
+  .progress-sm .progress-bar { height: .5rem; }
+  .filter-pills .btn-check:checked + .btn,
+  .filter-pills .btn:hover { border-color: #0d6efd; }
+  .countdown {
+    font-variant-numeric: tabular-nums;
+    font-size: .9rem;
+    opacity: .9;
+  }
+</style>
+
+  <head th:replace="~{fragments :: head('CLUB BARAJAS')}"></head>
+    <th:block th:replace="~{fragments :: scripts}"></th:block>
+  <meta charset="UTF-8" />
+  
+  <title th:text="${nombreRifaSeleccionada != null ? nombreRifaSeleccionada : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">Edición</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- CSRF (si usas Spring Security) -->
+ <meta name="_csrf" th:content="${_csrf.token}" />
+<meta name="_csrf_header" th:content="${_csrf.headerName}" />
+
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
+
+  <style>
+    .preview-box{border:1px solid #e9ecef;border-radius:.5rem;overflow:hidden;background:#fafafa}
+    .preview-img{display:block;width:100%;height:auto;object-fit:cover}
+    .preview-empty{display:block;padding:2.5rem 1rem;text-align:center;color:#6c757d}
+    .num-btn{min-width:3rem;margin:.2rem}
+    .nums-grid{min-height:180px}
+    .section-title{font-weight:600}
+    .header-subtle{font-size:.75rem;color:#6c757d;letter-spacing:.02em;text-transform:uppercase}
+    .pill{border-radius:999px;padding:.35rem .6rem}
+    .badge-outline{background:#fff;border:1px solid #dee2e6;color:#495057}
+    /* Overlay loader */
+    #loadingOverlay{position:fixed;inset:0;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);display:none;align-items:center;justify-content:center;z-index:2000}
+    #loadingOverlay .spinner-border{width:2.25rem;height:2.25rem}
+    /* Número seleccionado: textarea autoajuste */
+    #numeroTicket{resize:none;min-height:42px;max-height:180px;overflow:auto}
+    .page-link{cursor:pointer}
+  </style>
+</head>
+<body class="bg-light">
+ <header th:replace="~{fragments :: navbar}"></header>
+<div class="container py-4">
+  <!-- Encabezado -->
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <div class="header-subtle mb-1">Participa en</div>
+      <h3 class="m-0" id="tituloRifa"
+          th:text="${nombreRifaSeleccionada != null ? nombreRifaSeleccionada : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">
+        Edición
+      </h3>
+    </div>
+    <div class="text-end small">
+      <div><span class="badge bg-success">Disponible</span> <span id="countDisp">0</span></div>
+      <div><span class="badge bg-warning text-dark">Apartado</span> <span id="countAp">0</span></div>
+      <div><span class="badge bg-dark">Pagado</span> <span id="countPag">0</span></div>
+    </div>
+  </div>
+
+  <!-- Hero (Imagen + Selección) -->
+  <div class="row g-3">
+    <div class="col-12 col-md-4">
+      <div class="preview-box">
+        <img class="preview-img"
+             th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+             th:src="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+             th:alt="|Imagen de ${rifaSeleccionada.nombre}|"/>
+        <span class="preview-empty"
+              th:if="${rifaSeleccionada == null or (#strings.isEmpty(rifaSeleccionada.pathImagen) and #strings.isEmpty(rifaSeleccionada.rutaImagen))}">
+          Sin imagen
+        </span>
+      </div>
+      <a class="small mt-2 d-inline-block text-decoration-none"
+         th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+         th:href="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+         target="_blank" rel="noopener">Abrir imagen en nueva pestaña</a>
+    </div>
+
+    <div class="col-12 col-md-8">
+      <!-- Controles de selección -->
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-end gap-3">
+            <div>
+              <label class="form-label mb-1">Boletos</label>
+              <input type="number" class="form-control" id="cantidadBoletos" min="1" value="1" style="width:120px">
+              <div class="form-text">Se multiplicará por Núm. por boleto.</div>
+            </div>
+
+            <div>
+              <div class="header-subtle mb-1">Núm. por boleto</div>
+              <div class="fs-5 fw-semibold"><span id="spanNumPorBoleto"
+                th:text="${numPorBoleto != null ? numPorBoleto : (rifaSeleccionada != null && rifaSeleccionada.numerosPorBoleto != null ? rifaSeleccionada.numerosPorBoleto : 1)}">1</span></div>
+            </div>
+
+            <div class="ms-auto d-flex gap-2">
+              <button id="btnAuto" type="button" class="btn btn-outline-primary">
+                <span class="me-1">⚡</span>Selección automática
+              </button>
+              <button id="btnClear" type="button" class="btn btn-outline-secondary">Limpiar</button>
+            </div>
+          </div>
+
+          <hr/>
+
+          <!-- Info del tope -->
+          <div class="mb-2">
+            <div class="header-subtle">Selecciona tus números</div>
+            <div><strong id="selResumen">0 / 0</strong></div>
+          </div>
+
+          <!-- Grilla -->
+          <div
+						class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
+						<div id="pageMeta" class="small text-muted">—</div>
+
+						<div class="d-flex align-items-center gap-3 flex-wrap">
+							<!-- Por página -->
+							<div class="d-flex align-items-center gap-2">
+								<label class="form-label m-0 small">Por página</label> <select
+									id="pageSizeSelect" class="form-select form-select-sm"
+									style="width: auto">
+									<option value="100">100</option>
+									<option value="200">200</option>
+									<option value="500" selected>500</option>
+									<option value="1000">1000</option>
+								</select>
+							</div>
+
+							<!-- Boletos (MOVIDO AQUÍ) -->
+							<div class="d-flex align-items-center gap-2">
+								<label class="form-label m-0 small">Boletos</label> <select
+									id="selBoletos" class="form-select form-select-sm"
+									style="width: auto">
+									<option value="1" selected>1</option>
+									<option value="2">2</option>
+									<option value="3">3</option>
+									<option value="4">4</option>
+									<option value="5">5</option>
+									<option value="10">10</option>
+								</select>
+							</div>
+						</div>
+					</div>
+          
+          
+          
+          
+          
+          <div id="numsGrid" class="nums-grid"></div>
+
+          <!-- Paginador -->
+						<nav class="mt-3">
+							<div class="paginator-wrap">
+								<ul id="paginator"
+									class="pagination pagination-sm mb-0 justify-content-center"></ul>
+							</div>
+						</nav>
+
+
+					</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Formulario de compra (pública) -->
+  <div class="card mt-3">
+    <div class="card-body">
+      <form th:action="@{/participar}" method="post" id="formParticipar">
+        <input type="hidden" id="rifaId" name="rifaId" th:value="${rifaSeleccionada != null ? rifaSeleccionada.id : 0}">
+        <div class="row g-3">
+          <div class="col-12 col-md-6">
+            <div class="section-title mb-2">Tus datos</div>
+            <div class="row g-2">
+              <div class="col-12 col-md-6">
+                <label class="form-label">Nombre</label>
+                <input class="form-control" name="nombre" required>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Apellido paterno</label>
+                <input class="form-control" name="apellido_paterno" required>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Apellido materno</label>
+                <input class="form-control" name="apellido_materno">
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Teléfono</label> <input id="telefono"
+									name="telefono" class="form-control" inputmode="tel"
+									pattern="^\+?\d{10,15}$" />
+								<div class="form-text">10–15 dígitos, permite + opcional.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Email</label>
+                <input type="email" class="form-control" name="email" required>
+              </div>
+              
+              <div class="mb-3">
+								<label class="form-label">Municipio</label> <input
+									name="municipio" class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Estado</label> <input name="estado"
+									class="form-control" />
+							</div>
+							<div class="mb-3">
+								<label class="form-label">Código Postal</label> <input
+									name="codigoPostal" class="form-control" />
+							</div>
+              
+              
+              
+              
+              
+            </div>
+          </div>
+
+          <div class="col-12 col-md-6">
+            <div class="section-title mb-2">Pago</div>
+            <div class="row g-2">
+              <div class="col-12">
+                <label class="form-label">Método de pago</label>
+                <select class="form-control" name="tipoPagoId" required>
+                  <option value="" selected disabled>Selecciona…</option>
+                  <option th:each="tp : ${tiposPago}"
+                          th:if="${#strings.toUpperCase(tp.nombre) != 'EFECTIVO'}"
+                          th:value="${tp.id}" th:text="${tp.nombre}">Transferencia</option>
+                </select>
+                <div class="form-text">No disponible pago en efectivo.</div>
+              </div>
+              <div class="col-12">
+                <label class="form-label">Números seleccionados</label>
+                <textarea id="numeroTicket" name="numeroTicket" class="form-control" required readonly></textarea>
+                <div class="form-text">Se llena automáticamente con los números elegidos (separados por comas).</div>
+              </div>
+              <div class="col-12 col-md-6">
+                <label class="form-label">Cantidad de boletos</label>
+                <input type="number" id="cantidadBoletosForm" name="cantidadBoletos" min="1" class="form-control" value="1" required>
+              </div>
+            </div>
+            <div class="d-grid mt-3">
+              <button class="btn btn-primary btn-lg" type="submit">Apartar números</button>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>
+
+<!-- Loader -->
+<div id="loadingOverlay">
+  <div class="text-center">
+    <div class="spinner-border" role="status" aria-label="Cargando"></div>
+    <div class="small mt-2">Cargando…</div>
+  </div>
+</div>
+
+<!-- Modal Ticket (muestra resumen post-apartar) -->
+<div class="modal fade" id="ticketModal" tabindex="-1"
+     aria-hidden="true" th:classappend="${mostrarTicket} ? 'show' : ''"
+     th:style="${mostrarTicket} ? 'display:block' : 'display:none'">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div th:with="
+        rifaNombreFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa') ? ticketGroup['nombreRifa']
+                          : (nombreRifaSeleccionada != null ? nombreRifaSeleccionada
+                             : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición'))},
+        boletosFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos') ? ticketGroup['cantidadBoletos'] : 0},
+        npbFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto') ? ticketGroup['numerosPorBoleto'] : 1}"
+        class="modal-header py-2">
+        <div>
+          <div class="text-muted small mb-1">Edición</div>
+          <h6 class="m-0" th:text="${rifaNombreFinal}">Edición</h6>
+        </div>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <span class="badge text-bg-light border">Boletos: <span th:text="${boletosFinal}">0</span></span>
+          <span class="badge text-bg-light border">Núm x boleto: <span th:text="${npbFinal}">1</span></span>
+          <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="section-title mb-2">Resumen de compra</div>
+
+        <div class="mb-3" th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+          <div class="header-subtle mb-1">Folios</div>
+          <div class="d-flex flex-wrap gap-1">
+            <span class="badge rounded-pill text-bg-light border"
+                  th:each="t : ${ticketGroup['tickets']}"
+                  th:text="${#maps.containsKey(t,'folio') ? t['folio'] : t}">ABC123</span>
+          </div>
+        </div>
+
+        <div th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+          <div class="header-subtle mb-1">Participa con</div>
+          <div class="d-flex flex-wrap gap-1">
+            <th:block th:each="t : ${ticketGroup['tickets']}">
+              <span class="pill badge bg-secondary"
+                    th:each="n : ${#maps.containsKey(t,'numeros') ? t['numeros'] : {}}"
+                    th:text="${n}">0031</span>
+            </th:block>
+          </div>
+        </div>
+
+        <hr class="my-3" />
+        <div class="d-flex justify-content-between">
+          <div class="muted">
+            <span>Total de boletos:</span>
+            <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos') ? ticketGroup['cantidadBoletos'] : 0}">0</strong>
+            <span class="ms-2">· Números por boleto:</span>
+            <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto') ? ticketGroup['numerosPorBoleto'] : 1}">1</strong>
+          </div>
+          <div class="text-end">
+            <div class="muted">Total</div>
+            <div class="fs-5 fw-bold"
+                 th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'total')
+                           ? '$ ' + #numbers.formatDecimal(ticketGroup['total'], 1, 2) : '$ 0.00'}">$ 0.00</div>
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-3">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+          <button type="button" class="btn btn-primary" id="btnTicketOk">Entendido</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<script th:inline="javascript">
+/* ================== CONFIG ================== */
+const BASE = /*[[@{/}]]*/ '/';
+let RIFA_ID = Number(document.getElementById('rifaId')?.value || 0);
+let currentPage = 1;
+let pageSize = 1000;
+let digits = 2;
+let numPorBoleto = Number(document.getElementById('spanNumPorBoleto')?.textContent || 1);
+const selResumen = document.getElementById('selResumen');
+const grid = document.getElementById('numsGrid');
+const paginator = document.getElementById('paginator');
+const inputBoletos = document.getElementById('cantidadBoletos');
+const inputBoletosForm = document.getElementById('cantidadBoletosForm');
+const txtNums = document.getElementById('numeroTicket');
+
+/* CSRF */
+const CSRF = {
+  token: document.querySelector('meta[name="_csrf"]')?.getAttribute('content'),
+  header: document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content')
+};
+
+/* Loader */
+let __loadingCount = 0;
+function showLoader(){ __loadingCount++; document.getElementById('loadingOverlay').style.display='flex'; }
+function hideLoader(){ __loadingCount=Math.max(0,__loadingCount-1); if(!__loadingCount){document.getElementById('loadingOverlay').style.display='none';} }
+
+/* Selección en memoria */
+const seleccion = new Set(); // guarda etiquetas formateadas (con ceros)
+/* Helpers */
+const pad = (n) => String(n).padStart(digits, '0');
+const norm = (s) => pad(parseInt(String(s).replace(/\D/g,''),10));
+const getMAX = () => numPorBoleto * Number(inputBoletos.value || 1);
+function refreshInput(){
+  const arr = Array.from(seleccion).sort((a,b)=>parseInt(a)-parseInt(b));
+  txtNums.value = arr.join(', ');
+  // autoajuste de altura
+  txtNums.style.height = 'auto';
+  txtNums.style.height = Math.min(txtNums.scrollHeight, 180)+'px';
+  selResumen.textContent = `${arr.length} / ${getMAX()}`;
+}
+function trimSelectionToMax(){
+  const max = getMAX();
+  if (seleccion.size > max) {
+    const arr = Array.from(seleccion).sort((a,b)=>parseInt(a)-parseInt(b));
+    seleccion.clear();
+    arr.slice(0, max).forEach(n=>seleccion.add(n));
+  }
+  refreshInput();
+}
+
+/* Render grid */
+function renderGrid({disp=[], ap=[], pag=[]}){
+  const frag = document.createDocumentFragment();
+
+  const mkBtn = (label, cls, disabled, title) => {
+    const btn = document.createElement('button');
+    btn.type='button';
+    btn.className = `btn btn-sm num-btn ${cls}`;
+    btn.textContent = label;
+    btn.dataset.label = label;
+    if (disabled){ btn.disabled = true; btn.title = title || ''; }
+    return btn;
+  };
+
+  // DISPONIBLES (clickeables)
+  disp.forEach(n => frag.appendChild(mkBtn(pad(n), 'btn-success', false)));
+  // APARTADOS
+  ap.forEach(n => frag.appendChild(mkBtn(pad(n), 'btn-warning', true, 'Apartado')));
+  // PAGADOS
+  pag.forEach(n => frag.appendChild(mkBtn(pad(n), 'btn-dark', true, 'Pagado')));
+
+  grid.innerHTML='';
+  grid.appendChild(frag);
+}
+
+/* Paginador simple */
+ function renderPaginator(totalPages){
+    const ul = paginator;
+    ul.innerHTML = '';
+
+    // helper para crear items
+    const addItem = (label, page, {active=false, disabled=false, aria=null} = {}) => {
+      const li = document.createElement('li');
+      li.className = `page-item${active ? ' active' : ''}${disabled ? ' disabled' : ''}`;
+      const a = document.createElement('a');
+      a.className = 'page-link';
+      a.textContent = label;
+      if (aria) a.setAttribute('aria-label', aria);
+
+      if (!disabled && page && page !== currentPage) {
+        a.addEventListener('click', async () => {
+          currentPage = page;
+          await fetchAndRender(currentPage);
+        });
+      }
+      li.appendChild(a);
+      ul.appendChild(li);
+    };
+
+    const addEllipsis = () => addItem('…', null, {disabled:true});
+
+    // sin páginas o una sola
+    totalPages = Math.max(1, Number(totalPages || 1));
+
+    // ventanas según ancho (más chica en móviles)
+    const win = window.innerWidth < 576 ? 1 : (window.innerWidth < 992 ? 2 : 3);
+    const start = Math.max(2, currentPage - win);
+    const end   = Math.min(totalPages - 1, currentPage + win);
+
+    // Prev
+    addItem('«', Math.max(1, currentPage - 1), {disabled: currentPage === 1, aria: 'Anterior'});
+
+    // Primera
+    addItem('1', 1, {active: currentPage === 1});
+
+    // Elipsis inicial
+    if (start > 2) addEllipsis();
+
+    // Ventana central
+    for (let p = start; p <= end; p++) {
+      addItem(String(p), p, {active: p === currentPage});
+    }
+
+    // Elipsis final
+    if (end < totalPages - 1) addEllipsis();
+
+    // Última (si hay más de una)
+    if (totalPages > 1) {
+      addItem(String(totalPages), totalPages, {active: currentPage === totalPages});
+    }
+
+    // Next
+    addItem('»', Math.min(totalPages, currentPage + 1), {disabled: currentPage === totalPages, aria: 'Siguiente'});
+  }
+
+/* Leyenda */
+function updateLegendFromData(data){
+  const cDisp = Number(data.total || 0); // total DISPONIBLES global
+  document.getElementById('countDisp').textContent = cDisp;
+  document.getElementById('countAp').textContent = (data.ap?.length ?? 0);   // si envías listas completas, actualiza aquí
+  document.getElementById('countPag').textContent = (data.pag?.length ?? 0);
+  // título
+  const t = document.getElementById('tituloRifa');
+  if (data.nombreRifaSeleccionada && t) t.textContent = data.nombreRifaSeleccionada;
+}
+
+/* Fetch grilla */
+async function fetchAndRender(page){
+  if (!RIFA_ID) return;
+  showLoader();
+  try{
+    const url = `${BASE}detalle/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+    const res = await fetch(url, { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const data = await res.json();
+
+    digits = Number(data.digits || 2);
+    numPorBoleto = Number(data.numPorBoleto || numPorBoleto);
+
+    updateLegendFromData(data);
+    renderGrid({disp:data.disp||[], ap:data.ap||[], pag:data.pag||[]});
+    renderPaginator(Number(data.totalPages || 1));
+    refreshInput();
+  } catch(err){
+    console.error(err);
+  } finally {
+    hideLoader();
+  }
+}
+
+/* Click en grid */
+grid.addEventListener('click', async (e) => {
+  const btn = e.target.closest('button.num-btn.btn-success');
+  if (!btn) return;
+  const label = btn.dataset.label;
+  const willSelect = !btn.classList.contains('active');
+
+  // Respeta el máximo
+  if (willSelect && seleccion.size >= getMAX()) return;
+
+  showLoader();
+  try{
+    // Persistencia temporal (no bloqueante si falla)
+    await fetch(`${BASE}detalle/${RIFA_ID}/seleccion`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+      },
+      body: JSON.stringify({ numero: label, seleccionado: willSelect, rifaId: RIFA_ID })
+    }).catch(()=>{});
+
+    // UI local
+    if (willSelect){ seleccion.add(label); btn.classList.add('active'); btn.classList.remove('btn-success'); btn.classList.add('btn-outline-success'); }
+    else { seleccion.delete(label); btn.classList.remove('active'); btn.classList.remove('btn-outline-success'); btn.classList.add('btn-success'); }
+    refreshInput();
+  } finally {
+    hideLoader();
+  }
+});
+
+/* Selección automática */
+document.getElementById('btnAuto')?.addEventListener('click', async () => {
+  const faltan = getMAX() - seleccion.size;
+  if (faltan <= 0) return;
+
+  showLoader();
+  try{
+    const url = `${BASE}detalle/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
+    const res = await fetch(url, { cache:'no-store' });
+    if (res.ok){
+      const picks = await res.json();            // ej. ["01","15","23"]
+      picks.map(norm).forEach(n => seleccion.add(n));
+    } else {
+      // Fallback: tomar de la grilla actual
+      const avail = Array.from(grid.querySelectorAll('.btn-success.num-btn')).map(b=>b.dataset.label);
+      avail.slice(0,faltan).forEach(n=>seleccion.add(n));
+    }
+    currentPage = 1;
+    await fetchAndRender(currentPage);
+  } catch(err){
+    console.error(err);
+  } finally {
+    hideLoader();
+  }
+});
+
+/* Limpiar */
+document.getElementById('btnClear')?.addEventListener('click', async () => {
+  showLoader();
+  try{
+    const arr = Array.from(seleccion);
+    await Promise.all(arr.map(n => fetch(`${BASE}detalle/${RIFA_ID}/seleccion`, {
+      method:'POST',
+      credentials:'same-origin',
+      headers: {'Content-Type':'application/json', ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})},
+      body: JSON.stringify({ numero:n, seleccionado:false, rifaId:RIFA_ID })
+    }).catch(()=>{})));
+    seleccion.clear();
+    refreshInput();
+    await fetchAndRender(currentPage);
+  } finally {
+    hideLoader();
+  }
+});
+
+/* Sincroniza boletos (input superior e input del form) */
+function syncBoletosInputs(v){
+  inputBoletos.value = v;
+  inputBoletosForm.value = v;
+  trimSelectionToMax();
+}
+inputBoletos.addEventListener('input', e => syncBoletosInputs(e.target.value || 1));
+inputBoletosForm.addEventListener('input', e => syncBoletosInputs(e.target.value || 1));
+
+/* Al enviar el form, asegura que #numeroTicket está actualizado */
+document.getElementById('formParticipar')?.addEventListener('submit', () => {
+  refreshInput();
+});
+
+/* Init */
+document.addEventListener('DOMContentLoaded', () => {
+  fetchAndRender(currentPage);
+  
+  const pageMeta   = document.getElementById('pageMeta');
+  
+  function setPageMeta(page, size, total){
+	    if (!pageMeta) return;
+	    const from = total === 0 ? 0 : ((page-1)*size)+1;
+	    const to   = Math.min(total, page*size);
+	    pageMeta.textContent = `Mostrando ${from}–${to} de ${total}`;
+	  }
+  
+  
+  
+});
+</script>
+
+
+</body>
+</html>

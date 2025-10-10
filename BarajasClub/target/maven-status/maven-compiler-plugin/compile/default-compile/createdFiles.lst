@@ -32,6 +32,7 @@ com\mx\web\bajarasClub\controller\AdminController.class
 com\mx\web\bajarasClub\dto\RaffleForm.class
 com\mx\web\bajarasClub\controller\HomeController.class
 com\mx\web\bajarasClub\model\EstadoBoleto.class
+com\mx\web\bajarasClub\controller\PublicParticiparController.class
 com\mx\web\bajarasClub\model\Cliente.class
 com\mx\web\bajarasClub\service\ServiceEstadoRifa.class
 com\mx\web\bajarasClub\config\BarajasClub.class

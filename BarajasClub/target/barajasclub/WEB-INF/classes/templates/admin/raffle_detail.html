@@ -112,6 +112,39 @@ document.addEventListener('DOMContentLoaded', () => {
   };
   
   
+  
+  
+  
+//--- Loader global ---
+  let __loadingCount = 0;
+  function showLoader(){
+    __loadingCount++;
+    document.getElementById('loadingOverlay')?.classList.remove('d-none');
+  }
+  function hideLoader(){
+    __loadingCount = Math.max(0, __loadingCount-1);
+    if (__loadingCount === 0) {
+      document.getElementById('loadingOverlay')?.classList.add('d-none');
+    }
+  }
+
+  // --- Spinner en botón mientras corre una tarea async ---
+  function withBtnSpinner(btn, fn){
+    return (async()=>{
+      if (!btn) return fn();
+      const original = btn.innerHTML;
+      const label = btn.dataset.loadingText || btn.textContent || 'Cargando…';
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>${label}`;
+      try { return await fn(); }
+      finally { btn.disabled = false; btn.innerHTML = original; }
+    })();
+  }
+
+  
+  
+  
+  
   let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;  // se sobrescribe con el JSON
   let CANT_BOLETOS   = Number(document.getElementById('selBoletos')?.value || 1);
 
@@ -316,38 +349,80 @@ document.addEventListener('DOMContentLoaded', () => {
 
   async function fetchAndRender(page){
 	    if (!RIFA_ID) return;
-	    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
-	    const res = await fetch(url, { cache:'no-store' });
-	    if (!res.ok) throw new Error('HTTP '+res.status);
-	    const data = await res.json();
+	    showLoader();
+	    
+	    
+	    try {
+	        const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+	        const res = await fetch(url, { cache:'no-store' });
+	        if (!res.ok) throw new Error('HTTP '+res.status);
+	        const data = await res.json();
+	        totalItems = Number(data.total || 0);
+		    
+		    // 1) Título desde JSON
+			  const h1 = document.querySelector('h1.h4.mb-3');
+			  if (h1 && data.nombreRifaSeleccionada) {
+			    h1.textContent = data.nombreRifaSeleccionada;
+			  }
+		    
+		    // 2) Imagen de preview desde JSON
+			  const box  = document.querySelector('.preview-box');
+			  const img  = box?.querySelector('img.preview-img');
+			  const empty= box?.querySelector('.preview-empty');
+			  if (img && data.imgUrl) {
+			    img.src = data.imgUrl;
+			    img.classList.remove('d-none');
+			    empty?.classList.add('d-none');
+			  } else {
+			    img?.classList.add('d-none');
+			    empty?.classList.remove('d-none');
+			  }
+			  updateLegendFromData(data); 
 
-	    totalItems = Number(data.total || 0);
+			    buildGridPayload(data);
+			    updateMaxUI(); 
+			    buildPaginator(data.totalPages || 1);
+			    refreshInput();
+	      } catch (err) {
+	        console.error('[fetchAndRender] error:', err);
+	      } finally {
+	        hideLoader();            // <-- CLAVE
+	      }
 	    
-	    // 1) Título desde JSON
-		  const h1 = document.querySelector('h1.h4.mb-3');
-		  if (h1 && data.nombreRifaSeleccionada) {
-		    h1.textContent = data.nombreRifaSeleccionada;
-		  }
+	   
 	    
-	    // 2) Imagen de preview desde JSON
-		  const box  = document.querySelector('.preview-box');
-		  const img  = box?.querySelector('img.preview-img');
-		  const empty= box?.querySelector('.preview-empty');
-		  if (img && data.imgUrl) {
-		    img.src = data.imgUrl;
-		    img.classList.remove('d-none');
-		    empty?.classList.add('d-none');
-		  } else {
-		    img?.classList.add('d-none');
-		    empty?.classList.remove('d-none');
-		  }
-	    
-	    updateLegendFromData(data); 
+// 	    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+// 	    const res = await fetch(url, { cache:'no-store' });
+// 	    if (!res.ok) throw new Error('HTTP '+res.status);
+// 	    const data = await res.json();
 
-	    buildGridPayload(data);
-	    updateMaxUI(); 
-	    buildPaginator(data.totalPages || 1);
-	    refreshInput();
+// 	    totalItems = Number(data.total || 0);
+	    
+// 	    // 1) Título desde JSON
+// 		  const h1 = document.querySelector('h1.h4.mb-3');
+// 		  if (h1 && data.nombreRifaSeleccionada) {
+// 		    h1.textContent = data.nombreRifaSeleccionada;
+// 		  }
+	    
+// 	    // 2) Imagen de preview desde JSON
+// 		  const box  = document.querySelector('.preview-box');
+// 		  const img  = box?.querySelector('img.preview-img');
+// 		  const empty= box?.querySelector('.preview-empty');
+// 		  if (img && data.imgUrl) {
+// 		    img.src = data.imgUrl;
+// 		    img.classList.remove('d-none');
+// 		    empty?.classList.add('d-none');
+// 		  } else {
+// 		    img?.classList.add('d-none');
+// 		    empty?.classList.remove('d-none');
+// 		  }
+	    
+// 	    updateLegendFromData(data); 
+
+// 	    buildGridPayload(data);
+// 	    updateMaxUI(); 
+// 	    buildPaginator(data.totalPages || 1);
+// 	    refreshInput();
 	  }
 
 
@@ -425,27 +500,46 @@ document.addEventListener('DOMContentLoaded', () => {
   
   
   
+//   async function setSeleccionServidor({ label, selected }) {
+// 	  showLoader();
+// 	  const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
+// 	    method: 'POST',
+// 	    credentials: 'same-origin',
+// 	    headers: {
+// 	      'Content-Type': 'application/json',
+// 	      ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+// 	    },
+// 	    body: JSON.stringify({
+// 	      numero: label,
+// 	      seleccionado: !!selected,
+// 	      rifaId: RIFA_ID            // ← antes enviabas el hidden inicial
+// 	    })
+// 	  });
+// 	  if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+// 	  return res.json();
+// 	}
+
+
+  
   async function setSeleccionServidor({ label, selected }) {
-	  const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
-	    method: 'POST',
-	    credentials: 'same-origin',
-	    headers: {
-	      'Content-Type': 'application/json',
-	      ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
-	    },
-	    body: JSON.stringify({
-	      numero: label,
-	      seleccionado: !!selected,
-	      rifaId: RIFA_ID            // ← antes enviabas el hidden inicial
-	    })
-	  });
-	  if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
-	  return res.json();
-	}
+  showLoader();
+  try {
+    const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+      },
+      body: JSON.stringify({ numero: label, seleccionado: !!selected, rifaId: RIFA_ID })
+    });
+    if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+    return res.json();
+  } finally {
+    hideLoader();            // <-- CLAVE
+  }
+}
 
-
-  
-  
   
   
   
@@ -453,24 +547,45 @@ document.addEventListener('DOMContentLoaded', () => {
   
   
   // Selección automática -> añade faltantes normalizados y vuelve a página 1
+//   btnAuto?.addEventListener('click', async () => {
+//     const faltan = getMAX() - seleccion.size;
+//     if (faltan <= 0 || !RIFA_ID) return;
+//     showLoader();
+//     // ¡OJO!: Asegúrate que tu endpoint sea /admin/rifa/{id}/auto-numeros y regrese array de Strings
+//     const url = `${BASE}admin/rifa/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
+//     try{
+//       const res = await fetch(url, { cache:'no-store' });
+//       if (!res.ok) throw new Error('HTTP '+res.status);
+//       const nums = await res.json(); // ej. ["01","15","23"]
+//       nums.map(norm).forEach(n => seleccion.add(n));
+
+//       currentPage = 1;                  // verlos en la primera página
+//       await fetchAndRender(currentPage);
+//     } catch(err){
+//       console.error('[autoPick] error:', err);
+//     }
+//   });
+  
+  
   btnAuto?.addEventListener('click', async () => {
-    const faltan = getMAX() - seleccion.size;
-    if (faltan <= 0 || !RIFA_ID) return;
-
-    // ¡OJO!: Asegúrate que tu endpoint sea /admin/rifa/{id}/auto-numeros y regrese array de Strings
+  const faltan = getMAX() - seleccion.size;
+  if (faltan <= 0 || !RIFA_ID) return;
+  showLoader();
+  try{
     const url = `${BASE}admin/rifa/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
-    try{
-      const res = await fetch(url, { cache:'no-store' });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      const nums = await res.json(); // ej. ["01","15","23"]
-      nums.map(norm).forEach(n => seleccion.add(n));
+    const res = await fetch(url, { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const nums = await res.json(); // ej. ["01","15","23"]
+    nums.map(norm).forEach(n => seleccion.add(n));
+    currentPage = 1;                // verlos en la primera página
+    await fetchAndRender(currentPage);
+  } catch(err){
+    console.error('[autoPick] error:', err);
+  } finally {
+    hideLoader();                   // <-- CLAVE
+  }
+});
 
-      currentPage = 1;                  // verlos en la primera página
-      await fetchAndRender(currentPage);
-    } catch(err){
-      console.error('[autoPick] error:', err);
-    }
-  });
 
   // Limpiar
 //   btnClear?.addEventListener('click', () => {
@@ -506,11 +621,21 @@ async function limpiarSeleccion() {
 }
   
   
-  
-  btnClear?.addEventListener('click', async (e) => {
-	  try { await limpiarSeleccion(); }
-	  catch (err) { console.error(err); alert('No se pudo limpiar la selección.'); }
-	});
+btnClear?.addEventListener('click', () =>
+withBtnSpinner(btnClear, async () => {
+  showLoader();
+  try {
+    await limpiarSeleccion(); // tu función existente
+  } finally {
+    hideLoader();
+  }
+})
+);
+
+//   btnClear?.addEventListener('click', async (e) => {
+// 	  try { await limpiarSeleccion(); }
+// 	  catch (err) { console.error(err); alert('No se pudo limpiar la selección.'); }
+// 	});
   
   
 
@@ -1485,8 +1610,29 @@ document.addEventListener('DOMContentLoaded', () => {
 </style>
 
 
+<style>
+#loadingOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,.6);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;          /* Sobre modales y grilla */
+}
+.d-none{ display: none !important; }
+</style>
 
 
+
+<!-- Overlay de carga global -->
+<div id="loadingOverlay" class="d-none">
+  <div class="text-center">
+    <div class="spinner-border" role="status" aria-label="Cargando"></div>
+    <div class="small mt-2">Cargando…</div>
+  </div>
+</div>
 
 
 

@@ -130,11 +130,11 @@
 
             <div class="mt-auto d-flex gap-2">
               <!-- AJUSTA la ruta al detalle/compra de tu app -->
-              <a class="btn btn-primary w-100"
-                 th:href="@{/detalle/{id}(id=${r.id})}">
-                Participar ahora
-              </a>
-<!--               <a class="btn btn-outline-secondary" -->
+								<button type="button" class="btn btn-primary w-100"
+									th:onclick="|window.location='@{/detalle/{id}(id=${r.id})}'|">
+									Participar ahora</button>
+
+								<!--               <a class="btn btn-outline-secondary" -->
 <!--                  th:href="@{/detalle/{id}(id=${r.id})}"> -->
 <!--                 Ver más -->
 <!--               </a> -->

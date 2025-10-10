@@ -111,6 +111,7 @@ public class SecurityConfig implements WebMvcConfigurer {
             		  .antMatchers("/error").permitAll()
             	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**").permitAll()
             	      .antMatchers(HttpMethod.GET, "/").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/detalle/**").permitAll()
             	      .antMatchers(HttpMethod.POST, "/admin/rifas").hasRole("ADMIN")
             	      .antMatchers(HttpMethod.GET, "/admin/rifas/**").hasRole("ADMIN")
             	      .anyRequest().authenticated()
