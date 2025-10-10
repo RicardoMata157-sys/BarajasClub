@@ -1,683 +1,1663 @@
-<!-- templates/detalle.html -->
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Comprar boleto')}">
 
-
-
-
-
-<style>
-  /* ...lo que ya tienes... */
-
-  /* Paginador: que no se salga y se vea compacto */
-  .paginator-wrap {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-  #paginator.pagination {
-    flex-wrap: wrap;            /* permite saltar de línea si hace falta */
-    gap: .25rem;
-  }
-  
-  #pageMeta {
-	min-height: 1.5rem;
-}
-  #paginator .page-item { margin: 0; }
-  #paginator .page-link {
-    min-width: 2.25rem;         /* botones más compactos */
-    text-align: center;
-    border-radius: .5rem;
-    padding: .25rem .5rem;
-  }
-  /* Elipsis desactivadas visualmente */
-  #paginator .page-item.disabled .page-link { cursor: default; }
-</style>
-
-
-
-
-
-
-<style>
-  .bg-hero {
-    background: radial-gradient(120% 120% at 80% 10%, #0d6efd 0%, #151824 60%, #0b0e16 100%);
-  }
-  .text-shadow { text-shadow: 0 2px 8px rgba(0,0,0,.35); }
-  .glass {
-    backdrop-filter: blur(8px);
-    background: rgba(255,255,255,.06);
-    border: 1px solid rgba(255,255,255,.12);
-    border-radius: 1rem;
-  }
-  .raffle-card {
-    border: 1px solid rgba(0,0,0,.06);
-    transition: transform .15s ease, box-shadow .15s ease;
-    overflow: hidden;
-    border-radius: 1rem;
-  }
-  .raffle-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(0,0,0,.12); }
-  .ratio > img { object-fit: cover; }
-  .img-overlay {
-    position: absolute; inset: 0;
-    background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0) 45%);
-  }
-  .badge-estado { position: absolute; top: .75rem; right: .75rem; z-index: 3; }
-  .price-tag {
-    font-weight: 700; font-size: 1.05rem;
-  }
-  .progress-sm .progress-bar { height: .5rem; }
-  .filter-pills .btn-check:checked + .btn,
-  .filter-pills .btn:hover { border-color: #0d6efd; }
-  .countdown {
-    font-variant-numeric: tabular-nums;
-    font-size: .9rem;
-    opacity: .9;
-  }
-</style>
-
-  <head th:replace="~{fragments :: head('CLUB BARAJAS')}"></head>
-    <th:block th:replace="~{fragments :: scripts}"></th:block>
-  <meta charset="UTF-8" />
-  
-  <title th:text="${nombreRifaSeleccionada != null ? nombreRifaSeleccionada : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">Edición</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- CSRF (si usas Spring Security) -->
- <meta name="_csrf" th:content="${_csrf.token}" />
+<meta name="_csrf" th:content="${_csrf.token}" />
 <meta name="_csrf_header" th:content="${_csrf.headerName}" />
 
-  <!-- Bootstrap 5 -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet"/>
 
-  <style>
-    .preview-box{border:1px solid #e9ecef;border-radius:.5rem;overflow:hidden;background:#fafafa}
-    .preview-img{display:block;width:100%;height:auto;object-fit:cover}
-    .preview-empty{display:block;padding:2.5rem 1rem;text-align:center;color:#6c757d}
-    .num-btn{min-width:3rem;margin:.2rem}
-    .nums-grid{min-height:180px}
-    .section-title{font-weight:600}
-    .header-subtle{font-size:.75rem;color:#6c757d;letter-spacing:.02em;text-transform:uppercase}
-    .pill{border-radius:999px;padding:.35rem .6rem}
-    .badge-outline{background:#fff;border:1px solid #dee2e6;color:#495057}
-    /* Overlay loader */
-    #loadingOverlay{position:fixed;inset:0;background:rgba(255,255,255,.6);backdrop-filter:blur(1px);display:none;align-items:center;justify-content:center;z-index:2000}
-    #loadingOverlay .spinner-border{width:2.25rem;height:2.25rem}
-    /* Número seleccionado: textarea autoajuste */
-    #numeroTicket{resize:none;min-height:42px;max-height:180px;overflow:auto}
-    .page-link{cursor:pointer}
-  </style>
+
 </head>
-<body class="bg-light">
- <header th:replace="~{fragments :: navbar}"></header>
-<div class="container py-4">
-  <!-- Encabezado -->
-  <div class="d-flex align-items-center justify-content-between mb-3">
+
+<script>
+  // Hace crecer el textarea al contenido, con tope
+  function autoGrowTextarea(el) {
+    if (!el) return;
+    el.classList.remove('scrolled');
+    el.style.height = 'auto';                // recalcular desde 0
+    const max = parseInt(getComputedStyle(el).maxHeight, 10);
+    el.style.height = Math.min(el.scrollHeight, max) + 'px';
+    if (el.scrollHeight > max) el.classList.add('scrolled'); // activa scroll si rebasó
+  }
+</script>
+
+
+<script>
+
+// document.getElementById('selectRifa')?.addEventListener('change', (e) => {
+// 	  e.target.form?.submit();                 // GET /admin/edicion?id=<valor>
+// 	});
+
+
+function updateMaxUI() {
+  // Máximo permitido = boletos x números por boleto
+  const max = getMAX();
+  const sMax = document.getElementById('spanMaxSel');
+  if (sMax) sMax.textContent = String(max);
+
+  // Encabezado “Selecciona tus Números : <numPorBoleto>”
+  const sNPB = document.getElementById('spanNumPorBoleto');
+  if (sNPB) sNPB.textContent = String(NUM_POR_BOLETO);
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('selBoletos');
+  const hidden = document.getElementById('cantidadBoletos');
+  if (!sel || !hidden) return;
+  // set inicial
+  hidden.value = sel.value;
+  // sync en cambios
+  sel.addEventListener('change', () => hidden.value = sel.value);
+});
+</script>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+	
+let clienteModal = null;
+let ticketModal  = null;
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Estado global ---
+  let RIFA_ID = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
+  const BASE  = /*[[@{/}]]*/ '/';
+
+  const grid       = document.getElementById('gridNumeros');
+  const input      = document.getElementById('numeroTicket');
+  const selCount   = document.getElementById('selCount');
+  const selBoletos = document.getElementById('selBoletos');
+  const btnAuto    = document.getElementById('btnAuto');
+  const btnClear   = document.getElementById('btnClear');
+  const paginator  = document.getElementById('paginator');
+  const pageMeta   = document.getElementById('pageMeta');
+  const pageSizeSel= document.getElementById('pageSizeSelect');
+  const spanNumPorBoleto= document.getElementById('spanNumPorBoleto');
+  
+  
+//   const btnClear = document.getElementById('btnClear');
+  const rifaId = Number(document.getElementById('rifaId').value);
+  
+  const CSRF = (() => {
+	  const token  = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+	  const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+	  return { token, header };
+	})();
+  
+  if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+	    const elCliente = document.getElementById('clienteExistenteModal');
+	    const elTicket  = document.getElementById('ticketModal');
+	    if (elCliente) clienteModal = bootstrap.Modal.getOrCreateInstance(elCliente);
+	    if (elTicket)  ticketModal  = bootstrap.Modal.getOrCreateInstance(elTicket);
+	  }
+  
+  
+  // Paginación
+  let currentPage  = 1;
+  let pageSize     = Number(sessionStorage.getItem('raffle.pageSize') || pageSizeSel?.value || 1000);
+  let totalPages   = 1;
+  let totalItems   = 0;
+  let digits       = Number(grid?.dataset?.digits || 2); // respaldo si backend no manda "digits"
+
+  // Selección y tope
+  const seleccion = new Set();
+//   let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;
+//   let CANT_BOLETOS   = Number(selBoletos?.value || 1);
+//   const getMAX = () => NUM_POR_BOLETO * CANT_BOLETOS;
+
+  // ---- Utilidades ----
+  const norm = (n) => {
+    // limpia y pad-left al tamaño "digits" actual
+    const raw = String(n).replace(/[^\d]/g, '');
+    return raw.padStart(digits, '0');
+  };
+  
+  
+  
+  
+  
+//--- Loader global ---
+  let __loadingCount = 0;
+  function showLoader(){
+    __loadingCount++;
+    document.getElementById('loadingOverlay')?.classList.remove('d-none');
+  }
+  function hideLoader(){
+    __loadingCount = Math.max(0, __loadingCount-1);
+    if (__loadingCount === 0) {
+      document.getElementById('loadingOverlay')?.classList.add('d-none');
+    }
+  }
+
+  // --- Spinner en botón mientras corre una tarea async ---
+  function withBtnSpinner(btn, fn){
+    return (async()=>{
+      if (!btn) return fn();
+      const original = btn.innerHTML;
+      const label = btn.dataset.loadingText || btn.textContent || 'Cargando…';
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>${label}`;
+      try { return await fn(); }
+      finally { btn.disabled = false; btn.innerHTML = original; }
+    })();
+  }
+
+  
+  
+  
+  
+  let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;  // se sobrescribe con el JSON
+  let CANT_BOLETOS   = Number(document.getElementById('selBoletos')?.value || 1);
+
+  const getMAX = () =>
+    (Number(NUM_POR_BOLETO) || 1) * (Number(CANT_BOLETOS) || 1);
+
+  function updateMaxUI() {
+    const npb = document.getElementById('spanNumPorBoleto');
+    const max = document.getElementById('spanMaxSel');
+    if (npb) npb.textContent = String(NUM_POR_BOLETO);
+    if (max) max.textContent = String(getMAX());
+  }
+
+  function trimSelectionToMax() {
+    const MAX = getMAX();
+    if (seleccion.size <= MAX) return;
+    const arr = Array.from(seleccion)
+      .map(n => String(n).padStart(digits, '0'))
+      .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+    while (arr.length > MAX) arr.pop();
+    seleccion.clear();
+    arr.forEach(n => seleccion.add(n));
+  }
+
+  
+  
+  
+  
+  
+
+  function refreshInput(){
+	  const arr = Array.from(seleccion)
+	    .map(norm)
+	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+
+	  const input = document.getElementById('numeroTicket');
+	  if (!input) return;
+
+	  input.value = arr.join(', ');
+	  autoGrowTextarea(input);
+	  if (selCount) selCount.textContent = String(arr.length);
+// 	  if (spanNumPorBoleto) spanNumPorBoleto.textContent = String(arr.length);
+
+	  updateMaxUI(); // <-- ¡clave! refresca Y con el MAX actual
+	}
+
+
+
+  function makeBtn(label, state){
+    // label ya viene normalizado por backend; normalizamos también para estado seleccionado
+    const lab = norm(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm num-btn';
+    btn.textContent = lab;
+    btn.dataset.label = lab;
+    btn.dataset.num   = String(parseInt(lab,10));
+
+    if (state === 'disp') {
+      if (seleccion.has(lab)) {
+        btn.classList.add('btn-primary','selected');
+      } else {
+        btn.classList.add('btn-success');
+      }
+    } else if (state === 'ap') {
+      btn.classList.add('btn-warning'); btn.disabled = true; btn.title='Apartado';
+    } else {
+      btn.classList.add('btn-dark'); btn.disabled = true; btn.title='Pagado';
+    }
+    return btn;
+  }
+
+  function setPageMeta(page, size, total){
+    if (!pageMeta) return;
+    const from = total === 0 ? 0 : ((page-1)*size)+1;
+    const to   = Math.min(total, page*size);
+    pageMeta.textContent = `Mostrando ${from}–${to} de ${total}`;
+  }
+
+  function addPageItem(ul, text, page, {disabled=false, active=false, aria='' }={}){
+    const li = document.createElement('li');
+    li.className = `page-item ${disabled?'disabled':''} ${active?'active':''}`;
+    const a = document.createElement('a');
+    a.className = 'page-link';
+    a.href='#';
+    a.textContent = text;
+    if (aria) a.setAttribute('aria-label', aria);
+    a.addEventListener('click', (e)=> {
+      e.preventDefault();
+      if (disabled || page === currentPage) return;
+      currentPage = page;
+      fetchAndRender(currentPage);
+    });
+    li.appendChild(a);
+    ul.appendChild(li);
+  }
+
+  function addEllipsis(ul){
+    const li = document.createElement('li');
+    li.className = 'page-item disabled';
+    li.innerHTML = `<span class="page-link">…</span>`;
+    ul.appendChild(li);
+  }
+
+  // Paginador con ventana (máx. 7 botones numéricos)
+  function buildPaginator(tp){
+    totalPages = Math.max(1, tp);
+    paginator.innerHTML = '';
+    const ul = paginator;
+
+    const MAX_NUM = 7;
+    const windowHalf = Math.floor(MAX_NUM/2);
+
+    let start = Math.max(1, currentPage - windowHalf);
+    let end   = Math.min(totalPages, start + MAX_NUM - 1);
+    start     = Math.max(1, end - MAX_NUM + 1);
+
+    // first/prev
+    addPageItem(ul, '«', 1, { disabled: currentPage===1, aria:'Primera' });
+    addPageItem(ul, '‹', Math.max(1, currentPage-1), { disabled: currentPage===1, aria:'Anterior' });
+
+    if (start > 1) {
+      addPageItem(ul, '1', 1, { active: currentPage===1 });
+      if (start > 2) addEllipsis(ul);
+    }
+
+    for (let p=start; p<=end; p++){
+      addPageItem(ul, String(p), p, { active: p===currentPage });
+    }
+
+    if (end < totalPages) {
+      if (end < totalPages-1) addEllipsis(ul);
+      addPageItem(ul, String(totalPages), totalPages, { active: currentPage===totalPages });
+    }
+
+    // next/last
+    addPageItem(ul, '›', Math.min(totalPages, currentPage+1), { disabled: currentPage===totalPages, aria:'Siguiente' });
+    addPageItem(ul, '»', totalPages, { disabled: currentPage===totalPages, aria:'Última' });
+  }
+
+  function buildGridPayload(data){
+    // Sincroniza "digits" por si backend lo define
+    digits = Number(data.digits ?? digits ?? 2);
+    NUM_POR_BOLETO = Number(data.numPorBoleto ?? NUM_POR_BOLETO);
+
+    // data.disp = disponibles de ESTA página (Strings ya listos)
+    const dispOnPage = (data.disp || []).map(norm);
+
+    // Ordena: seleccionados primero
+    const selOnPage  = dispOnPage.filter(l => seleccion.has(l));
+    const restOnPage = dispOnPage.filter(l => !seleccion.has(l));
+
+    grid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    selOnPage.forEach(l => frag.appendChild(makeBtn(l, 'disp')));
+    restOnPage.forEach(l => frag.appendChild(makeBtn(l, 'disp')));
+
+    (data.ap  || []).map(norm).forEach(l => frag.appendChild(makeBtn(l, 'ap')));
+    (data.pag || []).map(norm).forEach(l => frag.appendChild(makeBtn(l, 'pag')));
+
+    grid.appendChild(frag);
+
+    // meta
+    setPageMeta(data.page || 1, data.size || pageSize, data.total || 0);
+  }
+
+//   async function fetchAndRender(page){
+// 	  if (!RIFA_ID) return;
+// 	  const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+// 	  const res = await fetch(url, { cache:'no-store' });
+// 	  if (!res.ok) throw new Error('HTTP '+res.status);
+// 	  const data = await res.json();
+
+// 	  // 1) Título desde JSON
+// 	  const h1 = document.querySelector('h1.h4.mb-3');
+// 	  if (h1 && data.nombreRifaSeleccionada) {
+// 	    h1.textContent = data.nombreRifaSeleccionada;
+// 	  }
+
+// 	  // 2) Imagen de preview desde JSON
+// 	  const box  = document.querySelector('.preview-box');
+// 	  const img  = box?.querySelector('img.preview-img');
+// 	  const empty= box?.querySelector('.preview-empty');
+// 	  if (img && data.imgUrl) {
+// 	    img.src = data.imgUrl;
+// 	    img.classList.remove('d-none');
+// 	    empty?.classList.add('d-none');
+// 	  } else {
+// 	    img?.classList.add('d-none');
+// 	    empty?.classList.remove('d-none');
+// 	  }
+
+// 	  // 3) Leyenda (cuenta de disponibles/apartados/pagados)
+// 	  updateLegendFromData(data);
+
+// 	  // 4) Grilla + paginador (tu código ya lo hace)
+// 	  buildGridPayload(data);
+// 	  buildPaginator(data.totalPages || 1);
+// 	  refreshInput();
+// 	}
+
+
+  async function fetchAndRender(page){
+	    if (!RIFA_ID) return;
+	    showLoader();
+	    
+	    
+	    try {
+	        const url = `${BASE}detalle/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+	        const res = await fetch(url, { cache:'no-store' });
+	        if (!res.ok) throw new Error('HTTP '+res.status);
+	        const data = await res.json();
+	        totalItems = Number(data.total || 0);
+		    
+		    // 1) Título desde JSON
+			  const h1 = document.querySelector('h1.h4.mb-3');
+			  if (h1 && data.nombreRifaSeleccionada) {
+			    h1.textContent = data.nombreRifaSeleccionada;
+			  }
+		    
+		    // 2) Imagen de preview desde JSON
+			  const box  = document.querySelector('.preview-box');
+			  const img  = box?.querySelector('img.preview-img');
+			  const empty= box?.querySelector('.preview-empty');
+			  if (img && data.imgUrl) {
+			    img.src = data.imgUrl;
+			    img.classList.remove('d-none');
+			    empty?.classList.add('d-none');
+			  } else {
+			    img?.classList.add('d-none');
+			    empty?.classList.remove('d-none');
+			  }
+			  updateLegendFromData(data); 
+
+			    buildGridPayload(data);
+			    updateMaxUI(); 
+			    buildPaginator(data.totalPages || 1);
+			    refreshInput();
+	      } catch (err) {
+	        console.error('[fetchAndRender] error:', err);
+	      } finally {
+	        hideLoader();            // <-- CLAVE
+	      }
+	    
+	   
+	    
+// 	    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+// 	    const res = await fetch(url, { cache:'no-store' });
+// 	    if (!res.ok) throw new Error('HTTP '+res.status);
+// 	    const data = await res.json();
+
+// 	    totalItems = Number(data.total || 0);
+	    
+// 	    // 1) Título desde JSON
+// 		  const h1 = document.querySelector('h1.h4.mb-3');
+// 		  if (h1 && data.nombreRifaSeleccionada) {
+// 		    h1.textContent = data.nombreRifaSeleccionada;
+// 		  }
+	    
+// 	    // 2) Imagen de preview desde JSON
+// 		  const box  = document.querySelector('.preview-box');
+// 		  const img  = box?.querySelector('img.preview-img');
+// 		  const empty= box?.querySelector('.preview-empty');
+// 		  if (img && data.imgUrl) {
+// 		    img.src = data.imgUrl;
+// 		    img.classList.remove('d-none');
+// 		    empty?.classList.add('d-none');
+// 		  } else {
+// 		    img?.classList.add('d-none');
+// 		    empty?.classList.remove('d-none');
+// 		  }
+	    
+// 	    updateLegendFromData(data); 
+
+// 	    buildGridPayload(data);
+// 	    updateMaxUI(); 
+// 	    buildPaginator(data.totalPages || 1);
+// 	    refreshInput();
+	  }
+
+
+  // Delegación clicks en grilla
+//   grid.addEventListener('click', (e) => {
+//     const btn = e.target.closest('.num-btn');
+//     if (!btn || btn.disabled) return;
+//     const label = norm(btn.dataset.label || btn.textContent.trim());
+//     const isOn  = seleccion.has(label);
+//     const MAX   = getMAX();
+//     if (!isOn && seleccion.size >= MAX) return;
+
+//     if (isOn){
+//       seleccion.delete(label);
+//       btn.classList.remove('btn-primary','selected');
+//       btn.classList.add('btn-success');
+//     } else {
+//       seleccion.add(label);
+//       btn.classList.remove('btn-success');
+//       btn.classList.add('btn-primary','selected');
+//     }
+//     refreshInput();
+//   });
+
+  
+  grid.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.num-btn');
+  if (!btn || btn.disabled) return;
+
+  // usa el label tal como lo guardas (si puedes, mejor usa data-id con el ID real de BD)
+  const label = norm(btn.dataset.label || btn.textContent);
+  const isOn  = seleccion.has(label);
+  const MAX   = getMAX();
+  if (!isOn && seleccion.size >= MAX) return;
+
+  // Optimistic UI
+  btn.disabled = true;
+  let prevClasses = btn.className;
+
+  try {
+    if (isOn){
+      // quitar en UI
+      seleccion.delete(label);
+      btn.classList.remove('btn-primary','selected');
+      btn.classList.add('btn-success');
+
+      // persistir en servidor
+      await setSeleccionServidor({ label, selected: false });
+    } else {
+      // poner en UI
+      seleccion.add(label);
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-primary','selected');
+
+      // persistir en servidor
+      await setSeleccionServidor({ label, selected: true });
+    }
+    refreshInput();
+  } catch (err) {
+    console.error('Fallo al persistir selección:', err);
+    // rollback UI/estado local
+    btn.className = prevClasses;
+    if (isOn) {
+      // queríamos deseleccionar pero falló → restaura
+      seleccion.add(label);
+    } else {
+      // queríamos seleccionar pero falló → quita
+      seleccion.delete(label);
+    }
+    alert('No se pudo actualizar en el servidor. Intenta de nuevo.');
+  } finally {
+    btn.disabled = false;
+  }
+});
+  
+  
+  
+//   async function setSeleccionServidor({ label, selected }) {
+// 	  showLoader();
+// 	  const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
+// 	    method: 'POST',
+// 	    credentials: 'same-origin',
+// 	    headers: {
+// 	      'Content-Type': 'application/json',
+// 	      ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+// 	    },
+// 	    body: JSON.stringify({
+// 	      numero: label,
+// 	      seleccionado: !!selected,
+// 	      rifaId: RIFA_ID            // ← antes enviabas el hidden inicial
+// 	    })
+// 	  });
+// 	  if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+// 	  return res.json();
+// 	}
+
+
+  
+async function setSeleccionServidor({ label, selected }) {
+  showLoader();
+  try {
+    const qs = new URLSearchParams({
+      numero: label,
+      seleccionado: String(!!selected),
+      rifaId: String(RIFA_ID)
+    });
+
+    const res = await fetch(`${BASE}detalle/${RIFA_ID}/seleccion?${qs.toString()}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store' // evita cachear la respuesta
+      // ⚠️ NO body, NO 'Content-Type' en GET
+    });
+
+    if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+    return res.json();
+  } finally {
+    hideLoader();
+  }
+}
+
+
+  
+  
+  
+  
+  
+  
+  // Selección automática -> añade faltantes normalizados y vuelve a página 1
+//   btnAuto?.addEventListener('click', async () => {
+//     const faltan = getMAX() - seleccion.size;
+//     if (faltan <= 0 || !RIFA_ID) return;
+//     showLoader();
+//     // ¡OJO!: Asegúrate que tu endpoint sea /admin/rifa/{id}/auto-numeros y regrese array de Strings
+//     const url = `${BASE}admin/rifa/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
+//     try{
+//       const res = await fetch(url, { cache:'no-store' });
+//       if (!res.ok) throw new Error('HTTP '+res.status);
+//       const nums = await res.json(); // ej. ["01","15","23"]
+//       nums.map(norm).forEach(n => seleccion.add(n));
+
+//       currentPage = 1;                  // verlos en la primera página
+//       await fetchAndRender(currentPage);
+//     } catch(err){
+//       console.error('[autoPick] error:', err);
+//     }
+//   });
+  
+  
+  btnAuto?.addEventListener('click', async () => {
+  const faltan = getMAX() - seleccion.size;
+  if (faltan <= 0 || !RIFA_ID) return;
+  showLoader();
+  try{
+    const url = `${BASE}detalle/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
+    const res = await fetch(url, { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const nums = await res.json(); // ej. ["01","15","23"]
+    nums.map(norm).forEach(n => seleccion.add(n));
+    currentPage = 1;                // verlos en la primera página
+    await fetchAndRender(currentPage);
+  } catch(err){
+    console.error('[autoPick] error:', err);
+  } finally {
+    hideLoader();                   // <-- CLAVE
+  }
+});
+
+
+  // Limpiar
+//   btnClear?.addEventListener('click', () => {
+//     seleccion.clear();
+//     fetchAndRender(currentPage);
+//   });
+  
+  
+async function limpiarSeleccion() {
+  const ids = Array.from(seleccion);
+  if (!ids.length) {
+    seleccion.clear();
+    return fetchAndRender(currentPage);
+  }
+
+  // arma query ?numeroIds=12&numeroIds=34&numeroIds=56
+  const qs = new URLSearchParams();
+  ids.forEach(id => qs.append('numeroIds', id));
+
+  const res = await fetch(`${BASE}detalle/${RIFA_ID}/limpiar-auto?${qs.toString()}`, {
+    method: 'GET',
+    credentials: 'same-origin',  // envía cookies/sesión
+    cache: 'no-store'
+    // NO body, NO Content-Type en GET
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+
+  seleccion.clear();
+  await fetchAndRender(1);
+}
+
+  
+  
+btnClear?.addEventListener('click', () =>
+withBtnSpinner(btnClear, async () => {
+  showLoader();
+  try {
+    await limpiarSeleccion(); // tu función existente
+  } finally {
+    hideLoader();
+  }
+})
+);
+
+//   btnClear?.addEventListener('click', async (e) => {
+// 	  try { await limpiarSeleccion(); }
+// 	  catch (err) { console.error(err); alert('No se pudo limpiar la selección.'); }
+// 	});
+  
+  
+
+  // Cambio cantidad de boletos -> recalcula tope y recorta si hace falta
+//  selBoletos?.addEventListener('change', () => {
+//   CANT_BOLETOS = Number(selBoletos.value || 1);
+//   const MAX = getMAX();
+//   if (seleccion.size > MAX) {
+//     const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+//     while (arr.length > MAX) arr.pop();
+//     seleccion.clear();
+//     arr.forEach(x => seleccion.add(x));
+//   }
+//   updateMaxUI();           // <<--- NUEVO
+//   refreshInput();
+// });
+  
+//   const selBoletos = document.getElementById('selBoletos');
+selBoletos?.addEventListener('change', () => {
+  CANT_BOLETOS = Number(selBoletos.value || 1);
+  updateMaxUI();
+  trimSelectionToMax();
+  refreshInput(); // tu función que actualiza el textarea y el contador X
+});
+
+
+  // Selector de tamaño de página
+  pageSizeSel?.addEventListener('change', () => {
+    pageSize = Number(pageSizeSel.value || 120);
+    sessionStorage.setItem('raffle.pageSize', String(pageSize));
+    currentPage = 1;
+    fetchAndRender(currentPage);
+  });
+
+  // Cambio de rifa
+// Usa un puntero al hidden para mantenerlo sincronizado:
+const rifaIdHidden = document.getElementById('rifaId');
+
+// En el change de edición, además de setear RIFA_ID, sincroniza el hidden:
+document.getElementById('selectRifa')?.addEventListener('change', async (e) => {
+  const newId = Number(e.target.value);
+  if (!newId) return;
+  RIFA_ID = newId;
+  if (rifaIdHidden) rifaIdHidden.value = String(RIFA_ID); // ← CLAVE
+  seleccion.clear();
+  currentPage = 1;
+  await fetchAndRender(currentPage);
+  updateMaxUI();
+});
+
+
+  // Inicial
+  if (RIFA_ID) {
+    // sincroniza selector si había preferencia guardada
+    if (pageSizeSel) pageSizeSel.value = String(pageSize);
+    fetchAndRender(currentPage);
+  } else {
+    refreshInput();
+  }
+});
+
+
+
+function updateLegendFromData(data) {
+	  // Preferimos campos de conteo si existen para no depender de arrays gigantes
+	  const dispTotal = Number(
+	    data?.total ?? data?.dispTotal ?? (Array.isArray(data?.dispAll) ? data.dispAll.length
+	                               : (Array.isArray(data?.disp) ? data.disp.length : 0))
+	  );
+	  const apTotal  = Number(data?.apCount  ?? (Array.isArray(data?.ap)  ? data.ap.length  : 0));
+	  const pagTotal = Number(data?.pagCount ?? (Array.isArray(data?.pag) ? data.pag.length : 0));
+
+	  const d = document.getElementById('countDisp');
+	  const a = document.getElementById('countAp');
+	  const p = document.getElementById('countPag');
+
+	  if (d) d.textContent = dispTotal;
+	  if (a) a.textContent = apTotal;
+	  if (p) p.textContent = pagTotal;
+	}
+
+
+
+// function refreshInput() {
+// 	  const arr = Array.from(seleccion)
+// 	    .map(n => String(n).padStart(digits, '0'))
+// 	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+
+// 	  const input = document.getElementById('numeroTicket');
+// 	  if (!input) return;
+
+// 	  input.value = arr.join(', ');
+// 	  autoGrowTextarea(input);   // <-- ¡clave!
+// 	  const selCount = document.getElementById('selCount');
+// 	  if (selCount) selCount.textContent = String(arr.length);
+// 	}
+
+
+
+
+/*]]>*/
+</script>
+
+
+
+
+
+
+
+
+
+
+<body>
+	<header th:replace="~{fragments :: navbar}"></header>
+	
+	<div class="container py-3">
+	
+   <main class="container py-4">
+
+  <!-- HERO -->
+  <div class="hero-public mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-      <div class="header-subtle mb-1">Participa en</div>
-      <h3 class="m-0" id="tituloRifa"
-          th:text="${nombreRifaSeleccionada != null ? nombreRifaSeleccionada : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">
-        Edición
-      </h3>
+      <div class="section-kicker mb-1">Participa en</div>
+      <h3 id="tituloRifa"
+          th:text="${nombreRifaSeleccionada != null ? nombreRifaSeleccionada :
+                    (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">Edición</h3>
     </div>
-    <div class="text-end small">
-      <div><span class="badge bg-success">Disponible</span> <span id="countDisp">0</span></div>
-      <div><span class="badge bg-warning text-dark">Apartado</span> <span id="countAp">0</span></div>
-      <div><span class="badge bg-dark">Pagado</span> <span id="countPag">0</span></div>
-    </div>
-  </div>
 
-  <!-- Hero (Imagen + Selección) -->
-  <div class="row g-3">
-    <div class="col-12 col-md-4">
-      <div class="preview-box">
-        <img class="preview-img"
-             th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
-             th:src="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
-             th:alt="|Imagen de ${rifaSeleccionada.nombre}|"/>
-        <span class="preview-empty"
-              th:if="${rifaSeleccionada == null or (#strings.isEmpty(rifaSeleccionada.pathImagen) and #strings.isEmpty(rifaSeleccionada.rutaImagen))}">
-          Sin imagen
-        </span>
+    <div class="d-flex flex-wrap gap-3">
+      <div class="stat-pill">
+        <span class="badge bg-success-subtle text-success-emphasis">Disponible</span>
+        <strong id="countDisp"
+                th:text="${dispNumeros != null ? #lists.size(dispNumeros) : 0}">0</strong>
       </div>
-      <a class="small mt-2 d-inline-block text-decoration-none"
-         th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
-         th:href="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
-         target="_blank" rel="noopener">Abrir imagen en nueva pestaña</a>
-    </div>
-
-    <div class="col-12 col-md-8">
-      <!-- Controles de selección -->
-      <div class="card">
-        <div class="card-body">
-          <div class="d-flex flex-wrap align-items-end gap-3">
-            <div>
-              <label class="form-label mb-1">Boletos</label>
-              <input type="number" class="form-control" id="cantidadBoletos" min="1" value="1" style="width:120px">
-              <div class="form-text">Se multiplicará por Núm. por boleto.</div>
-            </div>
-
-            <div>
-              <div class="header-subtle mb-1">Núm. por boleto</div>
-              <div class="fs-5 fw-semibold"><span id="spanNumPorBoleto"
-                th:text="${numPorBoleto != null ? numPorBoleto : (rifaSeleccionada != null && rifaSeleccionada.numerosPorBoleto != null ? rifaSeleccionada.numerosPorBoleto : 1)}">1</span></div>
-            </div>
-
-            <div class="ms-auto d-flex gap-2">
-              <button id="btnAuto" type="button" class="btn btn-outline-primary">
-                <span class="me-1">⚡</span>Selección automática
-              </button>
-              <button id="btnClear" type="button" class="btn btn-outline-secondary">Limpiar</button>
-            </div>
-          </div>
-
-          <hr/>
-
-          <!-- Info del tope -->
-          <div class="mb-2">
-            <div class="header-subtle">Selecciona tus números</div>
-            <div><strong id="selResumen">0 / 0</strong></div>
-          </div>
-
-          <!-- Grilla -->
-          <div
-						class="d-flex flex-wrap justify-content-between align-items-center gap-2 mt-3">
-						<div id="pageMeta" class="small text-muted">—</div>
-
-						<div class="d-flex align-items-center gap-3 flex-wrap">
-							<!-- Por página -->
-							<div class="d-flex align-items-center gap-2">
-								<label class="form-label m-0 small">Por página</label> <select
-									id="pageSizeSelect" class="form-select form-select-sm"
-									style="width: auto">
-									<option value="100">100</option>
-									<option value="200">200</option>
-									<option value="500" selected>500</option>
-									<option value="1000">1000</option>
-								</select>
-							</div>
-
-							<!-- Boletos (MOVIDO AQUÍ) -->
-							<div class="d-flex align-items-center gap-2">
-								<label class="form-label m-0 small">Boletos</label> <select
-									id="selBoletos" class="form-select form-select-sm"
-									style="width: auto">
-									<option value="1" selected>1</option>
-									<option value="2">2</option>
-									<option value="3">3</option>
-									<option value="4">4</option>
-									<option value="5">5</option>
-									<option value="10">10</option>
-								</select>
-							</div>
-						</div>
-					</div>
-          
-          
-          
-          
-          
-          <div id="numsGrid" class="nums-grid"></div>
-
-          <!-- Paginador -->
-						<nav class="mt-3">
-							<div class="paginator-wrap">
-								<ul id="paginator"
-									class="pagination pagination-sm mb-0 justify-content-center"></ul>
-							</div>
-						</nav>
-
-
-					</div>
+      <div class="stat-pill">
+        <span class="badge bg-warning-subtle text-warning-emphasis">Apartado</span>
+        <strong id="countAp" th:text="${ap != null ? #lists.size(ap) : 0}">0</strong>
+      </div>
+      <div class="stat-pill">
+        <span class="badge bg-dark-subtle text-dark-emphasis">Pagado</span>
+        <strong id="countPag" th:text="${pag != null ? #lists.size(pag) : 0}">0</strong>
       </div>
     </div>
   </div>
 
-  <!-- Formulario de compra (pública) -->
-  <div class="card mt-3">
-    <div class="card-body">
-      <form th:action="@{/participar}" method="post" id="formParticipar">
-        <input type="hidden" id="rifaId" name="rifaId" th:value="${rifaSeleccionada != null ? rifaSeleccionada.id : 0}">
-        <div class="row g-3">
-          <div class="col-12 col-md-6">
-            <div class="section-title mb-2">Tus datos</div>
-            <div class="row g-2">
-              <div class="col-12 col-md-6">
-                <label class="form-label">Nombre</label>
-                <input class="form-control" name="nombre" required>
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label">Apellido paterno</label>
-                <input class="form-control" name="apellido_paterno" required>
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label">Apellido materno</label>
-                <input class="form-control" name="apellido_materno">
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label">Teléfono</label> <input id="telefono"
-									name="telefono" class="form-control" inputmode="tel"
-									pattern="^\+?\d{10,15}$" />
-								<div class="form-text">10–15 dígitos, permite + opcional.</div>
-              </div>
-              <div class="col-12">
-                <label class="form-label">Email</label>
-                <input type="email" class="form-control" name="email" required>
-              </div>
-              
-              <div class="mb-3">
-								<label class="form-label">Municipio</label> <input
-									name="municipio" class="form-control" />
-							</div>
-							<div class="mb-3">
-								<label class="form-label">Estado</label> <input name="estado"
-									class="form-control" />
-							</div>
-							<div class="mb-3">
-								<label class="form-label">Código Postal</label> <input
-									name="codigoPostal" class="form-control" />
-							</div>
-              
-              
-              
-              
-              
-            </div>
-          </div>
+  <div class="row g-4">
 
-          <div class="col-12 col-md-6">
-            <div class="section-title mb-2">Pago</div>
-            <div class="row g-2">
-              <div class="col-12">
-                <label class="form-label">Método de pago</label>
-                <select class="form-control" name="tipoPagoId" required>
-                  <option value="" selected disabled>Selecciona…</option>
-                  <option th:each="tp : ${tiposPago}"
-                          th:if="${#strings.toUpperCase(tp.nombre) != 'EFECTIVO'}"
-                          th:value="${tp.id}" th:text="${tp.nombre}">Transferencia</option>
-                </select>
-                <div class="form-text">No disponible pago en efectivo.</div>
-              </div>
-              <div class="col-12">
-                <label class="form-label">Números seleccionados</label>
-                <textarea id="numeroTicket" name="numeroTicket" class="form-control" required readonly></textarea>
-                <div class="form-text">Se llena automáticamente con los números elegidos (separados por comas).</div>
-              </div>
-              <div class="col-12 col-md-6">
-                <label class="form-label">Cantidad de boletos</label>
-                <input type="number" id="cantidadBoletosForm" name="cantidadBoletos" min="1" class="form-control" value="1" required>
-              </div>
+    <!-- COLUMNA IZQUIERDA: Imagen + grid + paginación -->
+    <div class="col-lg-8">
+
+      <!-- Imagen -->
+      <div class="form-card">
+        <div class="section-kicker mb-2">Vista previa</div>
+        <div class="preview-box" id="imgBox">
+          <img id="imgRifa" class="preview-img"
+               th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+               th:src="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+               th:alt="|Imagen de ${rifaSeleccionada.nombre}|"/>
+          <div class="preview-empty" id="noImg"
+               th:if="${rifaSeleccionada == null or (#strings.isEmpty(rifaSeleccionada.pathImagen) and #strings.isEmpty(rifaSeleccionada.rutaImagen))}">
+            <i class="bi bi-image me-1"></i> Sin imagen
+          </div>
+        </div>
+        <a class="small mt-2 d-inline-block text-decoration-none" id="imgLink"
+           th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+           th:href="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+           target="_blank" rel="noopener">Abrir imagen en nueva pestaña</a>
+      </div>
+
+      <!-- Encabezado selección + contador -->
+      <div class="card card-soft p-3 mb-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <h2 class="h6 m-0">
+            Números por boleto: <span id="spanNumPorBoleto" th:text="${numPorBoleto}">1</span>
+          </h2>
+          <div class="small">
+            Seleccionados: <strong id="selCount">0</strong> /
+            <strong id="spanMaxSel" th:text="${numPorBoleto}">1</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meta + Por página + Boletos -->
+      <div class="card card-soft p-3 mb-2">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div id="pageMeta" class="small text-muted">—</div>
+
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label m-0 small">Por página</label>
+              <select id="pageSizeSelect" class="form-select form-select-sm" style="width:auto">
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="500" selected>500</option>
+                <option value="1000">1000</option>
+              </select>
             </div>
-            <div class="d-grid mt-3">
-              <button class="btn btn-primary btn-lg" type="submit">Apartar números</button>
+
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label m-0 small">Boletos</label>
+              <select id="selBoletos" class="form-select form-select-sm" style="width:auto">
+                <option value="1" selected>1</option>
+                <option value="2">2</option><option value="3">3</option>
+                <option value="4">4</option><option value="5">5</option>
+                <option value="10">10</option>
+              </select>
             </div>
           </div>
         </div>
-      </form>
+
+        <!-- Paginador -->
+        <nav class="mt-2">
+          <ul id="paginator" class="pagination pagination-sm justify-content-center mb-0"></ul>
+        </nav>
+      </div>
+
+      <!-- GRID -->
+      <div class="card card-soft p-3">
+        <div id="gridNumeros"
+             class="grid-numeros"
+             th:with="dg=${digitosNumeros != null ? digitosNumeros : 2}"
+             th:attr="data-digits=${dg}">
+
+          <!-- DISPONIBLES -->
+          <button type="button" class="btn btn-success btn-sm num-btn"
+                  th:each="n : ${dispNumeros}"
+                  th:text="${#numbers.formatInteger(n, dg)}"
+                  th:attr="data-num=${n}, data-label=${#numbers.formatInteger(n, dg)}">
+            01
+          </button>
+
+          <!-- APARTADOS -->
+          <button type="button" class="btn btn-warning btn-sm num-btn"
+                  th:each="n : ${ap}" th:text="${n}" disabled aria-disabled="true" title="Apartado">01</button>
+
+          <!-- PAGADOS -->
+          <button type="button" class="btn btn-dark btn-sm num-btn"
+                  th:each="n : ${pag}" th:text="${n}" disabled aria-disabled="true" title="Pagado">01</button>
+        </div>
+
+       
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: Formulario comprador -->
+    <div class="col-lg-4">
+      <div class="card card-soft p-3 sticky-lg-top" style="top: 1rem;">
+        <h2 class="h6 mb-3">Datos del comprador</h2>
+
+        <form method="get" th:action="@{/admin/comprar}">
+          <input type="hidden" id="rifaId" name="rifaId"
+            th:value="${rifaSeleccionada != null ? rifaSeleccionada.id : (id != null ? id : 0)}" />
+
+          <!-- Seleccionados -->
+          <div class="mb-2">
+            <label class="form-label">Números seleccionados</label>
+            <textarea id="numeroTicket" name="numeroTicket" class="form-control autosize" rows="1" wrap="soft" readonly></textarea>
+            <div class="form-text">Se llena automáticamente con los números elegidos (separados por comas).</div>
+          </div>
+
+          <!-- Acciones -->
+          <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAuto">Selección automática</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClear">Limpiar selección</button>
+          </div>
+
+          <!-- Campos -->
+          <div class="row g-2">
+            <div class="col-12"><label class="form-label">Nombre(s)</label><input name="nombre" class="form-control" required /></div>
+            <div class="col-sm-6"><label class="form-label">Apellido paterno</label><input name="apellidoP" class="form-control" required /></div>
+            <div class="col-sm-6"><label class="form-label">Apellido materno</label><input name="apellidoM" class="form-control" /></div>
+            <div class="col-12"><label class="form-label">Correo</label><input id="email" name="email" type="email" class="form-control" /></div>
+            <div class="col-12">
+              <label class="form-label">Teléfono</label>
+              <input id="telefono" name="telefono" class="form-control" inputmode="tel" pattern="^\+?\d{10,15}$" />
+              <div class="form-text">10–15 dígitos, permite + opcional.</div>
+            </div>
+            <div class="col-sm-6"><label class="form-label">Municipio</label><input name="municipio" class="form-control" /></div>
+            <div class="col-sm-6"><label class="form-label">Estado</label><input name="estado" class="form-control" /></div>
+            <div class="col-sm-6"><label class="form-label">Código Postal</label><input name="codigoPostal" class="form-control" /></div>
+            <div class="col-sm-6">
+              <label class="form-label">Tipo de pago</label>
+              <select class="form-control" name="tipoPagoId" required>
+                <option value="" disabled selected>Selecciona...</option>
+                <option th:each="tp : ${tiposPago}" th:value="${tp.id}" th:text="${tp.nombre}"></option>
+              </select>
+            </div>
+          </div>
+
+          <input type="hidden" name="cantidadBoletos" id="cantidadBoletos" value="">
+          <input type="hidden" name="clienteId" id="clienteId" />
+
+          <button class="btn btn-primary w-100 mt-3" type="submit">Comprar boleto</button>
+        </form>
+      </div>
+    </div>
+
+  </div>
+</main>
+   
+ 
+  
+  
+	
+	</div>
+
+	<th:block th:replace="~{fragments_admin :: scripts}"></th:block>
+
+
+
+<style>
+/* Contenedor hero */
+.hero-public {
+  border: 1px solid #e9ecef;
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  background: #fff;
+}
+
+/* Tarjetas suaves */
+.card-soft {
+  border: 1px solid #e9ecef;
+  border-radius: 14px;
+  background: #fff;
+}
+
+/* Paginador compacto y centrado */
+.pagination .page-link { border: 0; }
+.pagination .page-item.active .page-link { background: #1d4ed8; }
+.pagination .page-item.disabled .page-link { opacity: .5; }
+#pageMeta { min-height: 1.5rem; }
+
+/* Grid de números: no se desborda y es responsivo */
+.grid-numeros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: .5rem;
+}
+.num-btn {
+  min-width: 56px;            /* coincidir con minmax del grid */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chips de counters del hero */
+.stat-pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 999px;
+  padding: .25rem .6rem;
+}
+
+/* Vista previa */
+/* Vista previa: tamaño más compacto y responsivo */
+.preview-box{
+  height: clamp(140px, 26vh, 240px);  /* más chica en móviles y controlada en desktop */
+  border-radius: 16px;
+  border: 1px solid #e8e8ef;
+  background:
+    radial-gradient(120% 120% at 10% 0%, #ffffff, #f6f7fb 60%),
+    linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-img{
+  max-width: 100%;
+  max-height: 100%;       /* se ajusta al alto del cuadro */
+  width: auto;
+  height: auto;
+  object-fit: contain;    /* sin recortes, cabrá completa */
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.12));
+  animation: fadeIn .35s ease-in-out both;
+}
+
+/* Texto “Sin imagen” más discreto */
+.preview-empty{
+  color: #8b90a0;
+  font-size: .9rem;
+}
+
+
+/* Textarea autosize (ya la usas) */
+.autosize { overflow: hidden; resize: none; line-height: 1.4; min-height: 2.4rem; max-height: 40vh; }
+
+/* Botones de acción en formulario */
+#btnAuto, #btnClear { white-space: nowrap; }
+</style>
+
+
+	<!-- Modal Boleto -->
+	<div class="modal fade" id="ticketModal" tabindex="-1"
+		aria-hidden="true" th:classappend="${mostrarTicket} ? 'show' : ''"
+		th:style="${mostrarTicket} ? 'display:block' : 'display:none'">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+
+
+				<!-- Header -->
+				<!-- Header (bonito y robusto) -->
+<div th:with="
+     rifaNombreFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa')
+                       ? ticketGroup['nombreRifa']
+                       : (nombreRifaSeleccionada != null ? nombreRifaSeleccionada
+                           : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición'))},
+     boletosFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos')
+                       ? ticketGroup['cantidadBoletos'] : (cantidadBoletos != null ? cantidadBoletos : 0)},
+     npbFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                       ? ticketGroup['numerosPorBoleto'] : (numPorBoleto != null ? numPorBoleto : 1)}
+" class="modal-header py-2">
+  <div class="d-flex align-items-center gap-2">
+    <div class="rounded-circle d-inline-flex align-items-center justify-content-center"
+         style="width:36px;height:36px;background:#f1f3f5;">
+      <i class="bi bi-ticket-perforated"></i>
+    </div>
+    <div>
+      <div class="text-muted small mb-1">Edición</div>
+     <h6 class="m-0"
+  th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa')
+             ? ticketGroup['nombreRifa']
+             : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">
+  Edición
+</h6>
+
     </div>
   </div>
 
+  <div class="d-flex align-items-center gap-2 ms-auto">
+    <span class="badge text-bg-light border">Boletos: <span th:text="${boletosFinal}">0</span></span>
+    <span class="badge text-bg-light border">Núm x boleto: <span th:text="${npbFinal}">1</span></span>
+    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+  </div>
 </div>
 
-<!-- Loader -->
-<div id="loadingOverlay">
+
+
+				<!-- Body (scrollable) -->
+				<div class="modal-body">
+					<!-- Comprador -->
+					<div class="mb-3">
+						<div class="section-title mb-1">Comprador</div>
+						<div class="row g-2"
+							th:with="comp=${ticketGroup != null ? ticketGroup['comprador'] : null}">
+							<div class="col-8">
+								<div
+									th:text="${comp != null 
+                     ? ( (comp['nombre'] != null ? comp['nombre'] : '') + ' ' 
+                         + (comp['apellido_patrno'] != null ? comp['apellido_patrno'] : '') + ' ' 
+                         + (comp['apellido_materno'] != null ? comp['apellido_materno'] : '') )
+                     : ''}">
+									Nombre Completo</div>
+								<div class="small text-muted"
+									th:text="${comp != null ? comp['email'] : ''}">correo@ejemplo.com</div>
+								<div class="small text-muted"
+									th:text="${comp != null ? comp['telefono'] : ''}">55 0000
+									0000</div>
+							</div>
+							<div class="col-4 text-end">
+								<div class="header-subtle">Núm. por boleto</div>
+								<div class="fw-semibold"
+									th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                   ? ticketGroup['numerosPorBoleto'] : 1}">1</div>
+							</div>
+						</div>
+
+					</div>
+
+					<!-- Lista de boletos -->
+					<!-- Resumen compacto (folios + números consolidados) -->
+					<div class="section-title mb-2">Resumen de compra</div>
+
+					<!-- Folios (compacto) -->
+					<div class="mb-3"
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Folios</div>
+						<div class="d-flex flex-wrap gap-1">
+							<span class="badge rounded-pill text-bg-light border"
+								th:each="t : ${ticketGroup['tickets']}"
+								th:text="${#maps.containsKey(t,'folio') ? t['folio'] : t}">ABC123</span>
+						</div>
+					</div>
+
+					<div
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Participa con</div>
+						<div class="ticket-nums d-flex flex-wrap gap-1">
+							<th:block th:each="t : ${ticketGroup['tickets']}">
+								<span class="pill"
+									th:each="n : ${#maps.containsKey(t,'numeros') ? t['numeros'] : {}}"
+									th:text="${n}">0031</span>
+
+							</th:block>
+						</div>
+					</div>
+
+
+					<!-- Total -->
+					<div class="d-flex justify-content-between align-items-center">
+						<div class="muted">
+							<span>Total de boletos:</span> <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos')
+                   ? ticketGroup['cantidadBoletos'] : 0}">0</strong>
+							<span class="ms-2">· Números por boleto:</span> <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                   ? ticketGroup['numerosPorBoleto'] : 1}">1</strong>
+						</div>
+						<div class="text-end">
+							<div class="muted">Total</div>
+							<div class="fs-5 fw-bold"
+     th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'total')
+               ? '$ ' + #numbers.formatDecimal(ticketGroup['total'], 1, 2)
+               : '$ 0.00'}">$ 0.00</div>
+						</div>
+					</div>
+
+					<div class="d-flex justify-content-end gap-2 mt-3">
+						<button type="button" class="btn btn-outline-secondary"
+							data-bs-dismiss="modal">Cerrar</button>
+						<button type="button" class="btn btn-primary" id="btnTicketOk">Entendido</button>
+
+
+
+
+
+					</div>
+
+
+				</div>
+
+			</div>
+		</div>
+	</div>
+
+
+
+	<div class="modal fade" id="clienteExistenteModal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content border-0">
+				<div class="modal-header">
+					<h6 class="modal-title m-0">Cliente ya registrado</h6>
+					<button type="button" class="btn-close" data-bs-dismiss="modal"
+						aria-label="Cerrar"></button>
+				</div>
+				<div class="modal-body">
+					<p class="mb-2">Encontramos un cliente con ese correo o
+						teléfono:</p>
+					<div class="p-2 rounded border bg-light">
+						<div>
+							<strong id="cliNombre">—</strong>
+						</div>
+						<div class="small text-muted">
+							Email: <span id="cliEmail">—</span>
+						</div>
+						<div class="small text-muted">
+							Teléfono: <span id="cliTel">—</span>
+						</div>
+					</div>
+					<p class="mt-2 mb-0">¿Quieres usar este cliente para la compra?</p>
+				</div>
+				<div class="modal-footer">
+					<button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+					<button id="btnUsarCliente" class="btn btn-primary">Usar
+						cliente</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+
+
+
+<style>
+  /* Colores y contraste SOLO dentro del modal */
+  #ticketModal .ticket-nums { gap: .45rem; }
+
+  /* Si ya usas .pill en otros lados, aquí lo forzamos dentro del modal */
+  #ticketModal .pill {
+    --chip-bg: #0d6efd;      /* azul vivo */
+    --chip-fg: #fff;         /* texto blanco */
+    --chip-shadow: 0 2px 8px rgba(13,110,253,.25);
+
+    background: var(--chip-bg) !important;
+    color: var(--chip-fg) !important;
+    border: 0 !important;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    font-variant-numeric: tabular-nums;
+    padding: .35rem .6rem;
+    box-shadow: var(--chip-shadow);
+  }
+
+  /* Alterna sutilmente 3 tonos para que no se vean todas iguales (opcional) */
+  #ticketModal .ticket-nums .pill:nth-child(3n+1) { --chip-bg: #0b5ed7; } /* Primary 600 */
+  #ticketModal .ticket-nums .pill:nth-child(3n+2) { --chip-bg: #1d4ed8; } /* Indigo 600 */
+  #ticketModal .ticket-nums .pill:nth-child(3n+3) { --chip-bg: #0ea5e9; } /* Sky 500 */
+
+  /* Hover/focus para desktop */
+  @media (hover:hover){
+    #ticketModal .pill:hover { filter: brightness(1.06); }
+  }
+
+  /* Si tu sitio tiene tema oscuro (opcional) */
+  [data-bs-theme="dark"] #ticketModal .pill {
+    --chip-shadow: 0 2px 10px rgba(0,0,0,.3);
+  }
+  
+  
+
+/* ——— Compactar verticalmente la columna izquierda ——— */
+.col-lg-8 > .form-card,
+.col-lg-8 > .card.card-soft {
+  margin-bottom: .6rem !important; /* antes ~1rem–1.25rem */
+}
+
+/* Reducir padding de las tarjetas de control para que todo quede más junto */
+.col-lg-8 .card.card-soft.p-3 { padding: .75rem !important; }
+
+/* Quitar aire bajo el link “Abrir imagen…” */
+#imgLink { margin-top: .25rem !important; }
+
+/* Reducir separación vertical global de la grid bootstrap solo aquí */
+.row.g-4 { --bs-gutter-y: .6rem; }
+
+/* Vista previa un poco más compacta para que el grid “suba” */
+.preview-box { height: clamp(130px, 22vh, 210px); }
+.preview-img { max-height: 100%; }
+
+/* El grid no agrega espacio extra */
+#gridNumeros { margin-top: 0 !important; }
+</style>
+  
+
+
+
+
+
+
+
+	<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  const mostrar = /*[[${mostrarTicket}]]*/ false;
+  console.log('[ticket] mostrarTicket =', mostrar);
+
+  if (!mostrar) return;
+  const input = document.getElementById('numeroTicket');
+  autoGrowTextarea(input);
+  const modalEl = document.getElementById('ticketModal');
+  if (!modalEl) {
+    console.error('[ticket] No se encontró #ticketModal');
+    return;
+  }
+
+  if (typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+    console.error('[ticket] Bootstrap JS no está cargado. Asegura bootstrap.bundle.min.js');
+    return;
+  }
+
+  const modal = bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: 'static', keyboard: false });
+  modal.show();
+
+  document.getElementById('btnTicketOk')?.addEventListener('click', () => {
+    // Regresa exactamente a la rifa actual
+	  window.location.href = /*[[@{/admin/edicion(id=${
+		  ticketGroup != null and #maps.containsKey(ticketGroup,'rifaId') 
+		  ? ticketGroup['rifaId'] 
+		  : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)
+		})}]]*/ '/admin/edicion';
+
+
+
+  });
+  
+
+  
+});
+/*]]>*/
+</script>
+
+	<script>
+  document.getElementById('selBoletos').addEventListener('change', function () {
+    document.getElementById('cantidadBoletos').value = this.value;
+  });
+</script>
+
+	<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  const BASE      = /*[[@{/}]]*/ '/';
+  const form      = document.querySelector('form[th\\:action="@{/admin/comprar}"], form[action$="/admin/comprar"]') || document.querySelector('form[action*="/admin/comprar"]');
+  const email     = document.getElementById('email');
+  const telefono  = document.getElementById('telefono');
+  const clienteId = document.getElementById('clienteId');
+
+  // Modal y elementos del modal
+  const modalEl   = document.getElementById('clienteExistenteModal');
+  const modal     = modalEl ? (bootstrap.Modal.getOrCreateInstance(modalEl)) : null;
+  const cliNom    = document.getElementById('cliNombre');
+  const cliEmail  = document.getElementById('cliEmail');
+  const cliTel    = document.getElementById('cliTel');
+  const btnUsar   = document.getElementById('btnUsarCliente');
+
+  // 1) Validar que al menos uno (email o telefono) esté lleno
+  function validarContactoRequerido() {
+    const hasEmail = (email?.value || '').trim().length > 0;
+    const hasTel   = (telefono?.value || '').trim().length > 0;
+
+    if (!hasEmail && !hasTel) {
+      // marca ambos con mensaje para que reportValidity muestre feedback nativo
+      email?.setCustomValidity('Proporciona correo electrónico o teléfono (uno es requerido).');
+      telefono?.setCustomValidity('Proporciona correo electrónico o teléfono (uno es requerido).');
+      return false;
+    } else {
+      email?.setCustomValidity('');
+      telefono?.setCustomValidity('');
+      return true;
+    }
+  }
+
+  email?.addEventListener('input', validarContactoRequerido);
+  telefono?.addEventListener('input', validarContactoRequerido);
+
+  // 2) Antes de enviar, chequeo de duplicados por AJAX
+  form?.addEventListener('submit', async (e) => {
+    if (!validarContactoRequerido() || !form.checkValidity()) {
+      e.preventDefault();
+      form.reportValidity();
+      return;
+    }
+    // si ya decidimos clienteId previamente (del modal), no vuelvas a checar
+    if (clienteId?.value) return;
+
+    e.preventDefault();
+    try {
+      const params = new URLSearchParams({
+        email: (email?.value || '').trim(),
+        telefono: (telefono?.value || '').trim()
+      });
+      const res = await fetch(`${BASE}admin/clientes/check?${params.toString()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      
+      
+
+   // 1) Toma numPorBoleto de la rifa activa (viene en tu JSON)
+//    NUM_POR_BOLETO = Number(data.numPorBoleto ?? NUM_POR_BOLETO);
+
+   // 2) Refresca UI (texto “Selecciona tus Números : …” y “X / Y”)
+//    updateMaxUI();
+
+//    // 3) Si ya había selección y ahora el MAX es menor, recórtala
+//    trimSelectionToMax();
+
+
+      if (data && data.exists) {
+        // llena modal
+        cliNom && (cliNom.textContent   = data.nombre || '—');
+        cliEmail && (cliEmail.textContent = data.email  || '—');
+        cliTel && (cliTel.textContent     = data.telefono || '—');
+
+        // guardar id temporal en dataset para usarlo al confirmar
+        modalEl.dataset.clienteId = data.id || '';
+
+        modal?.show();
+      } else {
+        // no existe duplicado -> enviar normal
+        form.submit();
+      }
+    } catch (err) {
+      console.error('Error verificando cliente existente', err);
+      // En caso de error de red, deja continuar el flujo normal
+      form.submit();
+    }
+  });
+
+  // 3) “Usar cliente existente” desde el modal
+  btnUsar?.addEventListener('click', () => {
+    const id = modalEl?.dataset?.clienteId || '';
+    if (id && clienteId) {
+      clienteId.value = id;     // pasamos el id al form
+      modal?.hide();
+      form?.submit();           // reenviamos el form con el cliente existente
+    }
+  });
+});
+/*]]>*/
+</script>
+
+
+
+
+
+
+	<style>
+/* Modal ancho medio y alto controlado */
+#ticketModal .modal-dialog {
+	max-width: 720px;
+}
+
+#ticketModal .modal-content {
+	border-radius: 14px;
+	overflow: hidden;
+}
+
+/* Cabecera y pie fijos; cuerpo con scroll */
+#ticketModal .modal-header, #ticketModal .modal-footer {
+	background: #f8f9fa;
+	border-color: #e9ecef;
+}
+
+#ticketModal .modal-body {
+	max-height: 60vh;
+	overflow: auto;
+	padding: 1rem;
+}
+
+/* Tarjeta de cada boleto (compacta) */
+.ticket-item {
+	border: 1px solid #e9ecef;
+	border-radius: 12px;
+	padding: .75rem .9rem;
+	background: #fff;
+}
+
+.ticket-item:hover {
+	box-shadow: 0 1px 10px rgba(0, 0, 0, .05);
+}
+
+/* Chips de números */
+.ticket-nums {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .35rem;
+}
+
+.ticket-chip {
+	display: inline-block;
+	border: 1px solid #dee2e6;
+	border-radius: 999px;
+	padding: .15rem .55rem;
+	font-size: .85rem;
+	line-height: 1.1;
+	background: #f8f9fa;
+	white-space: nowrap;
+}
+
+.num-btn {
+	min-width: 3.2rem;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+
+
+.muted {
+	color: #6c757d;
+	font-size: .88rem;
+}
+
+.section-title {
+	font-weight: 600;
+	font-size: .95rem;
+	color: #495057;
+}
+
+/* Lista vertical compacta */
+.vstack-compact>*+* {
+	margin-top: .75rem;
+}
+
+/* Header compacto */
+.header-subtle {
+	font-size: .8rem;
+	color: #6c757d;
+}
+</style>
+
+
+<style>
+#loadingOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,.6);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;          /* Sobre modales y grilla */
+}
+.d-none{ display: none !important; }
+</style>
+
+
+
+<!-- Overlay de carga global -->
+<div id="loadingOverlay" class="d-none">
   <div class="text-center">
     <div class="spinner-border" role="status" aria-label="Cargando"></div>
     <div class="small mt-2">Cargando…</div>
   </div>
 </div>
 
-<!-- Modal Ticket (muestra resumen post-apartar) -->
-<div class="modal fade" id="ticketModal" tabindex="-1"
-     aria-hidden="true" th:classappend="${mostrarTicket} ? 'show' : ''"
-     th:style="${mostrarTicket} ? 'display:block' : 'display:none'">
-  <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div th:with="
-        rifaNombreFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa') ? ticketGroup['nombreRifa']
-                          : (nombreRifaSeleccionada != null ? nombreRifaSeleccionada
-                             : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición'))},
-        boletosFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos') ? ticketGroup['cantidadBoletos'] : 0},
-        npbFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto') ? ticketGroup['numerosPorBoleto'] : 1}"
-        class="modal-header py-2">
-        <div>
-          <div class="text-muted small mb-1">Edición</div>
-          <h6 class="m-0" th:text="${rifaNombreFinal}">Edición</h6>
-        </div>
-        <div class="ms-auto d-flex align-items-center gap-2">
-          <span class="badge text-bg-light border">Boletos: <span th:text="${boletosFinal}">0</span></span>
-          <span class="badge text-bg-light border">Núm x boleto: <span th:text="${npbFinal}">1</span></span>
-          <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-      </div>
-      <div class="modal-body">
-        <div class="section-title mb-2">Resumen de compra</div>
 
-        <div class="mb-3" th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
-          <div class="header-subtle mb-1">Folios</div>
-          <div class="d-flex flex-wrap gap-1">
-            <span class="badge rounded-pill text-bg-light border"
-                  th:each="t : ${ticketGroup['tickets']}"
-                  th:text="${#maps.containsKey(t,'folio') ? t['folio'] : t}">ABC123</span>
-          </div>
-        </div>
 
-        <div th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
-          <div class="header-subtle mb-1">Participa con</div>
-          <div class="d-flex flex-wrap gap-1">
-            <th:block th:each="t : ${ticketGroup['tickets']}">
-              <span class="pill badge bg-secondary"
-                    th:each="n : ${#maps.containsKey(t,'numeros') ? t['numeros'] : {}}"
-                    th:text="${n}">0031</span>
-            </th:block>
-          </div>
-        </div>
 
-        <hr class="my-3" />
-        <div class="d-flex justify-content-between">
-          <div class="muted">
-            <span>Total de boletos:</span>
-            <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos') ? ticketGroup['cantidadBoletos'] : 0}">0</strong>
-            <span class="ms-2">· Números por boleto:</span>
-            <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto') ? ticketGroup['numerosPorBoleto'] : 1}">1</strong>
-          </div>
-          <div class="text-end">
-            <div class="muted">Total</div>
-            <div class="fs-5 fw-bold"
-                 th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'total')
-                           ? '$ ' + #numbers.formatDecimal(ticketGroup['total'], 1, 2) : '$ 0.00'}">$ 0.00</div>
-          </div>
-        </div>
 
-        <div class="d-flex justify-content-end gap-2 mt-3">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
-          <button type="button" class="btn btn-primary" id="btnTicketOk">Entendido</button>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<script th:inline="javascript">
-/* ================== CONFIG ================== */
-const BASE = /*[[@{/}]]*/ '/';
-let RIFA_ID = Number(document.getElementById('rifaId')?.value || 0);
-let currentPage = 1;
-let pageSize = 1000;
-let digits = 2;
-let numPorBoleto = Number(document.getElementById('spanNumPorBoleto')?.textContent || 1);
-const selResumen = document.getElementById('selResumen');
-const grid = document.getElementById('numsGrid');
-const paginator = document.getElementById('paginator');
-const inputBoletos = document.getElementById('cantidadBoletos');
-const inputBoletosForm = document.getElementById('cantidadBoletosForm');
-const txtNums = document.getElementById('numeroTicket');
 
-/* CSRF */
-const CSRF = {
-  token: document.querySelector('meta[name="_csrf"]')?.getAttribute('content'),
-  header: document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content')
-};
 
-/* Loader */
-let __loadingCount = 0;
-function showLoader(){ __loadingCount++; document.getElementById('loadingOverlay').style.display='flex'; }
-function hideLoader(){ __loadingCount=Math.max(0,__loadingCount-1); if(!__loadingCount){document.getElementById('loadingOverlay').style.display='none';} }
 
-/* Selección en memoria */
-const seleccion = new Set(); // guarda etiquetas formateadas (con ceros)
-/* Helpers */
-const pad = (n) => String(n).padStart(digits, '0');
-const norm = (s) => pad(parseInt(String(s).replace(/\D/g,''),10));
-const getMAX = () => numPorBoleto * Number(inputBoletos.value || 1);
-function refreshInput(){
-  const arr = Array.from(seleccion).sort((a,b)=>parseInt(a)-parseInt(b));
-  txtNums.value = arr.join(', ');
-  // autoajuste de altura
-  txtNums.style.height = 'auto';
-  txtNums.style.height = Math.min(txtNums.scrollHeight, 180)+'px';
-  selResumen.textContent = `${arr.length} / ${getMAX()}`;
-}
-function trimSelectionToMax(){
-  const max = getMAX();
-  if (seleccion.size > max) {
-    const arr = Array.from(seleccion).sort((a,b)=>parseInt(a)-parseInt(b));
-    seleccion.clear();
-    arr.slice(0, max).forEach(n=>seleccion.add(n));
-  }
-  refreshInput();
+
+
+
+
+
+
+<style>
+/* Estilos del preview */
+.preview-box {
+	min-height: 180px;
+	border-radius: 16px;
+	border: 1px solid #e8e8ef;
+	background: radial-gradient(120% 120% at 10% 0%, #ffffff, #f6f7fb 60%),
+		linear-gradient(180deg, rgba(255, 255, 255, .6),
+		rgba(255, 255, 255, .4));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 10px;
+	overflow: hidden;
+	position: relative;
 }
 
-/* Render grid */
-function renderGrid({disp=[], ap=[], pag=[]}){
-  const frag = document.createDocumentFragment();
-
-  const mkBtn = (label, cls, disabled, title) => {
-    const btn = document.createElement('button');
-    btn.type='button';
-    btn.className = `btn btn-sm num-btn ${cls}`;
-    btn.textContent = label;
-    btn.dataset.label = label;
-    if (disabled){ btn.disabled = true; btn.title = title || ''; }
-    return btn;
-  };
-
-  // DISPONIBLES (clickeables)
-  disp.forEach(n => frag.appendChild(mkBtn(pad(n), 'btn-success', false)));
-  // APARTADOS
-  ap.forEach(n => frag.appendChild(mkBtn(pad(n), 'btn-warning', true, 'Apartado')));
-  // PAGADOS
-  pag.forEach(n => frag.appendChild(mkBtn(pad(n), 'btn-dark', true, 'Pagado')));
-
-  grid.innerHTML='';
-  grid.appendChild(frag);
+.preview-img {
+	max-height: 170px;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .12));
+	animation: fadeIn .45s ease-in-out both;
 }
 
-/* Paginador simple */
- function renderPaginator(totalPages){
-    const ul = paginator;
-    ul.innerHTML = '';
-
-    // helper para crear items
-    const addItem = (label, page, {active=false, disabled=false, aria=null} = {}) => {
-      const li = document.createElement('li');
-      li.className = `page-item${active ? ' active' : ''}${disabled ? ' disabled' : ''}`;
-      const a = document.createElement('a');
-      a.className = 'page-link';
-      a.textContent = label;
-      if (aria) a.setAttribute('aria-label', aria);
-
-      if (!disabled && page && page !== currentPage) {
-        a.addEventListener('click', async () => {
-          currentPage = page;
-          await fetchAndRender(currentPage);
-        });
-      }
-      li.appendChild(a);
-      ul.appendChild(li);
-    };
-
-    const addEllipsis = () => addItem('…', null, {disabled:true});
-
-    // sin páginas o una sola
-    totalPages = Math.max(1, Number(totalPages || 1));
-
-    // ventanas según ancho (más chica en móviles)
-    const win = window.innerWidth < 576 ? 1 : (window.innerWidth < 992 ? 2 : 3);
-    const start = Math.max(2, currentPage - win);
-    const end   = Math.min(totalPages - 1, currentPage + win);
-
-    // Prev
-    addItem('«', Math.max(1, currentPage - 1), {disabled: currentPage === 1, aria: 'Anterior'});
-
-    // Primera
-    addItem('1', 1, {active: currentPage === 1});
-
-    // Elipsis inicial
-    if (start > 2) addEllipsis();
-
-    // Ventana central
-    for (let p = start; p <= end; p++) {
-      addItem(String(p), p, {active: p === currentPage});
-    }
-
-    // Elipsis final
-    if (end < totalPages - 1) addEllipsis();
-
-    // Última (si hay más de una)
-    if (totalPages > 1) {
-      addItem(String(totalPages), totalPages, {active: currentPage === totalPages});
-    }
-
-    // Next
-    addItem('»', Math.min(totalPages, currentPage + 1), {disabled: currentPage === totalPages, aria: 'Siguiente'});
-  }
-
-/* Leyenda */
-function updateLegendFromData(data){
-  const cDisp = Number(data.total || 0); // total DISPONIBLES global
-  document.getElementById('countDisp').textContent = cDisp;
-  document.getElementById('countAp').textContent = (data.ap?.length ?? 0);   // si envías listas completas, actualiza aquí
-  document.getElementById('countPag').textContent = (data.pag?.length ?? 0);
-  // título
-  const t = document.getElementById('tituloRifa');
-  if (data.nombreRifaSeleccionada && t) t.textContent = data.nombreRifaSeleccionada;
+.preview-empty {
+	color: #8b90a0;
+	font-size: .9rem;
 }
 
-/* Fetch grilla */
-async function fetchAndRender(page){
-  if (!RIFA_ID) return;
-  showLoader();
-  try{
-    const url = `${BASE}detalle/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
-    const res = await fetch(url, { cache:'no-store' });
-    if (!res.ok) throw new Error('HTTP '+res.status);
-    const data = await res.json();
-
-    digits = Number(data.digits || 2);
-    numPorBoleto = Number(data.numPorBoleto || numPorBoleto);
-
-    updateLegendFromData(data);
-    renderGrid({disp:data.disp||[], ap:data.ap||[], pag:data.pag||[]});
-    renderPaginator(Number(data.totalPages || 1));
-    refreshInput();
-  } catch(err){
-    console.error(err);
-  } finally {
-    hideLoader();
-  }
+@media ( min-width : 768px) {
+	.preview-box {
+		min-height: 210px;
+	}
+	.preview-img {
+		max-height: 200px;
+	}
 }
 
-/* Click en grid */
-grid.addEventListener('click', async (e) => {
-  const btn = e.target.closest('button.num-btn.btn-success');
-  if (!btn) return;
-  const label = btn.dataset.label;
-  const willSelect = !btn.classList.contains('active');
-
-  // Respeta el máximo
-  if (willSelect && seleccion.size >= getMAX()) return;
-
-  showLoader();
-  try{
-    // Persistencia temporal (no bloqueante si falla)
-    await fetch(`${BASE}detalle/${RIFA_ID}/seleccion`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
-      },
-      body: JSON.stringify({ numero: label, seleccionado: willSelect, rifaId: RIFA_ID })
-    }).catch(()=>{});
-
-    // UI local
-    if (willSelect){ seleccion.add(label); btn.classList.add('active'); btn.classList.remove('btn-success'); btn.classList.add('btn-outline-success'); }
-    else { seleccion.delete(label); btn.classList.remove('active'); btn.classList.remove('btn-outline-success'); btn.classList.add('btn-success'); }
-    refreshInput();
-  } finally {
-    hideLoader();
-  }
-});
-
-/* Selección automática */
-document.getElementById('btnAuto')?.addEventListener('click', async () => {
-  const faltan = getMAX() - seleccion.size;
-  if (faltan <= 0) return;
-
-  showLoader();
-  try{
-    const url = `${BASE}detalle/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
-    const res = await fetch(url, { cache:'no-store' });
-    if (res.ok){
-      const picks = await res.json();            // ej. ["01","15","23"]
-      picks.map(norm).forEach(n => seleccion.add(n));
-    } else {
-      // Fallback: tomar de la grilla actual
-      const avail = Array.from(grid.querySelectorAll('.btn-success.num-btn')).map(b=>b.dataset.label);
-      avail.slice(0,faltan).forEach(n=>seleccion.add(n));
-    }
-    currentPage = 1;
-    await fetchAndRender(currentPage);
-  } catch(err){
-    console.error(err);
-  } finally {
-    hideLoader();
-  }
-});
-
-/* Limpiar */
-document.getElementById('btnClear')?.addEventListener('click', async () => {
-  showLoader();
-  try{
-    const arr = Array.from(seleccion);
-    await Promise.all(arr.map(n => fetch(`${BASE}detalle/${RIFA_ID}/seleccion`, {
-      method:'POST',
-      credentials:'same-origin',
-      headers: {'Content-Type':'application/json', ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})},
-      body: JSON.stringify({ numero:n, seleccionado:false, rifaId:RIFA_ID })
-    }).catch(()=>{})));
-    seleccion.clear();
-    refreshInput();
-    await fetchAndRender(currentPage);
-  } finally {
-    hideLoader();
-  }
-});
-
-/* Sincroniza boletos (input superior e input del form) */
-function syncBoletosInputs(v){
-  inputBoletos.value = v;
-  inputBoletosForm.value = v;
-  trimSelectionToMax();
+.autosize {
+	overflow: hidden;
+	resize: none;
+	line-height: 1.4;
+	min-height: 2.4rem;
+	max-height: 40vh; /* antes: 12rem */
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		"Liberation Mono", monospace;
+	white-space: pre-wrap;
 }
-inputBoletos.addEventListener('input', e => syncBoletosInputs(e.target.value || 1));
-inputBoletosForm.addEventListener('input', e => syncBoletosInputs(e.target.value || 1));
 
-/* Al enviar el form, asegura que #numeroTicket está actualizado */
-document.getElementById('formParticipar')?.addEventListener('submit', () => {
-  refreshInput();
-});
+.autosize.scrolled {
+	overflow-y: auto;
+}
+</style>
 
-/* Init */
-document.addEventListener('DOMContentLoaded', () => {
-  fetchAndRender(currentPage);
-  
-  const pageMeta   = document.getElementById('pageMeta');
-  
-  function setPageMeta(page, size, total){
-	    if (!pageMeta) return;
-	    const from = total === 0 ? 0 : ((page-1)*size)+1;
-	    const to   = Math.min(total, page*size);
-	    pageMeta.textContent = `Mostrando ${from}–${to} de ${total}`;
-	  }
-  
-  
-  
-});
-</script>
+
+<style>
+  /* FIX: quitar espacio extra del preview sin tocar rutas/funcionalidad */
+  .preview-box{
+    min-height: 0 !important;
+    height: clamp(130px, 22vh, 210px) !important; /* mismo tamaño compacto */
+    padding: 8px !important;
+  }
+  /* compactar un poco los márgenes entre imagen y grid */
+  .col-lg-8 > .form-card,
+  .col-lg-8 > .card.card-soft { margin-bottom: .6rem !important; }
+  #gridNumeros { margin-top: .25rem !important; }
+  .row.g-4 { --bs-gutter-y: .6rem; }
+</style>
 
 
 </body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 </html>

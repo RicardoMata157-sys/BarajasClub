@@ -10,7 +10,7 @@ public class GlobalExceptionHandler {
   public String handleAny(Exception ex, RedirectAttributes ra) {
     // log.error("Error inesperado", ex);
     ra.addFlashAttribute("error", "Ocurrió un error inesperado.");
-    return "redirect:/admin/rifas/editar";
+    return "redirect:/";
   }
 
 }

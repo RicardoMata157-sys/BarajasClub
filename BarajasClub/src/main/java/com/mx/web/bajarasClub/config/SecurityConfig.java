@@ -23,6 +23,7 @@ import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -105,13 +106,18 @@ public class SecurityConfig implements WebMvcConfigurer {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    	
+    	
         http
             // Autorización por rutas
             .authorizeHttpRequests(auth -> auth
             		  .antMatchers("/error").permitAll()
-            	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**").permitAll()
+            	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**","/detalle/**").permitAll()
             	      .antMatchers(HttpMethod.GET, "/").permitAll()
             	      .antMatchers(HttpMethod.GET, "/detalle/**").permitAll()
+            	      .antMatchers(HttpMethod.POST,
+            	    	        "/detalle/**/seleccion", "/detalle/**/limpiar-auto").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/detalle/**/limpiar-auto").permitAll()
             	      .antMatchers(HttpMethod.POST, "/admin/rifas").hasRole("ADMIN")
             	      .antMatchers(HttpMethod.GET, "/admin/rifas/**").hasRole("ADMIN")
             	      .anyRequest().authenticated()
@@ -142,8 +148,9 @@ public class SecurityConfig implements WebMvcConfigurer {
             ;
         
         http.csrf(csrf -> csrf
-        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/*/limpiar-auto", "POST"))
-        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/*/seleccion", "POST"))
+        		  .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+//        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"))
+//        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST"))
         		);
 
         return http.build();

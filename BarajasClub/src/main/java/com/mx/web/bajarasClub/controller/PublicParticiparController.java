@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.mx.web.bajarasClub.dto.LimpiarSeleccionRequest;
 import com.mx.web.bajarasClub.dto.SeleccionNumeroRequest;
 import com.mx.web.bajarasClub.model.Rifa;
 import com.mx.web.bajarasClub.model.TipoPago;
@@ -64,17 +65,7 @@ public class PublicParticiparController {
 	  }
 	  
 	  
-		@PostMapping(value = "/detalle/{rifaId}/seleccion")
-		public ResponseEntity<Map<String, Object>> setSeleccion(
-			    @PathVariable Integer rifaId,
-			    @RequestBody SeleccionNumeroRequest req) {
-
-			System.out.print("");
-			 int updated = serviceNumero.limpiarSeleccionUnico(req.getNumero(), rifaId);
-	//
-			  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
-//			return ResponseEntity.ok(null);
-		}
+	
 	  
 	  
 //	  @GetMapping(value = "/detalle/{id}/numeros-simple", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -226,10 +217,46 @@ public class PublicParticiparController {
 			    return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
 		}
 	  
-	  
-	  
-	  
-	  
+		@Transactional()
+		@GetMapping(value = "/detalle/{rifaId}/limpiar-auto", produces = MediaType.APPLICATION_JSON_VALUE)
+		@ResponseBody
+		public ResponseEntity<Map<String, Object>> limpiarPick(
+	            @PathVariable Integer rifaId,
+	            @RequestParam(name = "numeroIds") List<String> numeroIds) {
+
+			 int updated = serviceNumero.limpiarSeleccion(numeroIds, rifaId);
+	//
+			  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+		}
+//		@PostMapping("/detalle/{id}/limpiar-auto")
+//		public ResponseEntity<Void> limpiarAuto(@PathVariable("id") Long rifaId,
+//		                                        @RequestBody Map<String,Object> body) {
+//		  String token = (String) body.get("token");
+//		  @SuppressWarnings("unchecked")
+//		  List<String> numeros = (List<String>) body.get("numeros");
+//		  // ... liberar por numeros o token ...
+//		  return ResponseEntity.ok().build();
+//		}
+
+		@Transactional
+		@GetMapping(
+		  value = "/detalle/{rifaId}/seleccion",
+		  produces = MediaType.APPLICATION_JSON_VALUE
+		)
+		@ResponseBody
+		public ResponseEntity<Map<String, Object>> setSeleccion(
+		    @PathVariable Integer rifaId,
+		    @RequestParam String numero,
+		    @RequestParam(defaultValue = "false") boolean seleccionado,
+		    @RequestParam(required = false) Integer rifaIdParam // por si lo mandas también en query
+		) {
+
+			System.out.print("");
+			int updated = serviceNumero.limpiarSeleccionUnico(numero, rifaId);
+			//
+			return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+//			return ResponseEntity.ok(null);
+		}
 	  
 
 }
