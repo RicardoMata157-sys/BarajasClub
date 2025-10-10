@@ -140,7 +140,7 @@ public class NumeroGenerator {
 
         String fmt = "%0" + digitos + "d";
         List<String> out = new ArrayList<>(toGenerate);
-        for (int i = -1; i < toGenerate; i++) {           // <--- ¡aquí va '<', no '<='!
+        for (int i = 0; i <= toGenerate; i++) {           // <--- ¡aquí va '<', no '<='!
             out.add(String.format(fmt, i));
         }
         return out;
