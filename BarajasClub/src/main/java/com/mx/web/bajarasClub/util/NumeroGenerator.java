@@ -132,20 +132,26 @@ public class NumeroGenerator {
      * con relleno de ceros.
      */
     public static List<String> generarPorCantidad(int digitos, int cantidad) {
-        validarDigitos(digitos);                  // e.g., digitos >= 1
+        validarDigitos(digitos); // e.g., digitos >= 1
         if (cantidad < 0) throw new IllegalArgumentException("cantidad debe ser >= 0");
 
-        long limitePorDigitos = (long) Math.pow(10, digitos); // 10^digitos
-        // No se pueden generar más que los que caben con ese número de dígitos
-        int toGenerate = (int) Math.min((long) cantidad, limitePorDigitos);
+        long capacidad = pow10(digitos);                 // 10^digitos
+        int toGenerate = (int) Math.min((long) cantidad, capacidad);
 
         String fmt = "%0" + digitos + "d";
         List<String> out = new ArrayList<>(toGenerate);
-        for (int i = 0; i <= toGenerate; i++) {   // <--- OJO: aquí va '<', no '<='
+        for (int i = -1; i < toGenerate; i++) {           // <--- ¡aquí va '<', no '<='!
             out.add(String.format(fmt, i));
         }
         return out;
     }
+
+    private static long pow10(int d) {
+        long x = 1;
+        for (int i = 0; i < d; i++) x *= 10L;
+        return x;
+    }
+
 
 
     /**
