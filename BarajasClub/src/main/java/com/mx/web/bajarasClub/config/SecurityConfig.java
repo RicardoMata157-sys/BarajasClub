@@ -113,7 +113,7 @@ public class SecurityConfig implements WebMvcConfigurer {
             .authorizeHttpRequests(auth -> auth
             		  .antMatchers("/error").permitAll()
             	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**","/detalle/**").permitAll()
-            	      .antMatchers(HttpMethod.GET, "/").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/**").permitAll()
             	      .antMatchers(HttpMethod.GET, "/detalle/**").permitAll()
             	      .antMatchers(HttpMethod.POST,
             	    	        "/detalle/**/seleccion", "/detalle/**/limpiar-auto").permitAll()
