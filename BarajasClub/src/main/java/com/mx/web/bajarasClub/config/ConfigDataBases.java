@@ -22,10 +22,7 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableTransactionManagement
 @EnableJpaRepositories(basePackages = "com.mx.web.bajarasClub.repository")
 public class ConfigDataBases {
-	
-	
-	
-	
+
 	@Bean
 	@Primary
 	public DataSource dataSource() {
@@ -57,10 +54,21 @@ public class ConfigDataBases {
 //		return dataSource;
 //	}
 
+//	@Bean
+//	@Primary
+//	public DataSource dataSource() {
+//		DriverManagerDataSource dataSource = new DriverManagerDataSource();
+//		dataSource.setDriverClassName("org.postgresql.Driver");
+//		dataSource.setUrl("jdbc:postgresql://dpg-d3e0plbe5dus73fbifq0-a.oregon-postgres.render.com:5432/sistema_rifas"); // modifica																														// la																													// auror																															// openbank
+//		dataSource.setUsername("root");
+//		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
+//
+//		return dataSource;
+//	}
+
+//	postgresql://root:VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f@dpg-d3e0plbe5dus73fbifq0-a.oregon-postgres.render.com/sistema_rifas
 //	postgresql://root:VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f@dpg-d3e0plbe5dus73fbifq0-a/sistema_rifas
-	
-	
-	
+
 	@Bean
 	public LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource) {
 		LocalContainerEntityManagerFactoryBean factoryBean = new LocalContainerEntityManagerFactoryBean();
