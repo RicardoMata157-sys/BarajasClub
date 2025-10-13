@@ -199,7 +199,18 @@ public class AdminController {
 
 	
 	
-	
+//	@PostMapping(value = "/rifa/{rifaId}/seleccion")
+//	public ResponseEntity<Map<String, Object>> setSeleccion(
+//		    @PathVariable Integer rifaId,
+//		    @RequestBody SeleccionNumeroRequest req) {
+//
+//		System.out.print("");
+//		 int updated = serviceNumero.limpiarSeleccionUnico(req.getNumero(), rifaId);
+////
+//		  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+////		return ResponseEntity.ok(null);
+//	}
+//	
 
 	
 	
@@ -427,19 +438,30 @@ public class AdminController {
 	}
 	
 	
-	@PostMapping(value = "/rifa/{rifaId}/seleccion")
-	public ResponseEntity<Map<String, Object>> setSeleccion(
-		    @PathVariable Integer rifaId,
-		    @RequestBody SeleccionNumeroRequest req) {
-
-		System.out.print("");
-		 int updated = serviceNumero.limpiarSeleccionUnico(req.getNumero(), rifaId);
+//	@PostMapping(value = "/rifa/{rifaId}/seleccion")
+//	public ResponseEntity<Map<String, Object>> setSeleccion(
+//		    @PathVariable Integer rifaId,
+//		    @RequestBody SeleccionNumeroRequest req) {
 //
-		  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
-//		return ResponseEntity.ok(null);
+//		System.out.print("");
+//		 int updated = serviceNumero.limpiarSeleccionUnico(req.getNumero(), rifaId);
+////
+//		  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+////		return ResponseEntity.ok(null);
+//	}
+	
+	@Transactional
+	@GetMapping(value = "/rifa/{rifaId}/seleccion", produces = MediaType.APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public ResponseEntity<Map<String,Object>> setSeleccionAdminGet(
+	    @PathVariable Integer rifaId,
+	    @RequestParam String numero,
+	    @RequestParam(defaultValue="false") boolean seleccionado) {
+
+	  int updated = serviceNumero.limpiarSeleccionUnico(numero, rifaId);
+	  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
 	}
-	
-	
+
 	
 	
 	

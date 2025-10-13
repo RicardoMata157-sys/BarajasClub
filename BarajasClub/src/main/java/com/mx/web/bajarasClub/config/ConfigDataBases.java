@@ -28,14 +28,10 @@ public class ConfigDataBases {
 	public DataSource dataSource() {
 		DriverManagerDataSource dataSource = new DriverManagerDataSource();
 		dataSource.setDriverClassName("org.postgresql.Driver");
-		dataSource.setUrl("jdbc:postgresql://dpg-d3e0plbe5dus73fbifq0-a:5432/sistema_rifas"); // modifica la url y el usuario del ambiente de aurora openbank
-//		dataSource.setUsername("ricardomatacrisostomo");
-//	dataSource.setPassword("postgres");
+		dataSource.setUrl("jdbc:postgresql://dpg-d3e0plbe5dus73fbifq0-a:5432/sistema_rifas"); // modifica la url y el usuario del ambiente de aurora openbank;
 		dataSource.setUsername("root");
 		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
-		
-//		dataSource.setUsername("root");
-//		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
+	
 		return dataSource;
 	}
 

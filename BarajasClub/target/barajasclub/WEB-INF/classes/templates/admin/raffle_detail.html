@@ -521,23 +521,40 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   
-  async function setSeleccionServidor({ label, selected }) {
+// async function setSeleccionServidor({ label, selected }) {
+//   showLoader();
+//   try {
+//     const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
+//       method: 'POST',
+//       credentials: 'same-origin',
+//       headers: {
+//         'Content-Type': 'application/json',
+//         ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+//       },
+//       body: JSON.stringify({ numero: label, seleccionado: !!selected, rifaId: RIFA_ID })
+//     });
+//     if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+//     return res.json();
+//   } finally {
+//     hideLoader();
+//   }
+// }
+
+async function setSeleccionServidor({ label, selected }) {
   showLoader();
   try {
-    const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
-      method: 'POST',
+    const qs = new URLSearchParams({
+      numero: label,
+      seleccionado: String(!!selected)
+    });
+    const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion?${qs}`, {
+      method: 'GET',
       credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
-      },
-      body: JSON.stringify({ numero: label, seleccionado: !!selected, rifaId: RIFA_ID })
+      cache: 'no-store'
     });
     if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
     return res.json();
-  } finally {
-    hideLoader();            // <-- CLAVE
-  }
+  } finally { hideLoader(); }
 }
 
   

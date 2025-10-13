@@ -113,13 +113,15 @@ public class SecurityConfig implements WebMvcConfigurer {
             .authorizeHttpRequests(auth -> auth
             		  .antMatchers("/error").permitAll()
             	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**","/detalle/**").permitAll()
-            	      .antMatchers(HttpMethod.GET, "/**").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/").permitAll()
             	      .antMatchers(HttpMethod.GET, "/detalle/**").permitAll()
             	      .antMatchers(HttpMethod.POST,
             	    	        "/detalle/**/seleccion", "/detalle/**/limpiar-auto").permitAll()
             	      .antMatchers(HttpMethod.GET, "/detalle/**/limpiar-auto").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/admin/rifa/**/seleccion").permitAll()
             	      .antMatchers(HttpMethod.POST, "/admin/rifas").hasRole("ADMIN")
             	      .antMatchers(HttpMethod.GET, "/admin/rifas/**").hasRole("ADMIN")
+            	      .antMatchers(HttpMethod.GET, "/admin/**").hasRole("ADMIN")
             	      .anyRequest().authenticated()
             )
 
@@ -148,6 +150,10 @@ public class SecurityConfig implements WebMvcConfigurer {
             ;
         
         http.csrf(csrf -> csrf
+        		.ignoringRequestMatchers(
+        		        new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"),
+        		        new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST")
+        		    )
         		  .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 //        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"))
 //        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST"))
