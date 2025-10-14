@@ -55,15 +55,16 @@ public class ConfigDataBases {
 //	public DataSource dataSource() {
 //		DriverManagerDataSource dataSource = new DriverManagerDataSource();
 //		dataSource.setDriverClassName("org.postgresql.Driver");
-//		dataSource.setUrl("jdbc:postgresql://dpg-d3e0plbe5dus73fbifq0-a.oregon-postgres.render.com:5432/sistema_rifas"); // modifica																														// la																													// auror																															// openbank
-//		dataSource.setUsername("root");
-//		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
+//		dataSource.setUrl("jdbc:postgresql://dpg-d3n8sfuuk2gs73b7vtl0-a.oregon-postgres.render.com:5432/sistema_rifas_qvav"); // modifica																														// la																													// auror																															// openbank
+//		dataSource.setUsername("admin");
+//		dataSource.setPassword("8ooAnbA6srsrf7Kwr5ZRUl50Bt5nRedN");
 //
 //		return dataSource;
 //	}
 
 //	postgresql://root:VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f@dpg-d3e0plbe5dus73fbifq0-a.oregon-postgres.render.com/sistema_rifas
 //	postgresql://root:VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f@dpg-d3e0plbe5dus73fbifq0-a/sistema_rifas
+	//postgresql://admin:8ooAnbA6srsrf7Kwr5ZRUl50Bt5nRedN@dpg-d3n8sfuuk2gs73b7vtl0-a.oregon-postgres.render.com/sistema_rifas_qvav
 
 	@Bean
 	public LocalContainerEntityManagerFactoryBean entityManagerFactory(DataSource dataSource) {

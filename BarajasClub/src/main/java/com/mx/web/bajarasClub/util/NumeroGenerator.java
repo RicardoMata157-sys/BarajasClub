@@ -21,16 +21,12 @@ public class NumeroGenerator {
 	
 	static final RoundingMode MONEY_RM = RoundingMode.HALF_UP;
 	
-	public static BigDecimal montoPorNumero(Double precioPorNumero, List<Numero> numVendidos) {
+	public static BigDecimal montoPorNumero(Double precioPorNumero,   long totalNumeros) {
 	    BigDecimal precio = (precioPorNumero == null)
 	            ? BigDecimal.ZERO
 	            : BigDecimal.valueOf(precioPorNumero);
 
-	    long totalNumeros = (numVendidos == null) ? 0L : numVendidos.stream()
-	            .filter(Objects::nonNull)
-	            // si tienes un flag/estado de vendido en Numero, descomenta:
-	            // .filter(Numero::isVendido)
-	            .count();
+	  
 
 	    return precio
 	            .multiply(BigDecimal.valueOf(totalNumeros))

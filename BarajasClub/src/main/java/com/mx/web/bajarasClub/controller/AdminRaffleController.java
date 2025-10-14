@@ -215,7 +215,18 @@ public class AdminRaffleController {
 
 			
 			});
-			BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(edicion.getPrecioBoleto(), numVendidos);
+			
+			long boletosVendidos = edicion.getNumeros().stream()
+			        .filter(n -> n.getBoleto() != null
+			            && n.getBoleto().getEstadoBoleto() != null
+			            && "VENDIDO".equalsIgnoreCase(n.getBoleto().getEstadoBoleto().getNombre()))
+			        .map(n -> n.getBoleto().getId())      // <-- usa el getter real de tu entidad (id/IdBoleto)
+			        .distinct()
+			        .count();
+			
+			
+			
+			BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(edicion.getPrecioBoleto(), boletosVendidos);
 			model.addAttribute("montoRecaudado", montoRecaudado);
 			
 			
@@ -273,8 +284,16 @@ public class AdminRaffleController {
 		});
 
 		model.addAttribute("tickets", r);
+		
+		 long boletosVendidos = r.getNumeros().stream()
+			        .filter(n -> n.getBoleto() != null
+			            && n.getBoleto().getEstadoBoleto() != null
+			            && "VENDIDO".equalsIgnoreCase(n.getBoleto().getEstadoBoleto().getNombre()))
+			        .map(n -> n.getBoleto().getId())      // <-- usa el getter real de tu entidad (id/IdBoleto)
+			        .distinct()
+			        .count();
 
-		BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(r.getPrecioBoleto(), numVendidos);
+		BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(r.getPrecioBoleto(), boletosVendidos);
 		model.addAttribute("montoRecaudado", montoRecaudado);
 		
 		
