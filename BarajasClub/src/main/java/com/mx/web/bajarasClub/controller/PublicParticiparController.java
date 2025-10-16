@@ -16,18 +16,16 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.mx.web.bajarasClub.dto.LimpiarSeleccionRequest;
-import com.mx.web.bajarasClub.dto.SeleccionNumeroRequest;
 import com.mx.web.bajarasClub.model.Rifa;
 import com.mx.web.bajarasClub.model.TipoPago;
 import com.mx.web.bajarasClub.service.RaffleService;
 import com.mx.web.bajarasClub.service.ServiceNumero;
 import com.mx.web.bajarasClub.service.ServiceTipoPago;
 import com.mx.web.bajarasClub.serviceImpl.ServicioEstadoBoleto;
+import com.mx.web.bajarasClub.serviceImpl.WhatsAppServiceImpl;
 
 @Controller
 public class PublicParticiparController {
@@ -41,6 +39,7 @@ public class PublicParticiparController {
 //	  @Autowired ServicioCliente serviceCliente;
 	  @Autowired ServiceTipoPago serviceTipoPago;
 	  @Autowired ServicioEstadoBoleto serviceEstadoBoleto;
+	  @Autowired WhatsAppServiceImpl whatsAppService;
 
 	  // A) Entrar desde "Participar ahora" (carga SOLO esa edición)
 	  @GetMapping("/detalle/{id}")
@@ -98,7 +97,15 @@ public class PublicParticiparController {
 		    return ResponseEntity.ok(nums);
 		}
 
-	  
+		 @PostMapping("/detalle/confirmar")
+		public String confirmarCompra(@RequestParam(name = "telefono") String telefono) {
+		  // ... lógica de persistencia de la compra/boletos ...
+
+		  String resumen = "¡Gracias! Tu compra fue registrada. Rifa X, boletos: 3, total $150.00.";
+		  whatsAppService.enviarConfirmacionCompra(telefono, resumen);
+
+		  return "redirect:/compra/ok";
+		}
 	  
 	  
 		@Transactional()

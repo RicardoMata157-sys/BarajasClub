@@ -889,7 +889,7 @@ function updateLegendFromData(data) {
       <div class="card card-soft p-3 sticky-lg-top" style="top: 1rem;">
         <h2 class="h6 mb-3">Datos del comprador</h2>
 
-        <form method="get" th:action="@{/admin/comprar}">
+        <form method="POST" th:action="@{/detalle/confirmar}">
           <input type="hidden" id="rifaId" name="rifaId"
             th:value="${rifaSeleccionada != null ? rifaSeleccionada.id : (id != null ? id : 0)}" />
 
@@ -914,7 +914,7 @@ function updateLegendFromData(data) {
             <div class="col-12"><label class="form-label">Correo</label><input id="email" name="email" type="email" class="form-control" /></div>
             <div class="col-12">
               <label class="form-label">Teléfono</label>
-              <input id="telefono" name="telefono" class="form-control" inputmode="tel" pattern="^\+?\d{10,15}$" />
+              <input id="telefono" name="telefono" class="form-control" inputmode="tel" pattern="^\+?\d{10,15}$" required/>
               <div class="form-text">10–15 dígitos, permite + opcional.</div>
             </div>
             <div class="col-sm-6"><label class="form-label">Municipio</label><input name="municipio" class="form-control" /></div>
