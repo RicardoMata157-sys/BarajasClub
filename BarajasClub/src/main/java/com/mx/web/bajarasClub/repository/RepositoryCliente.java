@@ -1,6 +1,7 @@
 package com.mx.web.bajarasClub.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -14,5 +15,10 @@ public interface RepositoryCliente extends JpaRepository<Cliente, Integer> {
 	List<Cliente> findByEmailAndTelefono(String email,String telefono);
 	
 	List<Cliente> findFirstByEmailIgnoreCaseOrTelefono(String email, String telefono);
+	
+	
+	Optional<Cliente> findByTelefono(String telefono);
+	
+	Cliente findByidCliente(Integer id);
 
 }

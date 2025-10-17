@@ -79,70 +79,60 @@ public class AdminController {
 //		this.tRepo = tRepo;
 //		this.service = service;
 //	}
-	
+
 	// AdminController.java
 	@Transactional()
 	@GetMapping(value = "/rifa/{id}/numeros-simple", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public ResponseEntity<Map<String, Object>> numerosSimplePaged(
-	        @PathVariable Integer id,
-	        @RequestParam(defaultValue = "1") int page,
-	        @RequestParam(defaultValue = "120") int size, Model model
-	        ) {
+	public ResponseEntity<Map<String, Object>> numerosSimplePaged(@PathVariable Integer id,
+			@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "120") int size, Model model) {
 
 		List<String> numeroRifaDisponibles = new ArrayList<String>();
 		List<String> numeroRifaPagodos = new ArrayList<String>();
-		
-	    // 1) Trae listas (ajusta a tu servicio real)
-		     List<String> disponibles = new ArrayList<>();
-		    List<String> apartados   = new ArrayList<>();
-		    List<String> pagados     = new ArrayList<>();
-		    Rifa rifa = servicioRifa.obtenerRifaPorId(id);
-		    
-		    String imgUrl = null;
-	        if (rifa.getPathImagen()!=null && !rifa.getPathImagen().isBlank()) {
-	            imgUrl = rifa.getPathImagen();
-	        } else if (rifa.getPathImagen()!=null && !rifa.getPathImagen().isBlank()) {
-	            imgUrl = rifa.getPathImagen();
-	        }
-		    
-		    rifa.getNumeros().forEach(numero -> {
-		        // Evitar NPE y comparar Strings correctamente
-		        String estado = null;
-		        
-		        
-		        
-		        
-		        
-		        if (numero.getBoleto() != null && numero.getBoleto().getEstadoBoleto() != null) {
-		        	
-		            estado = numero.getBoleto().getEstadoBoleto().getNombre();
-		        }
 
-		        // Regla de negocio típica:
-		        // - Sin boleto => DISPONIBLE
-		        // - Con boleto y estado = "DISPONIBLE" => DISPONIBLE (por si así lo modelaste)
-		        // - "APARTADO" y "LIQUIDADO"/"PAGADO" según tus nombres reales
-		        
-		        if(!numero.getSeleccionado()) {
-		        	  if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
-		        		  numeroRifaDisponibles.add(numero.getValor());
-				            disponibles.add(numero.getValor()); // String ya listo para pintar
-		        	  }
-		        }
-		        
-		        if("APARTADO".equalsIgnoreCase(estado)) {
-		        	 apartados.add(numero.getValor());
-		        }
-		        
-		        if ("VENDIDO".equalsIgnoreCase(estado) ) {
-		        	numeroRifaPagodos.add(numero.getValor());
-		            pagados.add(numero.getValor());
-		        }
-		        
-		        
-		      
-		        
+		// 1) Trae listas (ajusta a tu servicio real)
+		List<String> disponibles = new ArrayList<>();
+		List<String> apartados = new ArrayList<>();
+		List<String> pagados = new ArrayList<>();
+		Rifa rifa = servicioRifa.obtenerRifaPorId(id);
+
+		String imgUrl = null;
+		if (rifa.getPathImagen() != null && !rifa.getPathImagen().isBlank()) {
+			imgUrl = rifa.getPathImagen();
+		} else if (rifa.getPathImagen() != null && !rifa.getPathImagen().isBlank()) {
+			imgUrl = rifa.getPathImagen();
+		}
+
+		rifa.getNumeros().forEach(numero -> {
+			// Evitar NPE y comparar Strings correctamente
+			String estado = null;
+
+			if (numero.getBoleto() != null && numero.getBoleto().getEstadoBoleto() != null) {
+
+				estado = numero.getBoleto().getEstadoBoleto().getNombre();
+			}
+
+			// Regla de negocio típica:
+			// - Sin boleto => DISPONIBLE
+			// - Con boleto y estado = "DISPONIBLE" => DISPONIBLE (por si así lo modelaste)
+			// - "APARTADO" y "LIQUIDADO"/"PAGADO" según tus nombres reales
+
+			if (!numero.getSeleccionado()) {
+				if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
+					numeroRifaDisponibles.add(numero.getValor());
+					disponibles.add(numero.getValor()); // String ya listo para pintar
+				}
+			}
+
+			if ("APARTADO".equalsIgnoreCase(estado)) {
+				apartados.add(numero.getValor());
+			}
+
+			if ("VENDIDO".equalsIgnoreCase(estado)) {
+				numeroRifaPagodos.add(numero.getValor());
+				pagados.add(numero.getValor());
+			}
+
 //		        if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
 //		        	numeroRifaDisponibles.add(numero.getValor());
 //		            disponibles.add(numero.getValor()); // String ya listo para pintar
@@ -154,51 +144,52 @@ public class AdminController {
 //		        } else {
 //		            // Si hay más estados, decide a dónde van o ignóralos
 //		        }
-		    });
+		});
 
-		    // Ordena numéricamente (para Strings “01”, “2”, “003”, etc.)
-		    Comparator<String> numCmp = Comparator.comparingInt(s -> {
-		        try { return Integer.parseInt(s); } catch (Exception e) { return Integer.MAX_VALUE; }
-		    });
-		    disponibles.sort(numCmp);
-		    
-		    
-		 // Paginación sobre DISPONIBLES
-		    int total = disponibles.size();
-		    int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
-		    page = Math.max(1, Math.min(page, totalPages));
-		    int from = Math.max(0, (page - 1) * size);
-		    int to   = Math.min(total, from + size);
+		// Ordena numéricamente (para Strings “01”, “2”, “003”, etc.)
+		Comparator<String> numCmp = Comparator.comparingInt(s -> {
+			try {
+				return Integer.parseInt(s);
+			} catch (Exception e) {
+				return Integer.MAX_VALUE;
+			}
+		});
+		disponibles.sort(numCmp);
 
-		    List<String> sliceDisp = disponibles.subList(from, to); 
+		// Paginación sobre DISPONIBLES
+		int total = disponibles.size();
+		int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
+		page = Math.max(1, Math.min(page, totalPages));
+		int from = Math.max(0, (page - 1) * size);
+		int to = Math.min(total, from + size);
 
-		    int digits = disponibles.stream().mapToInt(String::length).max().orElse(2);
-		    // - numPorBoleto: si lo tienes en la rifa
-		    Integer numPorBoleto = (rifa.getNumerosPorBoleto() != null) ? rifa.getNumerosPorBoleto() : 1;
+		List<String> sliceDisp = disponibles.subList(from, to);
 
-		    Map<String, Object> body = new HashMap<>();
-		    body.put("page", page);
-		    body.put("size", size);
-		    body.put("total", total);        // total DISPONIBLES (toda la rifa)
-		    body.put("totalPages", totalPages);
-		    body.put("digits", digits);
-		    body.put("numPorBoleto", numPorBoleto);
+		int digits = disponibles.stream().mapToInt(String::length).max().orElse(2);
+		// - numPorBoleto: si lo tienes en la rifa
+		Integer numPorBoleto = (rifa.getNumerosPorBoleto() != null) ? rifa.getNumerosPorBoleto() : 1;
 
-		    // Datos para la grilla
-		    body.put("disp", sliceDisp);     // disponibles de ESTA página
+		Map<String, Object> body = new HashMap<>();
+		body.put("page", page);
+		body.put("size", size);
+		body.put("total", total); // total DISPONIBLES (toda la rifa)
+		body.put("totalPages", totalPages);
+		body.put("digits", digits);
+		body.put("numPorBoleto", numPorBoleto);
 
-		    // Para la leyenda (elige una de estas dos estrategias):
+		// Datos para la grilla
+		body.put("disp", sliceDisp); // disponibles de ESTA página
+
+		// Para la leyenda (elige una de estas dos estrategias):
 //		    body.put("ap", ap);              // 1) listas completas (si no son muy grandes)
-		    body.put("pag", pagados);
+		body.put("pag", pagados);
 
-		    body.put("nombreRifaSeleccionada", rifa.getNombre());
-		    body.put("imgUrl", imgUrl);
+		body.put("nombreRifaSeleccionada", rifa.getNombre());
+		body.put("imgUrl", imgUrl);
 
-		    return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+		return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
 	}
 
-	
-	
 //	@PostMapping(value = "/rifa/{rifaId}/seleccion")
 //	public ResponseEntity<Map<String, Object>> setSeleccion(
 //		    @PathVariable Integer rifaId,
@@ -212,42 +203,33 @@ public class AdminController {
 //	}
 //	
 
-	
-	
 	@GetMapping("/clientes/check")
 	@ResponseBody
-	public Map<String, Object> checkCliente(
-	    @RequestParam(required = false) String email,
-	    @RequestParam(required = false) String telefono) {
+	public Map<String, Object> checkCliente(@RequestParam(required = false) String email,
+			@RequestParam(required = false) String telefono) {
 
-	    Map<String, Object> out = new HashMap<>();
-	    List<Cliente> encontrados  = serviceCliente.findByEmailOrTelefono(
-	        (email != null && !email.isBlank()) ? email.trim() : null,
-	        (telefono != null && !telefono.isBlank()) ? telefono.trim() : null
-	    );
+		Map<String, Object> out = new HashMap<>();
+		List<Cliente> encontrados = serviceCliente.findByEmailOrTelefono(
+				(email != null && !email.isBlank()) ? email.trim() : null,
+				(telefono != null && !telefono.isBlank()) ? telefono.trim() : null);
 
-	    
-	    Cliente c = (encontrados != null && !encontrados.isEmpty()) ? encontrados.get(0) : null;
-	    out.put("exists", c != null);
-	    
-	    if (c != null) {
-	        out.put("id", c.getIdCliente());
-	        out.put("nombre", String.format("%s %s %s",
-	            nullToEmpty(c.getNombre()),
-	            nullToEmpty(c.getApellido_patrno()),
-	            nullToEmpty(c.getApellido_materno())
-	        ).replaceAll("\\s+", " ").trim());
-	        out.put("email", nullToEmpty(c.getEmail()));
-	        out.put("telefono", nullToEmpty(c.getTelefono()));
-	    }
+		Cliente c = (encontrados != null && !encontrados.isEmpty()) ? encontrados.get(0) : null;
+		out.put("exists", c != null);
 
-	    return out;
+		if (c != null) {
+			out.put("id", c.getIdCliente());
+			out.put("nombre", String.format("%s %s %s", nullToEmpty(c.getNombre()), nullToEmpty(c.getApellido_patrno()),
+					nullToEmpty(c.getApellido_materno())).replaceAll("\\s+", " ").trim());
+			out.put("email", nullToEmpty(c.getEmail()));
+			out.put("telefono", nullToEmpty(c.getTelefono()));
+		}
+
+		return out;
 	}
 
-	private static String nullToEmpty(String s){ return s == null ? "" : s; }
-	
-	
-	
+	private static String nullToEmpty(String s) {
+		return s == null ? "" : s;
+	}
 
 	@GetMapping(value = "/admin/comprar/{rifaId}", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
@@ -281,13 +263,6 @@ public class AdminController {
 		return ResponseEntity.ok(Map.of("ok", true, "redirect", redirectUrl));
 	}
 
-	private List<String> parseNumerosCsv(String csv) {
-		if (csv == null || csv.isBlank())
-			return Collections.emptyList();
-		return Arrays.stream(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(String::valueOf).distinct()
-				.sorted().toList();
-	}
-
 	@PostMapping("/tickets/{ticketId}/estado")
 	public String cambiarEstado(@PathVariable UUID ticketId) {// , @RequestParam Ticket.Status estado) {
 //		var t = tRepo.findById(ticketId).orElseThrow();
@@ -296,12 +271,7 @@ public class AdminController {
 		return "redirect:/admin/tickets/";// + t.getRaffle().getId();
 	}
 
-	private Cliente generaCliente(CompraRequest request) {
-		Cliente cliente = new Cliente(request.getNombre(), request.getApellidoP(), request.getApellidoM(),
-				request.getMunicipio(), request.getEstado(), request.getCodigoPostal(), request.getEmail(),
-				request.getTelefono());
-		return cliente;
-	}
+	
 
 	@GetMapping("/comprar")
 	public String comprar(@RequestParam(name = "rifaId", required = false) Integer id, CompraRequest request,
@@ -311,103 +281,102 @@ public class AdminController {
 		// Aquí puedes guardar el ticket y comprador en la BD
 		List<Map<String, Object>> tickets = new ArrayList<>();
 		Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
-		 Map<String, Object> payload = new HashMap<>();
-		
-		 if (rifaSeleccionada == null) {
-		        ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
-		        return "redirect:/admin/edicion";
-		    }
-		
-		
-		 int porBoleto = rifaSeleccionada.getNumerosPorBoleto() != null
-			        ? rifaSeleccionada.getNumerosPorBoleto() : 1;
-			    if (porBoleto <= 0) porBoleto = 1;
-			    if (cantidadBoletos == null || cantidadBoletos < 1) cantidadBoletos = 1;
+		Map<String, Object> payload = new HashMap<>();
+
+		if (rifaSeleccionada == null) {
+			ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
+			return "redirect:/admin/edicion";
+		}
+
+		int porBoleto = rifaSeleccionada.getNumerosPorBoleto() != null ? rifaSeleccionada.getNumerosPorBoleto() : 1;
+		if (porBoleto <= 0)
+			porBoleto = 1;
+		if (cantidadBoletos == null || cantidadBoletos < 1)
+			cantidadBoletos = 1;
 
 		EstadoBoleto estadoBoleto = serviceEstadoBoleto.regresaEstadoVendido();
 		TipoPago tipoPago = serviceTipoPago.regresaTipoPagoId(request.getTipoPagoId());
-		
-        List<String> numeros = parseNumerosCsv(numeroTicket);
-        int totalEsperado = porBoleto * cantidadBoletos;
-        
-        if (numeros.size() != totalEsperado) {
-            ra.addFlashAttribute("error",
-                "Debes seleccionar exactamente " + totalEsperado +
-                " números (" + porBoleto + " por boleto × " + cantidadBoletos + ").");
-            return "redirect:/admin/edicion";
-        }
-        
-        
-        Cliente comprador = null;
+
+		List<String> numeros = NumeroGenerator.parseNumerosCsv(numeroTicket);
+		int totalEsperado = porBoleto * cantidadBoletos;
+
+		if (numeros.size() != totalEsperado) {
+			ra.addFlashAttribute("error", "Debes seleccionar exactamente " + totalEsperado + " números (" + porBoleto
+					+ " por boleto × " + cantidadBoletos + ").");
+			return "redirect:/admin/edicion";
+		}
+
+		Cliente comprador = null;
 		List<Numero> numeroSeleccionados = serviceNumero.regresaNumerosSeleccionados(rifaSeleccionada, numeros);
-		
+
 		if (numeroSeleccionados.size() != totalEsperado) {
-	        ra.addFlashAttribute("error", "Algunos números seleccionados ya no están disponibles.");
-	        return "redirect:/admin/rifa";
-	    }
-		
-		 List<List<Numero>> grupos = new ArrayList<>();
-		    for (int i = 0; i < totalEsperado; i += porBoleto) {
-		        grupos.add(numeroSeleccionados.subList(i, i + porBoleto));
-		    }
+			ra.addFlashAttribute("error", "Algunos números seleccionados ya no están disponibles.");
+			return "redirect:/admin/rifa";
+		}
 
+		List<List<Numero>> grupos = new ArrayList<>();
+		for (int i = 0; i < totalEsperado; i += porBoleto) {
+			grupos.add(numeroSeleccionados.subList(i, i + porBoleto));
+		}
 
-		Cliente cliente = generaCliente(request);
+		Cliente cliente = NumeroGenerator.generaCliente(request);
 		Cliente clienteGuardado = serviceCliente.guardaClienteEdicion(cliente);
-		
+
 		for (int i = 0; i < grupos.size(); i++) {
-	        List<Numero> grupo = new ArrayList<>(grupos.get(i)); // copia por seguridad
+			List<Numero> grupo = new ArrayList<>(grupos.get(i)); // copia por seguridad
 
-	        // Para folio por boleto, usa la misma ventana en la lista de strings
-	        List<String> numerosStrDelBoleto = numeros.subList(i * porBoleto, (i + 1) * porBoleto);
+			// Para folio por boleto, usa la misma ventana en la lista de strings
+			List<String> numerosStrDelBoleto = numeros.subList(i * porBoleto, (i + 1) * porBoleto);
 
-	        Boleto boleto = new Boleto();
-	        boleto.setRifa(rifaSeleccionada);
-	        boleto.setCliente(clienteGuardado);
-	        boleto.setEstadoBoleto(estadoBoleto);
-	        boleto.setTipoPago(tipoPago);
-	        boleto.setNumeros(grupo);
-	        boleto.setFechaCompra(LocalDateTime.now());
-	        boleto.setFolio(NumeroGenerator.generarFolio(boleto.getFechaCompra(), numerosStrDelBoleto, clienteGuardado.getIdCliente()));
+			Boleto boleto = new Boleto();
+			boleto.setRifa(rifaSeleccionada);
+			boleto.setCliente(clienteGuardado);
+			boleto.setEstadoBoleto(estadoBoleto);
+			boleto.setTipoPago(tipoPago);
+			boleto.setNumeros(grupo);
+			boleto.setFechaCompra(LocalDateTime.now());
+			boleto.setFolio(NumeroGenerator.generarFolio(boleto.getFechaCompra(), numerosStrDelBoleto,
+					clienteGuardado.getIdCliente()));
 
-	        // back-reference
-	        for (Numero n : grupo) {
-	            n.setBoleto(boleto);
-	        }
+			// back-reference
+			for (Numero n : grupo) {
+				n.setBoleto(boleto);
+			}
 
-	        // Persistir
-	        servicioBoletos.guardaBoletoClienteAsignado(boleto);
+			// Persistir
+			servicioBoletos.guardaBoletoClienteAsignado(boleto);
 
-	        // Armar objeto de ticket para la vista
-	        Map<String, Object> t = new HashMap<>();
-	        t.put("folio", boleto.getFolio());
-	        t.put("numeros", new ArrayList<>(numerosStrDelBoleto));
-	        t.put("fechaCompra", boleto.getFechaCompra());
-	        tickets.add(t);
-	    }
-		
-		BigDecimal total = NumeroGenerator.calcularTotal(BigDecimal.valueOf(rifaSeleccionada.getPrecioBoleto()), cantidadBoletos);
+			// Armar objeto de ticket para la vista
+			Map<String, Object> t = new HashMap<>();
+			t.put("folio", boleto.getFolio());
+			t.put("numeros", new ArrayList<>(numerosStrDelBoleto));
+			t.put("fechaCompra", boleto.getFechaCompra());
+			tickets.add(t);
+		}
 
-	    // 7) Marcar números como vendidos (todos a la vez)
-	    serviceNumero.actualizaNumeros(numeroSeleccionados);
+		BigDecimal total = NumeroGenerator.calcularTotal(BigDecimal.valueOf(rifaSeleccionada.getPrecioBoleto()),
+				cantidadBoletos);
 
-	    // 8) Datos para la vista
-	    model.addAttribute("rifaSeleccionada", rifaSeleccionada);
-	    payload.put("rifaId", rifaSeleccionada.getId());
-	    payload.put("nombreRifa", rifaSeleccionada.getNombre());
-	    payload.put("numeros", numeros);
-	    payload.put("comprador", clienteGuardado);
-	    payload.put("precioUnitario", rifaSeleccionada.getPrecioBoleto());
-	    payload.put("tickets", tickets);
-	    payload.put("cantidadBoletos", cantidadBoletos);
-	    payload.put("numerosPorBoleto", porBoleto);
-	    payload.put("total", total);
-	    ra.addFlashAttribute("ticketGroup", payload);
-	    ra.addFlashAttribute("mostrarTicket", true);
+		// 7) Marcar números como vendidos (todos a la vez)
+		serviceNumero.actualizaNumeros(numeroSeleccionados);
 
-	    // importante: conserva la edición seleccionada en el redirect
-	    ra.addAttribute("id", rifaSeleccionada.getId());
-	    model.addAttribute("nombreRifaSeleccionada", rifaSeleccionada.getNombre());
+		// 8) Datos para la vista
+		model.addAttribute("rifaSeleccionada", rifaSeleccionada);
+		payload.put("rifaId", rifaSeleccionada.getId());
+		payload.put("nombreRifa", rifaSeleccionada.getNombre());
+		payload.put("numeros", numeros);
+		payload.put("comprador", clienteGuardado);
+		payload.put("precioUnitario", rifaSeleccionada.getPrecioBoleto());
+		payload.put("tickets", tickets);
+		payload.put("cantidadBoletos", cantidadBoletos);
+		payload.put("numerosPorBoleto", porBoleto);
+		payload.put("total", total);
+		ra.addFlashAttribute("ticketGroup", payload);
+		ra.addFlashAttribute("mostrarTicket", true);
+
+		// importante: conserva la edición seleccionada en el redirect
+		ra.addAttribute("id", rifaSeleccionada.getId());
+		model.addAttribute("nombreRifaSeleccionada", rifaSeleccionada.getNombre());
 
 		return "redirect:/admin/edicion";
 	}
@@ -419,25 +388,21 @@ public class AdminController {
 		int req = (faltan == null || faltan < 0) ? 0 : faltan;
 		// Usa una de las dos estrategias:
 		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(rifaId, faltan);
-		
+
 //		    ra.addFlashAttribute("ticket", ticket);
 //
 		return ResponseEntity.ok(nums);
 	}
 
-	
-	
 	@PostMapping(value = "/rifa/{rifaId}/limpiar-auto")
-	public ResponseEntity<Map<String, Object>> limpiarPick(
-            @PathVariable Integer rifaId,
-            @RequestBody LimpiarSeleccionRequest req) {
+	public ResponseEntity<Map<String, Object>> limpiarPick(@PathVariable Integer rifaId,
+			@RequestBody LimpiarSeleccionRequest req) {
 
-		 int updated = serviceNumero.limpiarSeleccion(req.getNumeroIds(), rifaId);
+		int updated = serviceNumero.limpiarSeleccion(req.getNumeroIds(), rifaId);
 //
-		  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
 	}
-	
-	
+
 //	@PostMapping(value = "/rifa/{rifaId}/seleccion")
 //	public ResponseEntity<Map<String, Object>> setSeleccion(
 //		    @PathVariable Integer rifaId,
@@ -449,26 +414,17 @@ public class AdminController {
 //		  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
 ////		return ResponseEntity.ok(null);
 //	}
-	
+
 	@Transactional
 	@GetMapping(value = "/rifa/{rifaId}/seleccion", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public ResponseEntity<Map<String,Object>> setSeleccionAdminGet(
-	    @PathVariable Integer rifaId,
-	    @RequestParam String numero,
-	    @RequestParam(defaultValue="false") boolean seleccionado) {
+	public ResponseEntity<Map<String, Object>> setSeleccionAdminGet(@PathVariable Integer rifaId,
+			@RequestParam String numero, @RequestParam(defaultValue = "false") boolean seleccionado) {
 
-	  int updated = serviceNumero.limpiarSeleccionUnico(numero, rifaId);
-	  return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+		int updated = serviceNumero.limpiarSeleccionUnico(numero, rifaId);
+		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
 	}
 
-	
-	
-	
-	
-	
-	
-	
 	@ModelAttribute("tiposPago")
 	public List<TipoPago> cargarTiposPago() {
 		return serviceTipoPago.getAllTipoPagos();
@@ -484,19 +440,17 @@ public class AdminController {
 		if (id != null) {
 			Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
 			rifaSeleccionada.getNumeros().stream().forEach(numero -> {
-				if (numero.getBoleto() == null || numero.getBoleto().getEstadoBoleto().getNombre() == "DISPONIBLE" ) {
-					if(!numero.getSeleccionado()) {
+				if (numero.getBoleto() == null || numero.getBoleto().getEstadoBoleto().getNombre() == "DISPONIBLE") {
+					if (!numero.getSeleccionado()) {
 						numeroRifaDisponibles.add(numero.getValor());
 					}
 				}
-				
-				if(numero.getBoleto() != null) {
-					if(numero.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
+
+				if (numero.getBoleto() != null) {
+					if (numero.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
 						numeroRifaPagodos.add(numero.getValor());
 					}
 				}
-				
-				
 
 			});
 			serviceEstadoRifa.getEstadosActivos().stream().forEach(estado -> {
@@ -520,26 +474,25 @@ public class AdminController {
 			model.addAttribute("rifasActivas", edicionesActivas);
 			edicionesActivas.stream().findFirst().ifPresent(edicion -> {
 				edicion.getNumeros().stream().forEach(numero -> {
-						if(!numero.getSeleccionado()) {
-							if (numero.getBoleto() == null || numero.getBoleto().getEstadoBoleto().getNombre() == "DISPONIBLE" ) {
+					if (!numero.getSeleccionado()) {
+						if (numero.getBoleto() == null
+								|| numero.getBoleto().getEstadoBoleto().getNombre() == "DISPONIBLE") {
 							numeroRifaDisponibles.add(numero.getValor());
 						}
-						
+
 					}
-					if(numero.getBoleto() != null) {
-						if(numero.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
+					if (numero.getBoleto() != null) {
+						if (numero.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
 							numeroRifaPagodos.add(numero.getValor());
 						}
 					}
-					
-					
+
 				});
 				model.addAttribute("rifaSeleccionada", edicion);
 				model.addAttribute("disp", edicion);
 				model.addAttribute("numPorBoleto", edicion.getNumerosPorBoleto());
 				model.addAttribute("digitosNumeros", edicion.getDigitos());
-				
-			
+
 			});
 			model.addAttribute("dispNumeros", numeroRifaDisponibles);
 			model.addAttribute("pag", numeroRifaPagodos);
@@ -556,45 +509,39 @@ public class AdminController {
 //	model.addAttribute("ap", apartados); model.addAttribute("pag", pagados);
 		return "admin/raffle_detail";
 	}
-	
-	
-	
-	@GetMapping("/tickets")
-    public String listarTickets(
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) EstadoBoleto estado,
-            @RequestParam(required = false) Long rifaId,
-            Model model) {
 
-        // Estados mostrados por defecto si no seleccionan uno explícito
+	@GetMapping("/tickets")
+	public String listarTickets(@RequestParam(required = false) String q,
+			@RequestParam(required = false) EstadoBoleto estado, @RequestParam(required = false) Long rifaId,
+			Model model) {
+
+		// Estados mostrados por defecto si no seleccionan uno explícito
 //        Set<EstadoBoleto> estadosFiltro = (estado != null)
 //                ? Set.of(estado)
 //                : Set.of(EstadoBoleto.APARTADO, EstadoBoleto.VENDIDO);
 
-        // Data para filtros
+		// Data para filtros
 //        model.addAttribute("rifas", rifaService.findAllLite()); // id + nombre
 //        model.addAttribute("estados", Arrays.asList(EstadoBoleto.values()));
 
-        // Búsqueda
+		// Búsqueda
 //        List<Boleto> tickets = ticketService.buscarTickets(q, estadosFiltro, rifaId);
 
 //        model.addAttribute("tickets", tickets);
-        return "admin/tickets"; // tu template tickets.html
-    }
+		return "admin/tickets"; // tu template tickets.html
+	}
 
-    /** Cambio de estado con validación de pago (y confirmación si hace falta) */
-    @PostMapping("/tickets/{id}/estado")
-    @Transactional
-    public String cambiarEstado(
-            @PathVariable Long id,
-            @RequestParam EstadoBoleto estado,
-            @RequestParam(defaultValue = "false") boolean confirmPago,
-            RedirectAttributes ra) {
+	/** Cambio de estado con validación de pago (y confirmación si hace falta) */
+	@PostMapping("/tickets/{id}/estado")
+	@Transactional
+	public String cambiarEstado(@PathVariable Long id, @RequestParam EstadoBoleto estado,
+			@RequestParam(defaultValue = "false") boolean confirmPago, RedirectAttributes ra) {
 
 //        Boleto b = ticketService.getById(id)
 //                .orElseThrow(() -> new IllegalArgumentException("Boleto no encontrado"));
 
-        // Si se va a VENDIDO, debe existir pago; si no hay -> exigir confirmación del modal
+		// Si se va a VENDIDO, debe existir pago; si no hay -> exigir confirmación del
+		// modal
 //        if (estado == EstadoBoleto.VENDIDO && !Boolean.TRUE.equals(b.getPagoRealizado())) {
 //            if (!confirmPago) {
 //                ra.addFlashAttribute("error",
@@ -618,7 +565,7 @@ public class AdminController {
 //        ra.addFlashAttribute("ok",
 //                "Boleto " + (b.getFolio() != null ? b.getFolio() : b.getId()) +
 //                " actualizado a " + estado.name());
-        return "redirect:/admin/tickets";
-    }
+		return "redirect:/admin/tickets";
+	}
 
 }

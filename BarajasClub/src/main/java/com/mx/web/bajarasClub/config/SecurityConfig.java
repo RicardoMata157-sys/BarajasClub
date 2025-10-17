@@ -151,10 +151,17 @@ public class SecurityConfig implements WebMvcConfigurer {
             ;
         
         http.csrf(csrf -> csrf
+        		 .ignoringAntMatchers("/detalle/**/seleccion",
+        		          "/detalle/**/auto-numeros",
+        		          "/detalle/**/limpiar-auto",
+        		          "/detalle/**/numeros-simple",
+        		          "/detalle/**/enviar-sms",
+        		          "/detalle/**/enviar-whatsapp")
         		.ignoringRequestMatchers(
         		        new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"),
         		        new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST"),
-        		        new AntPathRequestMatcher("/detalle/confirmar", "POST")
+        		        new AntPathRequestMatcher("/detalle/confirmar", "POST"),
+        		        new AntPathRequestMatcher("/detalle/{id}", "GET")
         		    )
         		  .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 //        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"))
