@@ -159,6 +159,7 @@ public class SecurityConfig implements WebMvcConfigurer {
         		          "/detalle/**/enviar-whatsapp")
         		.ignoringRequestMatchers(
         		        new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"),
+        		        new AntPathRequestMatcher("/detalle/enviar-whatsapp", "POST"),
         		        new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST"),
         		        new AntPathRequestMatcher("/detalle/confirmar", "POST"),
         		        new AntPathRequestMatcher("/detalle/{id}", "GET")

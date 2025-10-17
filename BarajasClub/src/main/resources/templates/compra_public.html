@@ -827,6 +827,10 @@ function updateLegendFromData(data) {
                 <option value="2">2</option><option value="3">3</option>
                 <option value="4">4</option><option value="5">5</option>
                 <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
               </select>
             </div>
           </div>
@@ -905,6 +909,7 @@ function updateLegendFromData(data) {
             <div class="col-sm-6"><label class="form-label">Estado</label><input name="estado" class="form-control" /></div>
             <div class="col-sm-6"><label class="form-label">Código Postal</label><input name="codigoPostal" class="form-control" /></div>
             <div class="col-sm-6">
+            <input type="hidden" name="compraId" th:value="${compraId}">
               <label class="form-label">Tipo de pago</label>
               <select class="form-control" name="tipoPagoId" required>
                 <option value="" disabled selected>Selecciona...</option>
@@ -1214,7 +1219,6 @@ function updateLegendFromData(data) {
                   : ''}">Nombre Apellidos</span><br>
   <small>
     Tel: <span th:text="${comp != null ? (comp['telefono'] != null ? comp['telefono'] : '') : ''}">5555555555</span> ·
-    Email: <span th:text="${comp != null ? (comp['email'] != null ? comp['email'] : '') : ''}">mail@dominio.com</span>
   </small>
 </div>
 
@@ -1226,16 +1230,31 @@ function updateLegendFromData(data) {
           <strong>Total:</strong> $<span th:text="${#numbers.formatDecimal(ticketGroup.total,1,2)}">0.00</span>
         </div>
 
-        <div class="mb-3">
-          <strong>Folios y números:</strong>
-          <ul class="list-group" th:if="${ticketGroup.tickets}">
-            <li class="list-group-item" th:each="t : ${ticketGroup.tickets}">
-              <div><strong>Folio:</strong> <span th:text="${t.folio}">ABC123</span></div>
-              <div><small><strong>Números:</strong> 
-                <span th:text="${#strings.arrayJoin(t.numeros, ', ')}">0001, 0023</span></small></div>
-            </li>
-          </ul>
-        </div>
+        <!-- Folios (compacto) -->
+					<div class="mb-3"
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Folios</div>
+						<div class="d-flex flex-wrap gap-1">
+							<span class="badge rounded-pill text-bg-light border"
+								th:each="t : ${ticketGroup['tickets']}"
+								th:text="${#maps.containsKey(t,'folio') ? t['folio'] : t}">ABC123</span>
+						</div>
+					</div>
+					
+					
+					
+					<div
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Participa con</div>
+						<div class="ticket-nums d-flex flex-wrap gap-1">
+							<th:block th:each="t : ${ticketGroup['tickets']}">
+								<span class="pill"
+									th:each="n : ${#maps.containsKey(t,'numeros') ? t['numeros'] : {}}"
+									th:text="${n}">0031</span>
+
+							</th:block>
+						</div>
+					</div>
 
         <div class="alert alert-warning" role="alert" th:text="${ticketGroup.leyendaPago}">
           Leyenda de pago (2 horas, cuentas, titular, etc.)
@@ -1445,7 +1464,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
   const compraId  = /*[[${compraId}]]*/ 0;
-  const tel       = /*[[${ticketGroup != null ? ticketGroup.comprador.telefono : ''}]]*/ '';
+  const tel = /*[[${ticketGroup != null && ticketGroup.comprador != null ? ticketGroup.comprador.telefono : ''}]]*/ '';
   const nombre    = /*[[${ticketGroup != null ? ticketGroup.comprador.nombre : ''}]]*/ '';
   const total     = /*[[${ticketGroup != null ? ticketGroup.total : 0}]]*/ 0;
   const telefonosConfirmados = /*[[${ticketGroup != null && ticketGroup.comprador != null ? ticketGroup.comprador.telefono : ''}]]*/ '';
@@ -1454,73 +1473,91 @@ document.addEventListener('DOMContentLoaded', () => {
                      ? ticketGroup.tickets.![folio] 
                      : {}}]]*/ [];   // ← usa [] como fallback
 
-  // 1) Emitimos lista de listas desde Thymeleaf
   const numerosNested = /*[[${ticketGroup != null && ticketGroup.tickets != null 
-                             ? ticketGroup.tickets.![numeros] 
-                             : {}}]]*/ [];   // ← también []
+      ? ticketGroup.tickets.![numeros] 
+      : {}}]]*/ [];
 
-  // 2) Aplanamos en JavaScript (no uses #lists.flatten)
-  const numerosSeleccionados = (Array.isArray(numerosNested) && typeof numerosNested.flat === 'function')
-    ? numerosNested.flat()
-    : [].concat.apply([], numerosNested);
-  // Aplanado seguro en JS
-  const numeros = Array.isArray(nestedNumeros)
-    ? (nestedNumeros.flat ? nestedNumeros.flat() 
-                          : nestedNumeros.reduce((acc, arr) => acc.concat(arr || []), []))
-    : [];
+                     
+                     
+  const CSRF = (() => {
+	    const token  = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+	    const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+	    return { token, header };
+	  })();
+                     
+// 2) Aplanar en JS sin errores
+const numeros = Array.isArray(numerosNested)
+? (typeof numerosNested.flat === 'function'
+? numerosNested.flat()
+: numerosNested.reduce((acc, arr) => acc.concat(arr || []), []))
+: [];
 
+// Construir el mensaje usando "numeros"
+const mensaje = [
+`¡Gracias por tu compra, ${nombre}!`,
+``,
+`Folios: ${folios.join(', ')}`,
+`Números: ${numeros.join(', ')}`,
+`Total: $${Number(total).toFixed(2)}`,
+``,
+`Tienes 2 horas para realizar el depósito.`,
+`Mi cuenta BBVA:`,
+`Cuenta CLABE: 012 306 02932601117 4`,
+`Tarjeta de débito: 4152 3142 4145 7947`,
+`Titular: Andrés Molina`,
+``,
+`En la nota del depósito escribe tu nombre.`,
+`Si no recibimos el depósito en 2 horas, tus números se liberarán.`
+].join('\n');
 
-  // Construye texto para WhatsApp (fallback)
-  const mensaje = [
-    `¡Gracias por tu compra, ${nombre}!`,
-    ``,
-    `Folios: ${folios.join(', ')}`,
-    `Números: ${numeros.join(', ')}`,
-    `Total: $${Number(total).toFixed(2)}`,
-    ``,
-    `Tienes 2 horas para realizar el depósito.`,
-    `Mi cuenta BBVA:`,
-    `Cuenta CLABE: 012 306 02932601117 4`,
-    `Tarjeta de débito: 4152 3142 4145 7947`,
-    `Titular: Andrés Molina`,
-    ``,
-    `En la nota del depósito escribe tu nombre.`,
-    `Si no recibimos el depósito en 2 horas, tus números se liberarán.`
-  ].join('\n');
+// Mostrar modal solo si existe
+const modalEl = document.getElementById('ticketModalFinal');
+if (modalEl) {
+const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+modal.show();
 
-  // Abre modal final automáticamente
-  const modalEl = document.getElementById('ticketModalFinal');
-  const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
-  modal.show();
+// Click en botón WhatsApp
+document.getElementById('btnEnviarWhats')?.addEventListener('click', async () => {
 
-  // Click en aceptar -> intentar WhatsApp API (si tienes endpoint), SMS y fallback wa.me
-  document.getElementById('btnEnviarWhats')?.addEventListener('click', async () => {
-    // 1) Intentar backend WhatsApp (si está configurado)
+	 // 1) Llama a tu endpoint enviando telefono y compraId como form-url-encoded
     try {
-      await fetch(`/detalle/${compraId}/enviar-whatsapp`, { method: 'POST' });
+      const body = new URLSearchParams({
+        telefono: (tel || '').trim(),
+        compraId: String(compraId || '')
+      });
+
+      await fetch('/detalle/enviar-whatsapp', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+        },
+        body
+      });
     } catch (e) {
-      console.warn('No se pudo enviar por WhatsApp API, se usará wa.me', e);
+      console.error('Fallo enviar-whatsapp', e);
     }
 
-    // 2) SMS (siempre que tengas smsSender configurado)
-    try {
-      await fetch(`/detalle/${compraId}/enviar-sms`, { method: 'POST' });
-    } catch (e) {
-      console.warn('No se pudo enviar SMS', e);
-    }
+    // 2) (opcional) tu SMS existente
+    try { await fetch(`/detalle/${compraId}/enviar-sms`, { method: 'POST', headers: (CSRF.token ? { [CSRF.header]: CSRF.token } : {}) }); } catch {}
 
-    // 3) Fallback / complemento: abrir WhatsApp con texto prellenado (cliente puede reenviar o confirmar)
+    // 3) Abrir WhatsApp con mensaje
     if (tel && tel.trim().length >= 10) {
-      const telE164 = tel.replace(/[^\d]/g, ''); // ajusta si usas código de país
+      const telE164 = tel.replace(/[^\d]/g, ''); // agrega '52' si lo necesitas: '52' + telE164
       const url = `https://wa.me/${telE164}?text=${encodeURIComponent(mensaje)}`;
-      window.open(url, '_blank'); // abre chat con el mensaje
+      window.open(url, '_blank');
     }
 
-    // Cierra modal y redirige al detalle de la rifa
-    modal.hide();
-    const rifaId = /*[[${ticketGroup != null ? ticketGroup.rifaId : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)}]]*/ 0;
-    window.location.href = `/detalle/${rifaId}`;
-  });
+    // 4) Redirigir al detalle si quieres
+    const rifaIdRedir = /*[[${ticketGroup != null ? ticketGroup.rifaId : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)}]]*/ 0;
+    if (rifaIdRedir) window.location.href = `/detalle/${rifaIdRedir}`;
+	
+	
+	
+	
+	
+});
+}
 });
 /*]]>*/
 </script>

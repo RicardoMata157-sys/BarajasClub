@@ -7,5 +7,7 @@ public interface ServiceEstadoBoleto {
 	
 	public EstadoBoleto regresaEstadoVendido();
 	
+	public EstadoBoleto regresaEstadoApartado();
+	
 
 }

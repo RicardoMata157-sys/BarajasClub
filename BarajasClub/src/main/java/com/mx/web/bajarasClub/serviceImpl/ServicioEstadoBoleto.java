@@ -22,4 +22,12 @@ public class ServicioEstadoBoleto implements ServiceEstadoBoleto {
 		return repositoryEstadoBoleto.regresaEstadoVendido();
 	}
 
+
+
+	@Override
+	public EstadoBoleto regresaEstadoApartado() {
+		// TODO Auto-generated method stub
+		return repositoryEstadoBoleto.regresaEstadoApartado();
+	}
+
 }

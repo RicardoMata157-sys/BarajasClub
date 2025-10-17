@@ -179,6 +179,8 @@ public class AdminController {
 
 		// Datos para la grilla
 		body.put("disp", sliceDisp); // disponibles de ESTA página
+		
+		body.put("ap", apartados);
 
 		// Para la leyenda (elige una de estas dos estrategias):
 //		    body.put("ap", ap);              // 1) listas completas (si no son muy grandes)
@@ -436,6 +438,7 @@ public class AdminController {
 	public String detalleRifa(@RequestParam(name = "id", required = false) Integer id, Model model) {
 		List<String> numeroRifaDisponibles = new ArrayList<String>();
 		List<String> numeroRifaPagodos = new ArrayList<String>();
+		List<String> numeroApartado = new ArrayList<String>();
 		edicionesActivas = new ArrayList();
 		if (id != null) {
 			Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
@@ -451,6 +454,13 @@ public class AdminController {
 						numeroRifaPagodos.add(numero.getValor());
 					}
 				}
+				
+				
+				if (numero.getBoleto() != null) {
+					if (numero.getBoleto().getEstadoBoleto().getNombre().equals("APARTADO")) {
+						numeroApartado.add(numero.getValor());
+					}
+				}
 
 			});
 			serviceEstadoRifa.getEstadosActivos().stream().forEach(estado -> {
@@ -463,6 +473,7 @@ public class AdminController {
 
 			model.addAttribute("digitosNumeros", rifaSeleccionada.getDigitos());
 			model.addAttribute("pag", numeroRifaPagodos);
+			model.addAttribute("ap", numeroApartado);
 			model.addAttribute("dispNumeros", numeroRifaDisponibles);
 			model.addAttribute("rifaSeleccionada", rifaSeleccionada);
 			model.addAttribute("r", rifaSeleccionada);
@@ -486,20 +497,29 @@ public class AdminController {
 							numeroRifaPagodos.add(numero.getValor());
 						}
 					}
+					
+					if (numero.getBoleto() != null) {
+						if (numero.getBoleto().getEstadoBoleto().getNombre().equals("APARTADO")) {
+							numeroApartado.add(numero.getValor());
+						}
+					}
 
 				});
 				model.addAttribute("rifaSeleccionada", edicion);
 				model.addAttribute("disp", edicion);
+			
+				
 				model.addAttribute("numPorBoleto", edicion.getNumerosPorBoleto());
 				model.addAttribute("digitosNumeros", edicion.getDigitos());
 
 			});
-			model.addAttribute("dispNumeros", numeroRifaDisponibles);
-			model.addAttribute("pag", numeroRifaPagodos);
+			
 
 		});
 
-//		 
+		 model.addAttribute("dispNumeros", numeroRifaDisponibles);
+		model.addAttribute("pag", numeroRifaPagodos);
+		model.addAttribute("ap", numeroApartado);
 
 //	var raffle = rRepo.findById(id).orElseThrow();
 //	var disponibles = tRepo.findByRaffleIdAndStatusOrderByNumero(id, Ticket.Status.DISPONIBLE);

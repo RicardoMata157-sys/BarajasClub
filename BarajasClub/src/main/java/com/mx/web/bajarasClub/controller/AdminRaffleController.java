@@ -189,6 +189,8 @@ public class AdminRaffleController {
 		List<Numero> numDisp = new ArrayList<Numero>();
 		List<Numero> numVendidos = new ArrayList<Numero>();
 		
+		List<Numero> numApartados = new ArrayList<Numero>();
+		
 		if (edicionesCreadas == null || edicionesCreadas.isEmpty()) {
 			    ra.addFlashAttribute("info", "No hay rifas. Crea la primera.");
 			    return "redirect:/admin/rifas/nueva";
@@ -208,6 +210,13 @@ public class AdminRaffleController {
 				if(numerosDisponibles.getBoleto() != null) {
 					if(numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
 						numVendidos.add(numerosDisponibles);
+						
+					}
+				}
+				
+				if(numerosDisponibles.getBoleto() != null) {
+					if(numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("APARTADO")) {
+						numApartados.add(numerosDisponibles);
 						
 					}
 				}
@@ -233,6 +242,7 @@ public class AdminRaffleController {
 			
 			model.addAttribute("numDisp", numDisp);
 			model.addAttribute("numVendidos", numVendidos);
+			model.addAttribute("numApartado", numApartados);
 			BigDecimal montoEsperado = NumeroGenerator.calcularMontoEsperado(edicion.getMaxValor(),
 					edicion.getNumerosPorBoleto(), BigDecimal.valueOf(edicion.getPrecioBoleto()), false);
 			model.addAttribute("montoEsperado", montoEsperado);

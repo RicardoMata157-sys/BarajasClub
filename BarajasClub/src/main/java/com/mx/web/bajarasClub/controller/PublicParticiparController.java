@@ -71,6 +71,19 @@ public class PublicParticiparController {
 		 if (compra != null) {
 		        model.addAttribute("mostrarTicketFinal", true);
 		        model.addAttribute("compraId", compra);
+		        
+		        model.addAttribute("modoPublico", true); // <- bandera clave
+				model.addAttribute("rifaSeleccionada", rifa);
+				model.addAttribute("nombreRifaSeleccionada", rifa.getNombre());
+				model.addAttribute("numPorBoleto", rifa.getNumerosPorBoleto() != null ? rifa.getNumerosPorBoleto() : 1);
+
+				// Tipos de pago SIN “EFECTIVO”
+				List<TipoPago> tipos = serviceTipoPago.getAllTipoPagos().stream()
+						.filter(tp -> !"EFECTIVO".equalsIgnoreCase(tp.getNombre())).toList();
+				model.addAttribute("tiposPago", tipos);
+		        
+		        
+		        
 		        return "compra_public";
 		 }
 
@@ -142,7 +155,7 @@ public class PublicParticiparController {
 		if (cantidadBoletos == null || cantidadBoletos < 1)
 			cantidadBoletos = 1;
 
-		EstadoBoleto estadoBoleto = serviceEstadoBoleto.regresaEstadoVendido();
+		EstadoBoleto estadoBoleto = serviceEstadoBoleto.regresaEstadoApartado();
 		TipoPago tipoPago = serviceTipoPago.regresaTipoPagoId(request.getTipoPagoId());
 
 		List<String> numeros = NumeroGenerator.parseNumerosCsv(numeroTicket);
@@ -216,11 +229,10 @@ public class PublicParticiparController {
 				Tienes 2 horas para realizar el depósito.
 				Mi cuenta BBVA:
 				Cuenta CLABE: 012 306 02932601117 4
-				Tarjeta de débito: 4152 3142 4145 7947
 				Titular: Andrés Molina
 
 				En el asunto/nota del depósito escribe tu nombre.
-				Si no recibimos el depósito en 2 horas, tus números se liberarán.
+				Si no recibimos el depósito en 24 horas, tus números se liberarán.
 				""");
 
 //			        model.addAttribute("mostrarTicket", true);
@@ -231,10 +243,27 @@ public class PublicParticiparController {
 		ra.addFlashAttribute("ticketGroup", ticketGroup);
 		ra.addFlashAttribute("compraId", rifaSeleccionada.getIdCompra());
 
-		return "redirect:/detalle/" + rifaId + "?compra=" + rifaSeleccionada.getIdCompra();
+		return "redirect:/detalle/" + rifaId ;
+	}
+	
+	@PostMapping("/detalle/enviar-whatsapp")
+	@ResponseBody
+	public ResponseEntity<?> enviarWhatsapp(
+	        @RequestParam String telefono,
+	        @RequestParam(value = "compra", required = false)String compra) {
+
+	    // TODO: tu lógica para armar/enviar el mensaje (o solo guardar/loggear)
+	    // Ejemplo rápido:
+	    System.out.println("Enviar WhatsApp a: " + telefono + " (compraId=" + compra + ")");
+	    
+//	    String resumen = "¡Gracias! Tu compra fue registrada. Rifa X, boletos: 3, total $150.00.";
+//		whatsAppService.enviarConfirmacionCompra(telefono, resumen);
+	    
+	    
+	    return ResponseEntity.ok().build();
 	}
 
-//		 @PostMapping("/detalle/confirmar")
+//		 @PostMapping("/detalle/enviar-whatsapp")
 //			public String confirmarCompra(@RequestParam(name = "telefono") String telefono) {
 //			  // ... lógica de persistencia de la compra/boletos ...
 //
@@ -346,6 +375,7 @@ public class PublicParticiparController {
 		// Para la leyenda (elige una de estas dos estrategias):
 //			    body.put("ap", ap);              // 1) listas completas (si no son muy grandes)
 		body.put("pag", pagados);
+		body.put("ap", apartados);
 
 		body.put("nombreRifaSeleccionada", rifa.getNombre());
 		body.put("imgUrl", imgUrl);

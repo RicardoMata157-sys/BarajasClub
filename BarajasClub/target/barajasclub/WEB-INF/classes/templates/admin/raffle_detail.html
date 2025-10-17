@@ -967,6 +967,10 @@ function updateLegendFromData(data) {
 									<option value="4">4</option>
 									<option value="5">5</option>
 									<option value="10">10</option>
+									<option value="20">20</option>
+									<option value="30">30</option>
+									<option value="40">40</option>
+									<option value="50">50</option>
 								</select>
 							</div>
 						</div>
@@ -1001,7 +1005,7 @@ function updateLegendFromData(data) {
 
 						<!-- APARTADOS: AMARILLO y DESHABILITADO -->
 						<button type="button" class="btn btn-warning btn-sm num-btn"
-							th:each="n : ${ap}" th:text="${n}" disabled aria-disabled="true"
+							th:each="n : ${ap}"  th:text="${#strings.length(n) == dg ? n : #numbers.formatInteger(#numbers.parseInt(n), dg)}" disabled aria-disabled="true"
 							title="Apartado">01</button>
 
 						<!-- PAGADOS: NEGRO y DESHABILITADO -->
@@ -1015,7 +1019,7 @@ function updateLegendFromData(data) {
 					<div class="mt-3 small d-flex align-items-center gap-3">
 						<span class="badge text-bg-success">Disponible</span> <span
 							id="countDisp"
-							th:text="${numDisp != null ? #lists.size(numDisp) : 0}">0</span>
+							th:text="${dispNumeros != null ? #lists.size(dispNumeros) : 0}">0</span>
 
 						<span class="badge text-bg-warning">Apartado</span> <span
 							id="countAp" th:text="${ap != null ? #lists.size(ap) : 0}">0</span>
