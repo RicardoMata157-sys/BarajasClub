@@ -1,4 +1,5 @@
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServiceClienteImpl.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\config\WhatsAppClient.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\Numero.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\RaflleServiceImpl.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\dto\LimpiarSeleccionRequest.java
@@ -11,6 +12,7 @@ C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasCl
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\ServiceEstadoRifaImpl.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\service\ServiceEstadoBoleto.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\repository\RepositoryCliente.java
+C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\serviceImpl\WhatsAppServiceImpl.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\config\SecurityConfig.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\util\NumeroGenerator.java
 C:\Users\Ricardo Mata\BarajasClub\BarajasClub\src\main\java\com\mx\web\bajarasClub\model\TipoPago.java

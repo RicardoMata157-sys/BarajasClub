@@ -1,6 +1,7 @@
 com\mx\web\bajarasClub\service\ServiceNumero.class
 com\mx\web\bajarasClub\model\Boleto.class
 com\mx\web\bajarasClub\serviceImpl\ServiceClienteImpl.class
+com\mx\web\bajarasClub\serviceImpl\WhatsAppServiceImpl.class
 com\mx\web\bajarasClub\service\ServicioBoletos.class
 com\mx\web\bajarasClub\serviceImpl\RaflleServiceImpl.class
 com\mx\web\bajarasClub\model\Usuario_Sitema.class
@@ -29,6 +30,7 @@ com\mx\web\bajarasClub\repository\RepositoryEstadoBoleto.class
 com\mx\web\bajarasClub\serviceImpl\ServiceNumeroImpl.class
 com\mx\web\bajarasClub\config\SecurityConfig$1.class
 com\mx\web\bajarasClub\controller\AdminController.class
+com\mx\web\bajarasClub\config\WhatsAppClient.class
 com\mx\web\bajarasClub\dto\RaffleForm.class
 com\mx\web\bajarasClub\controller\HomeController.class
 com\mx\web\bajarasClub\model\EstadoBoleto.class
