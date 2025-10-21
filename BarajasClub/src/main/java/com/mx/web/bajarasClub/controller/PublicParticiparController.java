@@ -170,6 +170,9 @@ public class PublicParticiparController {
 		Cliente cliente = (clienteId != null) ? serviceCliente.getById(clienteId)
 				: serviceCliente.createOrUpdateByTelefono(request.getTelefono(), request);
 
+		
+		
+		
 		List<List<Numero>> grupos = new ArrayList<>();
 		for (int i = 0; i < totalEsperado; i += porBoleto) {
 			grupos.add(numeroSeleccionados.subList(i, i + porBoleto));
@@ -226,7 +229,7 @@ public class PublicParticiparController {
 		ticketGroup.put("tickets", tickets);
 
 		ticketGroup.put("leyendaPago", """
-				Tienes 2 horas para realizar el depósito.
+				Tienes 24 horas para realizar el depósito.
 				Mi cuenta BBVA:
 				Cuenta CLABE: 012 306 02932601117 4
 				Titular: Andrés Molina
@@ -256,8 +259,8 @@ public class PublicParticiparController {
 	    // Ejemplo rápido:
 	    System.out.println("Enviar WhatsApp a: " + telefono + " (compraId=" + compra + ")");
 	    
-//	    String resumen = "¡Gracias! Tu compra fue registrada. Rifa X, boletos: 3, total $150.00.";
-//		whatsAppService.enviarConfirmacionCompra(telefono, resumen);
+	    String resumen = "¡Gracias! Tu compra fue registrada. Rifa X, boletos: 3, total $150.00.";
+		whatsAppService.enviarConfirmacionCompra(telefono, resumen);
 	    
 	    
 	    return ResponseEntity.ok().build();

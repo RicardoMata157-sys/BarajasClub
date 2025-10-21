@@ -4,7 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import javax.transaction.Transactional;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import com.mx.web.bajarasClub.dto.CompraRequest;
@@ -52,61 +55,52 @@ public class ServiceClienteImpl implements ServiceCliente {
 		return repositoryCliente.findByidCliente(clienteId);
 	}
 
+	@Transactional
 	@Override
-	public Cliente createOrUpdateByTelefono(String telefono,CompraRequest request) {
-		 String tel = normalizaTel(telefono);
-	        if (tel == null || tel.isBlank()) {
-	            throw new IllegalArgumentException("Teléfono inválido");
-	        }
-	        
-	        Cliente c = repositoryCliente.findByTelefono(telefono).orElseGet(Cliente::new);
-	        
-	        if (c.getIdCliente() == null) {
-	            // Nuevo
-	            c.setTelefono(telefono.trim());
-	        }
-	        
-	        if (request != null) {
-	            if (notBlank(request.getNombre()))     c.setNombre(request.getNombre().trim());
-//	            if (notBlank(request.getApellidos()))  c.setApellidos(request.getApellidos().trim());
-	            if (notBlank(request.getEmail()))      c.setEmail(request.getEmail().trim());
-//	            if (notBlank(request.getCiudad()))     c.setCiudad(request.getCiudad().trim());
-	            if (notBlank(request.getEstado()))     c.setEstado(request.getEstado().trim());
-	            if (notBlank(request.getCodigoPostal()))         c.setCodigo_postal((request.getCodigoPostal().trim()));
-	        }
-	        
+	public Cliente createOrUpdateByTelefono(String telefonoRaw, CompraRequest request) {
+	    String tel = normalizaTel(telefonoRaw);
+	    if (tel == null || tel.isBlank()) {
+	        throw new IllegalArgumentException("Teléfono inválido");
+	    }
+
+	    // 1) Buscar por teléfono normalizado
+	    Cliente c = repositoryCliente.findByTelefono(tel).orElseGet(() -> {
+	        Cliente nuevo = new Cliente();
+	        nuevo.setTelefono(tel);
+	        return nuevo;
+	    });
+
+	    // 2) Merge no destructivo desde el request
+	    if (request != null) {
+	        if (notBlank(request.getNombre()))         c.setNombre(request.getNombre().trim());
+	        if (notBlank(request.getApellidoP()))      c.setApellido_patrno(request.getApellidoP().trim());   // si tienes Apellido P
+	        if (notBlank(request.getApellidoM()))      c.setApellido_materno(request.getApellidoM().trim());
+	        if (notBlank(request.getEmail()))          c.setEmail(request.getEmail().trim().toLowerCase());
+	        if (notBlank(request.getEstado()))         c.setEstado(request.getEstado().trim());
+	        if (notBlank(request.getCodigoPostal()))   c.setCodigo_postal(request.getCodigoPostal().trim());
+	        // si tienes más campos opcionales, agrégalos aquí con el mismo patrón
+	    }
+
+	    // 3) Guardar (con retry simple por duplicado)
+	    try {
 	        return repositoryCliente.save(c);
-	        
-//	        if (existingOpt.isPresent()) {
-//	            Cliente existing = existingOpt.get();
-//	            if (updater != null) updater.accept(existing);
-//	            return repositoryCliente.save(existing);
-//	        }
-//	        
-//	        Cliente nuevo = new Cliente();
-//	        nuevo = NumeroGenerator.generaCliente(request);
-//	        nuevo.setTelefono(tel);
-//	        if (updater != null) updater.accept(nuevo);
-//	        
-//	        
-//	        try {
-//	            return repositoryCliente.save(nuevo);
-//	        } catch (DataIntegrityViolationException e) {
-//	            // Carrera: otro hilo/req creó el mismo teléfono antes de este save
-//	            // Releer y actualizar
-//	            Optional<Cliente> again = repositoryCliente.findByTelefono(tel);
-//	            if (again.isPresent()) {
-//	                Cliente existente = again.get();
-//	                if (updater != null) updater.accept(existente);
-//	                return repositoryCliente.save(existente);
-//	            }
-//	            // Si realmente fue otra violación no relacionada, re-lanzar
-//	            throw e;
-//	        }
-//	        
-	        
-	
+	    } catch (DataIntegrityViolationException e) {
+	        // Otro hilo pudo insertar el mismo teléfono antes de este save
+	        Cliente again = repositoryCliente.findByTelefono(tel)
+	                .orElseThrow(() -> e); // si no estaba relacionado al teléfono, relanzamos
+	        // Volvemos a aplicar el merge por si el 'again' es distinto de 'c'
+	        if (request != null) {
+	            if (notBlank(request.getNombre()))         again.setNombre(request.getNombre().trim());
+	            if (notBlank(request.getApellidoP()))      again.setApellido_patrno(request.getApellidoP().trim());
+	            if (notBlank(request.getApellidoM()))      again.setApellido_materno(request.getApellidoM().trim());
+	            if (notBlank(request.getEmail()))          again.setEmail(request.getEmail().trim().toLowerCase());
+	            if (notBlank(request.getEstado()))         again.setEstado(request.getEstado().trim());
+	            if (notBlank(request.getCodigoPostal()))   again.setCodigo_postal(request.getCodigoPostal().trim());
+	        }
+	        return repositoryCliente.save(again);
+	    }
 	}
+
 	
 	private boolean notBlank(String s) { return s != null && !s.isBlank(); }
 	
