@@ -112,11 +112,12 @@ public class SecurityConfig implements WebMvcConfigurer {
             // Autorización por rutas
             .authorizeHttpRequests(auth -> auth
             		  .antMatchers("/error").permitAll()
-            	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**","/detalle/**").permitAll()
+            	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**","/detalle/**","/confirmar").permitAll()
             	      .antMatchers(HttpMethod.GET, "/").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/confirmar").permitAll()
             	      .antMatchers(HttpMethod.GET, "/detalle/**").permitAll()
-            	      .antMatchers(HttpMethod.POST,
-            	    	        "/detalle/**/seleccion", "/detalle/**/limpiar-auto").permitAll()
+            	
+            	      .antMatchers(HttpMethod.POST, "/detalle/**/seleccion", "/detalle/**/limpiar-auto").permitAll()
             	      .antMatchers(HttpMethod.GET, "/detalle/**/limpiar-auto").permitAll()
             	      .antMatchers(HttpMethod.GET, "/admin/rifa/**/seleccion").permitAll()
             	      .antMatchers(HttpMethod.POST, "/admin/rifas").hasRole("ADMIN")
@@ -150,9 +151,18 @@ public class SecurityConfig implements WebMvcConfigurer {
             ;
         
         http.csrf(csrf -> csrf
+        		 .ignoringAntMatchers("/detalle/**/seleccion",
+        		          "/detalle/**/auto-numeros",
+        		          "/detalle/**/limpiar-auto",
+        		          "/detalle/**/numeros-simple",
+        		          "/detalle/**/enviar-sms",
+        		          "/detalle/**/enviar-whatsapp")
         		.ignoringRequestMatchers(
         		        new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"),
-        		        new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST")
+        		        new AntPathRequestMatcher("/detalle/enviar-whatsapp", "POST"),
+        		        new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST"),
+        		        new AntPathRequestMatcher("/detalle/confirmar", "POST"),
+        		        new AntPathRequestMatcher("/detalle/{id}", "GET")
         		    )
         		  .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
 //        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/**/limpiar-auto", "POST"))

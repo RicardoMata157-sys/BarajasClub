@@ -18,6 +18,7 @@ import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
 import javax.persistence.OneToMany;
 import javax.persistence.Table;
+import javax.persistence.Transient;
 
 @Entity
 @Table(name = "rifa" )
@@ -58,9 +59,23 @@ public class Rifa {
   @Column(name = "ruta_imagen")
   private String pathImagen;
   
+  @Transient
+  private String IdCompra;
+  
+  
+  
+  
  
   
-  public void addNumero(Numero n) {
+  public String getIdCompra() {
+	return IdCompra;
+}
+
+public void setIdCompra(String idCompra) {
+	IdCompra = idCompra;
+}
+
+public void addNumero(Numero n) {
 	    numeros.add(n);
 	    n.setRifa(this);
 	}

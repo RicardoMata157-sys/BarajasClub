@@ -6,6 +6,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -13,6 +14,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.zip.CRC32;
 
+import com.mx.web.bajarasClub.dto.CompraRequest;
+import com.mx.web.bajarasClub.model.Cliente;
 import com.mx.web.bajarasClub.model.Numero;
 
 public class NumeroGenerator {
@@ -33,8 +36,19 @@ public class NumeroGenerator {
 	            .setScale(MONEY_SCALE, MONEY_RM);
 	}
 	
+	public static Cliente generaCliente(CompraRequest request) {
+		Cliente cliente = new Cliente(request.getNombre(), request.getApellidoP(), request.getApellidoM(),
+				request.getMunicipio(), request.getEstado(), request.getCodigoPostal(), request.getEmail(),
+				request.getTelefono());
+		return cliente;
+	}
 	
-	
+	public static List<String> parseNumerosCsv(String csv) {
+		if (csv == null || csv.isBlank())
+			return Collections.emptyList();
+		return Arrays.stream(csv.split(",")).map(String::trim).filter(s -> !s.isEmpty()).map(String::valueOf).distinct()
+				.sorted().toList();
+	}
 	
 	public static String generarFolio(LocalDateTime fechaCompra, List<String> numerosLabels, Integer clienteId) {
 		Objects.requireNonNull(fechaCompra, "fechaCompra");
