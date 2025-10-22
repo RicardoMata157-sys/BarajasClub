@@ -1338,6 +1338,70 @@ function updateLegendFromData(data) {
 #gridNumeros { margin-top: 0 !important; }
 </style>
   
+  
+  <style>
+  /* ======== Números grandes y coloridos en ticketModalFinal ======== */
+  #ticketModalFinal .ticket-nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+  }
+
+  /* Estilo base del “chip” */
+  #ticketModalFinal .pill{
+    --chip-bg: #0d6efd;          /* color por defecto (se sobreescribe abajo) */
+    --chip-fg: #fff;             /* texto blanco */
+    --chip-shadow: 0 4px 14px rgba(0,0,0,.18);
+
+    background: var(--chip-bg);
+    color: var(--chip-fg);
+    border: 0;
+    border-radius: 999px;
+    font-weight: 800;            /* bien marcado */
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .3px;
+    line-height: 1;
+    padding: .65rem .95rem;
+    font-size: clamp(1rem, 2.2vw + .25rem, 1.45rem);  /* responsivo */
+    box-shadow: var(--chip-shadow);
+    user-select: text;
+  }
+
+  /* Paleta alternada para que “salten” visualmente */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+1){ --chip-bg:#ef4444; } /* rojo */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+2){ --chip-bg:#f59e0b; } /* ámbar */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+3){ --chip-bg:#10b981; } /* verde */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+4){ --chip-bg:#0ea5e9; } /* cielo */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+5){ --chip-bg:#6366f1; } /* índigo */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+6){ --chip-bg:#ec4899; } /* rosa */
+
+  /* Hover/focus (desktop) */
+  @media (hover:hover){
+    #ticketModalFinal .pill:hover{ filter: brightness(1.08); transform: translateY(-1px); }
+  }
+
+  /* Accesibilidad: alto contraste si el tema es oscuro */
+  [data-bs-theme="dark"] #ticketModalFinal .pill{
+    --chip-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+
+  /* Mejora visual de la etiqueta “Participa con” */
+  #ticketModalFinal .header-subtle{
+    font-size: .9rem;
+    font-weight: 600;
+    color: #475569;
+  }
+  
+  #ticketModalFinal .badge.rounded-pill.text-bg-light.border{
+  font-weight: 600;
+  padding: .45rem .7rem;
+  font-size: 1rem;
+  border-color: #e2e8f0 !important;
+}
+  
+</style>
+  
 
 
 

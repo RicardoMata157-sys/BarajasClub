@@ -23,7 +23,8 @@ public class WhatsAppClient {
 	private static final Logger log = LoggerFactory.getLogger(WhatsAppClient.class);
   private final WebClient webClient;
   private final String phoneNumberId;
-
+  @Value("${whatsapp.token}") String token;
+  
   public WhatsAppClient(
       @Value("${whatsapp.baseUrl}") String baseUrl,
       @Value("${whatsapp.token}") String token,
@@ -70,17 +71,18 @@ public class WhatsAppClient {
 	  );
 
 	  return webClient.post()
-	      .uri(uriBuilder -> uriBuilder
-	          .pathSegment(phoneNumberId, "messages")  // <-- phoneNumberId = ID numérico de tu línea
-	          .build())
-	      .bodyValue(payload)
-	      .retrieve()
-	      .onStatus(status -> !status.is2xxSuccessful(),
-	          resp -> resp.bodyToMono(String.class)     // <-- lee el JSON de error de Meta
-	              .defaultIfEmpty("")
-	              .flatMap(errBody -> Mono.error(
-	                  new RuntimeException("WhatsApp API " + resp.statusCode().value() + " -> " + errBody))))
-	      .bodyToMono(String.class);
+			  .uri("/{id}/messages", phoneNumberId)
+			  .header(HttpHeaders.AUTHORIZATION, "Bearer " + token)
+			  .contentType(MediaType.APPLICATION_JSON)
+			  .bodyValue(Map.of(
+			     "messaging_product", "whatsapp",
+			     "to", toE164,
+			     "type", "text",
+			     "text", Map.of("body", body)
+			  ))
+			  .retrieve()
+			  .bodyToMono(String.class);
+
 	}
 
 	private static String normalizeE164(String tel) {
