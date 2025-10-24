@@ -1,5 +1,19 @@
+# Ignora todo
+*
 
+# Permitir este archivo
 !.gitignore
-!tarjet/
-target/*
-!target/*.war
+
+# Permitir carpetas target/ pero ignorar su contenido...
+!**/target/
+**/target/**
+
+# ...excepto los .war directos dentro de target/
+!**/target/*.war
+
+# Basura común
+.DS_Store
+.metadata/
+.project
+.classpath
+.settings/
