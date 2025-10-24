@@ -259,8 +259,8 @@ public class PublicParticiparController {
 	    // Ejemplo rápido:
 	    System.out.println("Enviar WhatsApp a: " + telefono + " (compraId=" + compra + ")");
 	    
-	    String resumen = "¡Gracias! Tu compra fue registrada. Rifa X, boletos: 3, total $150.00.";
-		whatsAppService.enviarConfirmacionCompra(telefono, resumen);
+//	    String resumen = "¡Gracias! Tu compra fue registrada. Rifa X, boletos: 3, total $150.00.";
+//		whatsAppService.enviarConfirmacionCompra(telefono, resumen);
 	    
 	    
 	    return ResponseEntity.ok().build();

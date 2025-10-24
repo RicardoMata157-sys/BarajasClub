@@ -2,21 +2,19 @@ package com.mx.web.bajarasClub.util;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.zip.CRC32;
 
 import com.mx.web.bajarasClub.dto.CompraRequest;
 import com.mx.web.bajarasClub.model.Cliente;
-import com.mx.web.bajarasClub.model.Numero;
 
 public class NumeroGenerator {
 
@@ -50,30 +48,55 @@ public class NumeroGenerator {
 				.sorted().toList();
 	}
 	
+//	public static String generarFolio(LocalDateTime fechaCompra, List<String> numerosLabels, Integer clienteId) {
+//		Objects.requireNonNull(fechaCompra, "fechaCompra");
+//		Objects.requireNonNull(numerosLabels, "numerosLabels");
+//
+//// 2) Canonicalizar los números: limpiamos, conservamos ceros y ordenamos por valor numérico
+//		List<String> labels = numerosLabels.stream().map(s -> s == null ? "" : s.trim()).filter(s -> !s.isEmpty())
+//				.sorted(Comparator.comparingInt(s -> Integer.parseInt(s))) // orden numérico, pero imprimimos con ceros
+//				.toList();
+//		String numsCanonical = String.join(",", labels); // p.ej. "0031,0051,0111"
+//
+//// 3) Cliente en base36 para hacerlo corto
+//		String cliB36 = Long.toUnsignedString(clienteId, 36).toUpperCase(Locale.ROOT);
+//
+//// 4) Hash (6 chars base36) de los datos para evitar colisiones
+//		CRC32 crc = new CRC32();
+//		String toHash = numsCanonical + "|" + clienteId;
+//		crc.update(toHash.getBytes(StandardCharsets.UTF_8));
+//		String hash = Long.toString(crc.getValue(), 36).toUpperCase(Locale.ROOT);
+//// normalizamos a 6 (padding con 0 a la izquierda si es corto)
+//		hash = String.format("%6s", hash).replace(' ', '0');
+//
+//		return "RF-" + fechaCompra + "-" + cliB36 + "-" + hash;
+//	}
+
+	
 	public static String generarFolio(LocalDateTime fechaCompra, List<String> numerosLabels, Integer clienteId) {
 		Objects.requireNonNull(fechaCompra, "fechaCompra");
 		Objects.requireNonNull(numerosLabels, "numerosLabels");
+		Objects.requireNonNull(clienteId, "clienteId");
 
-// 2) Canonicalizar los números: limpiamos, conservamos ceros y ordenamos por valor numérico
-		List<String> labels = numerosLabels.stream().map(s -> s == null ? "" : s.trim()).filter(s -> !s.isEmpty())
-				.sorted(Comparator.comparingInt(s -> Integer.parseInt(s))) // orden numérico, pero imprimimos con ceros
-				.toList();
-		String numsCanonical = String.join(",", labels); // p.ej. "0031,0051,0111"
+// 1) Fecha: YYYYMMDD
+		String fecha = fechaCompra.toLocalDate().format(DateTimeFormatter.BASIC_ISO_DATE); // yyyyMMdd
 
-// 3) Cliente en base36 para hacerlo corto
-		String cliB36 = Long.toUnsignedString(clienteId, 36).toUpperCase(Locale.ROOT);
+// 2) Números seleccionados solo concatenados, respetando ceros a la izquierda.
+//    - Se limpian caracteres no numéricos por si vinieran con espacios/comas.
+//    - No se reordena: respeta el orden en que llegaron.
+		String numerosConcat = numerosLabels.stream().filter(Objects::nonNull).map(String::trim)
+				.filter(s -> !s.isEmpty()).map(s -> s.replaceAll("[^\\d]", "")) // deja solo dígitos (conserva ceros)
+				.filter(s -> !s.isEmpty()).collect(Collectors.joining());
 
-// 4) Hash (6 chars base36) de los datos para evitar colisiones
-		CRC32 crc = new CRC32();
-		String toHash = numsCanonical + "|" + clienteId;
-		crc.update(toHash.getBytes(StandardCharsets.UTF_8));
-		String hash = Long.toString(crc.getValue(), 36).toUpperCase(Locale.ROOT);
-// normalizamos a 6 (padding con 0 a la izquierda si es corto)
-		hash = String.format("%6s", hash).replace(' ', '0');
+// 3) Cliente: al final, con 2 dígitos mínimo (01, 02, … 10, 11, …)
+//    Si el id >= 100, se imprime completo (no se corta).
+		String cliStr = (clienteId < 100) ? String.format("%02d", clienteId) : String.valueOf(clienteId);
 
-		return "RF-" + fechaCompra + "-" + cliB36 + "-" + hash;
+// 4) Folio final
+		return  "RF-" + fecha + numerosConcat + cliStr;
 	}
-
+	
+	
 
 	
 	public static BigDecimal calcularTotal(BigDecimal precioBoleto, Integer cantidad) {
@@ -162,6 +185,20 @@ public class NumeroGenerator {
         return x;
     }
 
+    
+    
+    // ===================== helpers =====================
+
+    public static Set<String> normalizeEstados(String estado) {
+        if (estado == null || estado.isBlank()) {
+            return Set.of("VENDIDO", "APARTADO"); // por defecto la vista muestra ambos
+        }
+        return Set.of(estado.trim().toUpperCase(Locale.ROOT));
+    }
+
+    public static String emptyToNull(String s){
+        return (s == null || s.isBlank()) ? null : s;
+    }
 
 
     /**

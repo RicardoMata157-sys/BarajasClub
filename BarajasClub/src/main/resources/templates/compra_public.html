@@ -1530,6 +1530,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const compraId  = /*[[${compraId}]]*/ 0;
   const tel = /*[[${ticketGroup != null && ticketGroup.comprador != null ? ticketGroup.comprador.telefono : ''}]]*/ '';
   const nombre    = /*[[${ticketGroup != null ? ticketGroup.comprador.nombre : ''}]]*/ '';
+  const apellido_paterno    = /*[[${ticketGroup != null ? ticketGroup.comprador.apellido_patrno : ''}]]*/ '';
+  const apellido_materno    = /*[[${ticketGroup != null ? ticketGroup.comprador.apellido_materno : ''}]]*/ '';
+  const nombreRifa    = /*[[${ticketGroup != null ? ticketGroup.nombreRifa : ''}]]*/ '';
   const total     = /*[[${ticketGroup != null ? ticketGroup.total : 0}]]*/ 0;
   const telefonosConfirmados = /*[[${ticketGroup != null && ticketGroup.comprador != null ? ticketGroup.comprador.telefono : ''}]]*/ '';
 
@@ -1558,20 +1561,21 @@ const numeros = Array.isArray(numerosNested)
 
 // Construir el mensaje usando "numeros"
 const mensaje = [
-`¡Gracias por tu compra, ${nombre}!`,
+`¡Hola, soy ${nombre} ${apellido_paterno} ${apellido_materno},  Aparte números para la edicion: ${nombreRifa}!`,
 ``,
 `Folios: ${folios.join(', ')}`,
 `Números: ${numeros.join(', ')}`,
 `Total: $${Number(total).toFixed(2)}`,
 ``,
-`Tienes 2 horas para realizar el depósito.`,
+`Tienes 24 horas para realizar el depósito.`,
 `Mi cuenta BBVA:`,
 `Cuenta CLABE: 012 306 02932601117 4`,
 `Tarjeta de débito: 4152 3142 4145 7947`,
 `Titular: Andrés Molina`,
 ``,
 `En la nota del depósito escribe tu nombre.`,
-`Si no recibimos el depósito en 2 horas, tus números se liberarán.`
+`Si no recibimos el depósito en 24 horas, tus números se liberarán.`,
+`Envia tu comprobante de pago para recibir la confirmacion del pago realizado.`
 ].join('\n');
 
 // Mostrar modal solo si existe
@@ -1606,11 +1610,9 @@ document.getElementById('btnEnviarWhats')?.addEventListener('click', async () =>
     try { await fetch(`/detalle/${compraId}/enviar-sms`, { method: 'POST', headers: (CSRF.token ? { [CSRF.header]: CSRF.token } : {}) }); } catch {}
 
     // 3) Abrir WhatsApp con mensaje
-    if (tel && tel.trim().length >= 10) {
-      const telE164 = tel.replace(/[^\d]/g, ''); // agrega '52' si lo necesitas: '52' + telE164
-      const url = `https://wa.me/${telE164}?text=${encodeURIComponent(mensaje)}`;
-      window.open(url, '_blank');
-    }
+   const numeroDestino = '527731440601'; // tu número de WhatsApp con lada de México (52)
+   const url = `https://wa.me/${numeroDestino}?text=${encodeURIComponent(mensaje)}`;
+   window.open(url, '_blank');
 
     // 4) Redirigir al detalle si quieres
     const rifaIdRedir = /*[[${ticketGroup != null ? ticketGroup.rifaId : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)}]]*/ 0;

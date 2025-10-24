@@ -1,6 +1,10 @@
 <!DOCTYPE html>
 <html lang="es" xmlns:th="http://www.thymeleaf.org">
 
+
+
+
+
 <style>
   .bg-hero {
     background: radial-gradient(120% 120% at 80% 10%, #0d6efd 0%, #151824 60%, #0b0e16 100%);
@@ -36,6 +40,59 @@
     font-size: .9rem;
     opacity: .9;
   }
+  
+  
+  /* Barra bonita */
+.progress-pretty {
+  position: relative;
+  height: 0.9rem;                 /* más alta que la default */
+  background: linear-gradient(180deg,#eef1f6,#e6e9f1);
+  border-radius: 999px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.12);
+}
+.progress-pretty .progress-bar {
+  transition: width .45s ease;
+}
+
+/* Gradientes de segmentos */
+.bg-pretty-sold {
+  background: linear-gradient(90deg,#22c55e,#16a34a) !important;  /* verdes */
+}
+.bg-pretty-hold {
+  background: linear-gradient(90deg,#f59e0b,#f97316) !important;  /* ámbar */
+}
+
+/* Etiqueta centrada sobre la barra */
+.progress-pretty-label {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: .78rem;
+  color: #0f172a;                 /* contraste sobre el fondo claro */
+  text-shadow: 0 1px 0 rgba(255,255,255,.65);
+  pointer-events: none;
+}
+
+/* Leyenda */
+.legend-dot{
+  display:inline-block;
+  width:.7rem; height:.7rem; border-radius:50%;
+  margin-right:.35rem; vertical-align:middle;
+}
+.dot-sold{ background: linear-gradient(90deg,#22c55e,#16a34a); }
+.dot-hold{ background: linear-gradient(90deg,#f59e0b,#f97316); }
+
+/* Modo oscuro (si usas data-bs-theme="dark") */
+[data-bs-theme="dark"] .progress-pretty{
+  background: #1f2937;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,.35);
+}
+[data-bs-theme="dark"] .progress-pretty-label{ color:#e5e7eb; text-shadow:none; }
+  
+  
 </style>
 
 
@@ -96,26 +153,26 @@
 
     <div class="row g-4" id="gridRifas">
       <div class="col-12 col-sm-6 col-lg-4" th:each="r : ${raffles}"
-           th:attr="data-estado=${r.estadoEdicion.nombre}, data-nombre=${r.nombre}">
+           th:attr="data-estado=${r.entity.estadoEdicion.nombre}, data-nombre=${r.entity.estadoEdicion.nombre}">
         <div class="card raffle-card h-100 position-relative">
            <div class="ratio ratio-16x9 bg-light">
-                <img th:if="${r.pathImagen}" th:src="${r.pathImagen}" class="card-img-top object-fit-cover" alt="imagen rifa">
-                <div th:if="${r.pathImagen == null}" class="placeholder-image d-flex align-items-center justify-content-center">
+                <img th:if="${r.entity.pathImagen}" th:src="${r.entity.pathImagen}" class="card-img-top object-fit-cover" alt="imagen rifa">
+                <div th:if="${r.entity.pathImagen == null}" class="placeholder-image d-flex align-items-center justify-content-center">
                   <span class="text-muted">Sin imagen</span>
                 </div>
               </div>
 
           <div class="card-body d-flex flex-column">
-            <h3 class="h6 mb-1" th:text="${r.nombre}">Título edición</h3>
+            <h3 class="h6 mb-1" th:text="${r.entity.nombre}">Título edición</h3>
 
             <!-- Precio + cuenta regresiva (opcional) -->
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <div class="price-tag" th:if="${r.precioBoleto != null}"
-                   th:text="${#numbers.formatDecimal(r.precioBoleto, 1, 'COMMA', 2, 'POINT')} + ' MXN'">
+              <div class="price-tag" th:if="${r.entity.precioBoleto != null}"
+                   th:text="${#numbers.formatDecimal(r.entity.precioBoleto, 1, 'COMMA', 2, 'POINT')} + ' MXN'">
                 $0.00 MXN
               </div>
-              <div class="countdown text-muted" th:if="${r.fechaFin != null}"
-                   th:attr="data-fin=${r.fechaFin}">
+              <div class="countdown text-muted" th:if="${r.entity.fechaFin != null}"
+                   th:attr="data-fin=${r.entity.fechaFin}">
                 <!-- se llena por JS -->
               </div>
             </div>
@@ -126,12 +183,55 @@
 <!--                    th:style="'width:' + ${r.progressPercent} + '%'" -->
 <!--                    th:text="${r.progressPercent} + '%'">0% -->
 <!--               </div> -->
+<!--                  Disponibles: <b th:text="${r.disponibles}">0</b> · -->
+<!--     Apartados: <b th:text="${r.apartados}">0</b> · -->
+<!--     Vendidos: <b th:text="${r.vendidos}">0</b> · -->
+<!--     Total: <b th:text="${r.total}">0</b> -->
 <!--             </div> -->
+
+<!-- Progreso (bonito) -->
+<div class="progress progress-pretty mb-2" th:if="${r.total > 0}">
+  <!-- Vendidos -->
+  <div class="progress-bar bg-pretty-sold"
+       th:style="'width:' + ${#numbers.formatDecimal((r.vendidos * 100.0) / r.total, 1, 2)} + '%'"
+       role="progressbar"
+       th:aria-valuenow="${r.vendidos}"
+       aria-valuemin="0"
+       th:aria-valuemax="${r.total}"
+       aria-label="Vendidos">
+  </div>
+
+  <!-- Apartados -->
+  <div class="progress-bar bg-pretty-hold"
+       th:style="'width:' + ${#numbers.formatDecimal((r.apartados * 100.0) / r.total, 1, 2)} + '%'"
+       role="progressbar"
+       th:aria-valuenow="${r.apartados}"
+       aria-valuemin="0"
+       th:aria-valuemax="${r.total}"
+       aria-label="Apartados">
+  </div>
+
+  <!-- Label centrado -->
+  <span class="progress-pretty-label"
+        th:text="${r.progressPercent} + '% vendido'">0% vendido</span>
+</div>
+
+<!-- Leyenda compacta -->
+<div class="d-flex justify-content-between align-items-center small text-muted mb-3">
+  <span><i class="legend-dot dot-sold"></i> Vendidos: <b th:text="${r.vendidos}">0</b></span>
+  <span><i class="legend-dot dot-hold"></i> Apartados: <b th:text="${r.apartados}">0</b></span>
+  <span>Disponibles: <b th:text="${r.disponibles}">0</b></span>
+  <span>Total: <b th:text="${r.total}">0</b></span>
+</div>
+
+
+
+
 
             <div class="mt-auto d-flex gap-2">
               <!-- AJUSTA la ruta al detalle/compra de tu app -->
 								<button type="button" class="btn btn-primary w-100"
-									th:onclick="|window.location='@{/detalle/{id}(id=${r.id})}'|">
+									th:onclick="|window.location='@{/detalle/{id}(id=${r.entity.id})}'|">
 									Participar ahora</button>
 
 								<!--               <a class="btn btn-outline-secondary" -->
@@ -140,9 +240,9 @@
 <!--               </a> -->
             </div>
             
-             <span class="badge position-absolute top-0 end-0 m-3 bg-success" th:if="${r.estadoEdicion.nombre == 'ACTIVA'}">Activa</span>
-                <span class="badge position-absolute top-0 end-0 m-3 bg-secondary" th:if="${r.estadoEdicion.nombre == 'PROXIMA'}">Próxima</span>
-                <span class="badge position-absolute top-0 end-0 m-3 bg-dark" th:if="${r.estadoEdicion.nombre == 'CERRADA'}">Cerrada</span>
+             <span class="badge position-absolute top-0 end-0 m-3 bg-success" th:if="${r.entity.estadoEdicion.nombre == 'ACTIVA'}">Activa</span>
+                <span class="badge position-absolute top-0 end-0 m-3 bg-secondary" th:if="${r.entity.estadoEdicion.nombre == 'PROXIMA'}">Próxima</span>
+                <span class="badge position-absolute top-0 end-0 m-3 bg-dark" th:if="${r.entity.estadoEdicion.nombre == 'CERRADA'}">Cerrada</span>
           </div>
         </div>
       </div>
