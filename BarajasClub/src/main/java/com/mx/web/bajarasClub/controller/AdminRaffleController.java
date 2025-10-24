@@ -540,6 +540,9 @@ public class AdminRaffleController {
 		
 		
 		
+
+		
+		
 		if (!model.containsAttribute("tickets")) {
 			model.addAttribute("tickets", java.util.Collections.emptyList());
 		}
