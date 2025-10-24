@@ -1,13 +1,10 @@
-
-
-# Permitir este archivo
-!.gitignore
-
-# Permitir carpetas target/ pero ignorar su contenido...
-!**/target/
+# Ignora todo el contenido de cualquier target/
 **/target/**
 
-# ...excepto los .war directos dentro de target/
+# ...pero permite las carpetas target/ (para que Git pueda “entrar”)
+!**/target/
+
+# ...y permite los WAR dentro de target/
 !**/target/*.war
 
 # Basura común
@@ -16,3 +13,6 @@
 .project
 .classpath
 .settings/
+.idea/
+*.iml
+*.log
