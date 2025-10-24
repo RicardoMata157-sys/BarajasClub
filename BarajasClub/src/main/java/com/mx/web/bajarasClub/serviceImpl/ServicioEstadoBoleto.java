@@ -1,5 +1,7 @@
 package com.mx.web.bajarasClub.serviceImpl;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -28,6 +30,14 @@ public class ServicioEstadoBoleto implements ServiceEstadoBoleto {
 	public EstadoBoleto regresaEstadoApartado() {
 		// TODO Auto-generated method stub
 		return repositoryEstadoBoleto.regresaEstadoApartado();
+	}
+
+
+
+	@Override
+	public List<EstadoBoleto> regresaAllEstados() {
+		// TODO Auto-generated method stub
+		return repositoryEstadoBoleto.findAll();
 	}
 
 }

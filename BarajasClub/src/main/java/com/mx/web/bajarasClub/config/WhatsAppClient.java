@@ -39,25 +39,25 @@ public class WhatsAppClient {
   
   
   
-  @PostConstruct
-  public void sanityCheck() {
-    try {
-      String info = webClient.get()
-        .uri(uriBuilder -> uriBuilder
-          .pathSegment(phoneNumberId)
-          .queryParam("fields", "id,display_phone_number,verified_name")
-          .build())
-        .retrieve()
-        .onStatus(s -> !s.is2xxSuccessful(), resp ->
-          resp.bodyToMono(String.class).defaultIfEmpty("")
-              .flatMap(b -> Mono.error(new RuntimeException("SANITY " + resp.statusCode() + " -> " + b))))
-        .bodyToMono(String.class)
-        .block();
-      log.info("WhatsApp phone_number_id OK → {}", info);
-    } catch (Exception e) {
-      log.error("SANITY CHECK: phone_number_id inválido o sin permisos: {}", e.getMessage());
-    }
-  }
+//  @PostConstruct
+//  public void sanityCheck() {
+//    try {
+//      String info = webClient.get()
+//        .uri(uriBuilder -> uriBuilder
+//          .pathSegment(phoneNumberId)
+//          .queryParam("fields", "id,display_phone_number,verified_name")
+//          .build())
+//        .retrieve()
+//        .onStatus(s -> !s.is2xxSuccessful(), resp ->
+//          resp.bodyToMono(String.class).defaultIfEmpty("")
+//              .flatMap(b -> Mono.error(new RuntimeException("SANITY " + resp.statusCode() + " -> " + b))))
+//        .bodyToMono(String.class)
+//        .block();
+//      log.info("WhatsApp phone_number_id OK → {}", info);
+//    } catch (Exception e) {
+//      log.error("SANITY CHECK: phone_number_id inválido o sin permisos: {}", e.getMessage());
+//    }
+//  }
 
 
   public Mono<String> sendText(String to, String body) {

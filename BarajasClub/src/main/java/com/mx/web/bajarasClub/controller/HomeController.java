@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.mx.web.bajarasClub.dto.CompraRequest;
 import com.mx.web.bajarasClub.model.Cliente;
+import com.mx.web.bajarasClub.model.Rifa;
 import com.mx.web.bajarasClub.service.RaffleService;
 import com.mx.web.bajarasClub.service.ServiceCliente;
 
@@ -29,11 +30,68 @@ public class HomeController {
         this.raffleService = raffleService;
     }
 
+//    @GetMapping({"/", "/index"})
+//    public String index(Model model) {
+//        model.addAttribute("raffles", raffleService.listAll());
+//        return "index";
+//    }
+    
     @GetMapping({"/", "/index"})
     public String index(Model model) {
-        model.addAttribute("raffles", raffleService.listAll());
+        List<Rifa> rifas = raffleService.listAll();
+
+        var vm = rifas.stream().map(r -> {
+            // Total de números en la rifa
+            int total = (r.getNumeros() == null) ? 0 : r.getNumeros().size();
+
+            // Vendidos (o pagados)
+            int vendidos = (r.getNumeros() == null) ? 0 :
+                (int) r.getNumeros().stream()
+                    .filter(n -> {
+                        var b = n.getBoleto();
+                        if (b == null) return false;
+                        var e = b.getEstadoBoleto();
+                        String nombre = (e != null && e.getNombre() != null) ? e.getNombre().trim() : "";
+                        return "VENDIDO".equalsIgnoreCase(nombre) || "PAGADO".equalsIgnoreCase(nombre);
+                    })
+                    .count();
+
+            // Apartados
+            int apartados = (r.getNumeros() == null) ? 0 :
+                (int) r.getNumeros().stream()
+                    .filter(n -> {
+                        var b = n.getBoleto();
+                        if (b == null) return false;
+                        var e = b.getEstadoBoleto();
+                        String nombre = (e != null && e.getNombre() != null) ? e.getNombre().trim() : "";
+                        return "APARTADO".equalsIgnoreCase(nombre);
+                    })
+                    .count();
+
+            // Disponibles = sin boleto asociado
+            int disponibles = (r.getNumeros() == null) ? 0 :
+                (int) r.getNumeros().stream()
+                    .filter(n -> n.getBoleto() == null)
+                    .count();
+
+            // Porcentaje de progreso (solo vendidos/pagados)
+            int percent = (total > 0) ? (int) Math.round(vendidos * 100.0 / total) : 0;
+
+            Map<String, Object> m = new HashMap<>();
+            m.put("entity", r);
+            m.put("progressPercent", percent);
+            m.put("vendidos", vendidos);
+            m.put("apartados", apartados);
+            m.put("disponibles", disponibles);
+            m.put("total", total);
+            return m;
+        }).toList();
+
+        model.addAttribute("raffles", vm);
         return "index";
     }
+
+
     
     
     // Página de login personalizada (GET)

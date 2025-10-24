@@ -6,6 +6,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -14,6 +15,9 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,19 +27,19 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
-import com.mx.web.bajarasClub.dto.LimpiarSeleccionRequest;
 import com.mx.web.bajarasClub.dto.RaffleForm;
+import com.mx.web.bajarasClub.model.EstadoBoleto;
 import com.mx.web.bajarasClub.model.EstadoEdicion;
 import com.mx.web.bajarasClub.model.Numero;
 import com.mx.web.bajarasClub.model.Rifa;
 import com.mx.web.bajarasClub.service.RaffleService;
+import com.mx.web.bajarasClub.service.ServiceEstadoBoleto;
 import com.mx.web.bajarasClub.service.ServiceEstadoRifa;
 import com.mx.web.bajarasClub.service.ServiceNumero;
 import com.mx.web.bajarasClub.service.ServicioBoletos;
@@ -67,8 +71,9 @@ public class AdminRaffleController {
 
 	@Autowired
 	private ServiceNumero serviceNumero;
-	
-	
+
+	@Autowired
+	private ServiceEstadoBoleto serviceEstadoBoleto;
 
 //    public AdminRaffleController(RaffleRepository raffleRepo, TicketRepository ticketRepo) {
 //        this.raffleRepo = raffleRepo;
@@ -124,18 +129,14 @@ public class AdminRaffleController {
 				Path target = Paths.get(uploadDir).resolve(cleaned).normalize();
 				Files.createDirectories(target.getParent());
 				image.transferTo(target);
-				
-				 String dbKey = cleaned;
-				 
-				 
-				 String publicUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder
-				            .fromCurrentContextPath()
-				            .path("/uploads/")
-				            .path(java.net.URLEncoder.encode(dbKey, java.nio.charset.StandardCharsets.UTF_8))
-				            .toUriString();
-				 
-				 pathRifa.setPathImagen(publicUrl);
 
+				String dbKey = cleaned;
+
+				String publicUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder
+						.fromCurrentContextPath().path("/uploads/")
+						.path(java.net.URLEncoder.encode(dbKey, java.nio.charset.StandardCharsets.UTF_8)).toUriString();
+
+				pathRifa.setPathImagen(publicUrl);
 
 			} catch (Exception e) {
 				throw new RuntimeException("No se pudo guardar el archivo", e);
@@ -159,43 +160,32 @@ public class AdminRaffleController {
 
 	@GetMapping(value = "/rifa/{id}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public ResponseEntity<List<String>> autoPick(
-	        @PathVariable Long rifaId,
-	        @RequestParam(defaultValue = "1") Integer faltan) {
+	public ResponseEntity<List<String>> autoPick(@PathVariable Long rifaId,
+			@RequestParam(defaultValue = "1") Integer faltan) {
 
 		int req = (faltan == null || faltan < 0) ? 0 : faltan;
 		// Usa una de las dos estrategias:
 		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(rifaId, faltan);
-		
+
 //		    ra.addFlashAttribute("ticket", ticket);
 //
 		return ResponseEntity.ok(nums);
 	}
-	
-	
-	
-	
-	
-	
-	
-	
-	
-	
+
 	@GetMapping("/editar")
-	public String editar(@PathVariable(name = "id", required = false) Integer id, Model model,RedirectAttributes ra) {
-		
-		
+	public String editar(@PathVariable(name = "id", required = false) Integer id, Model model, RedirectAttributes ra) {
+
 		List<Rifa> edicionesCreadas = servicioRifa.listAll();
 		List<Numero> numDisp = new ArrayList<Numero>();
 		List<Numero> numVendidos = new ArrayList<Numero>();
-		
+
 		List<Numero> numApartados = new ArrayList<Numero>();
-		
+
 		if (edicionesCreadas == null || edicionesCreadas.isEmpty()) {
-			    ra.addFlashAttribute("info", "No hay rifas. Crea la primera.");
-			    return "redirect:/admin/rifas/nueva";
+			ra.addFlashAttribute("info", "No hay rifas. Crea la primera.");
+			return "redirect:/admin/rifas/nueva";
 		}
-		
+
 		model.addAttribute("rifas", edicionesCreadas);
 		edicionesCreadas.stream().findFirst().ifPresent(edicion -> {
 
@@ -206,47 +196,39 @@ public class AdminRaffleController {
 				if (numerosDisponibles.getBoleto() == null) {
 					numDisp.add(numerosDisponibles);
 				}
-				
-				if(numerosDisponibles.getBoleto() != null) {
-					if(numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
-						numVendidos.add(numerosDisponibles);
-						
-					}
-				}
-				
-				if(numerosDisponibles.getBoleto() != null) {
-					if(numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("APARTADO")) {
-						numApartados.add(numerosDisponibles);
-						
-					}
-				}
-				
 
-			
+				if (numerosDisponibles.getBoleto() != null) {
+					if (numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
+						numVendidos.add(numerosDisponibles);
+
+					}
+				}
+
+				if (numerosDisponibles.getBoleto() != null) {
+					if (numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("APARTADO")) {
+						numApartados.add(numerosDisponibles);
+
+					}
+				}
+
 			});
-			
+
 			long boletosVendidos = edicion.getNumeros().stream()
-			        .filter(n -> n.getBoleto() != null
-			            && n.getBoleto().getEstadoBoleto() != null
-			            && "VENDIDO".equalsIgnoreCase(n.getBoleto().getEstadoBoleto().getNombre()))
-			        .map(n -> n.getBoleto().getId())      // <-- usa el getter real de tu entidad (id/IdBoleto)
-			        .distinct()
-			        .count();
-			
-			
-			
-			BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(edicion.getPrecioBoleto(), boletosVendidos);
+					.filter(n -> n.getBoleto() != null && n.getBoleto().getEstadoBoleto() != null
+							&& "VENDIDO".equalsIgnoreCase(n.getBoleto().getEstadoBoleto().getNombre()))
+					.map(n -> n.getBoleto().getId()) // <-- usa el getter real de tu entidad (id/IdBoleto)
+					.distinct().count();
+
+			BigDecimal montoRecaudado = NumeroGenerator.montoPorNumero(edicion.getPrecioBoleto(), boletosVendidos);
 			model.addAttribute("montoRecaudado", montoRecaudado);
-			
-			
-			
+
 			model.addAttribute("numDisp", numDisp);
 			model.addAttribute("numVendidos", numVendidos);
 			model.addAttribute("numApartado", numApartados);
 			BigDecimal montoEsperado = NumeroGenerator.calcularMontoEsperado(edicion.getMaxValor(),
 					edicion.getNumerosPorBoleto(), BigDecimal.valueOf(edicion.getPrecioBoleto()), false);
 			model.addAttribute("montoEsperado", montoEsperado);
-			
+
 		});
 
 		return "admin/rifas/editar";
@@ -283,31 +265,27 @@ public class AdminRaffleController {
 			if (numerosDisponibles.getBoleto() == null) {
 				numDisp.add(numerosDisponibles);
 			}
-			
-			if(numerosDisponibles.getBoleto() != null) {
-				if(numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
+
+			if (numerosDisponibles.getBoleto() != null) {
+				if (numerosDisponibles.getBoleto().getEstadoBoleto().getNombre().equals("VENDIDO")) {
 					numVendidos.add(numerosDisponibles);
-					
+
 				}
 			}
 
 		});
 
 		model.addAttribute("tickets", r);
-		
-		 long boletosVendidos = r.getNumeros().stream()
-			        .filter(n -> n.getBoleto() != null
-			            && n.getBoleto().getEstadoBoleto() != null
-			            && "VENDIDO".equalsIgnoreCase(n.getBoleto().getEstadoBoleto().getNombre()))
-			        .map(n -> n.getBoleto().getId())      // <-- usa el getter real de tu entidad (id/IdBoleto)
-			        .distinct()
-			        .count();
 
-		BigDecimal	montoRecaudado = NumeroGenerator.montoPorNumero(r.getPrecioBoleto(), boletosVendidos);
+		long boletosVendidos = r.getNumeros().stream()
+				.filter(n -> n.getBoleto() != null && n.getBoleto().getEstadoBoleto() != null
+						&& "VENDIDO".equalsIgnoreCase(n.getBoleto().getEstadoBoleto().getNombre()))
+				.map(n -> n.getBoleto().getId()) // <-- usa el getter real de tu entidad (id/IdBoleto)
+				.distinct().count();
+
+		BigDecimal montoRecaudado = NumeroGenerator.montoPorNumero(r.getPrecioBoleto(), boletosVendidos);
 		model.addAttribute("montoRecaudado", montoRecaudado);
-		
-		
-		
+
 		model.addAttribute("numDisp", numDisp);
 		model.addAttribute("numVendidos", numVendidos);
 		BigDecimal montoEsperado = NumeroGenerator.calcularMontoEsperado(r.getMaxValor(), r.getNumerosPorBoleto(),
@@ -317,13 +295,12 @@ public class AdminRaffleController {
 		return "admin/rifas/editar";
 	}
 
-	@GetMapping("/tickets")
-	public String adminTickets() {
-//		var r = rRepo.findById(raffleId).orElseThrow();
+//	public String adminTickets(Model model) {
+//		List<Rifa> r = servicioRifa.listAll();
 //		model.addAttribute("r", r);
-//		model.addAttribute("tickets", tRepo.findAll());
-		return "admin/tickets";
-	}
+////		model.addAttribute("tickets", r.);
+//		return "admin/tickets";
+//	}
 
 	@PostMapping("/{id}")
 	public String actualizarRifa(@PathVariable Integer id, @ModelAttribute RaffleForm form, // campos del form
@@ -359,18 +336,14 @@ public class AdminRaffleController {
 				Path target = Paths.get(uploadDir).resolve(cleaned).normalize();
 				Files.createDirectories(target.getParent());
 				image.transferTo(target);
-				
-				 String dbKey = cleaned;
-				 
-				 
-				 String publicUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder
-				            .fromCurrentContextPath()
-				            .path("/uploads/")
-				            .path(java.net.URLEncoder.encode(dbKey, java.nio.charset.StandardCharsets.UTF_8))
-				            .toUriString();
-				 
-				 rifaActualizada.setPathImagen(publicUrl);
 
+				String dbKey = cleaned;
+
+				String publicUrl = org.springframework.web.servlet.support.ServletUriComponentsBuilder
+						.fromCurrentContextPath().path("/uploads/")
+						.path(java.net.URLEncoder.encode(dbKey, java.nio.charset.StandardCharsets.UTF_8)).toUriString();
+
+				rifaActualizada.setPathImagen(publicUrl);
 
 			} catch (Exception e) {
 				throw new RuntimeException("No se pudo guardar el archivo", e);
@@ -460,6 +433,149 @@ public class AdminRaffleController {
 		}
 	}
 
+//	    public String listTickets(
+//	            @RequestParam(required = false) Integer rifaId,
+//	            @RequestParam(required = false) String estado,
+//	            @RequestParam(required = false) String q,
+//
+//	            @RequestParam(defaultValue = "0") int page,
+//	            @RequestParam(defaultValue = "20") int size,
+//
+//	            @RequestParam(defaultValue = "0") int nPage,
+//	            @RequestParam(defaultValue = "100") int nSize,
+//
+//	            Model model
+//	    ) {
+//	        // 1) Rifas para el <select>
+//	        List<Rifa> rifas = servicioRifa.listAll();
+//	        model.addAttribute("rifas", rifas);
+//
+//	        // 2) Normalizar estados (si viene vacío -> Vendidos + Apartados)
+//	        Set<String> estados = NumeroGenerator.normalizeEstados(estado);
+//
+//	        // 3) Tabla izquierda: tickets
+//	        Pageable pageableTickets = PageRequest.of(Math.max(0, page), Math.max(1, size),
+//	                Sort.by(Sort.Direction.DESC, "fechaCompra").and(Sort.by(Sort.Direction.DESC, "id")));
+//
+////	        Page<Boleto> pageTickets = servicioBoletos.searchTickets(q, estados, rifaId, pageableTickets);
+////	        model.addAttribute("tickets", pageTickets.getContent());
+////	        model.addAttribute("page", pageTickets);
+//
+//	        // 4) Tabla derecha: solo números con boleto (seleccionados)
+//	        Pageable pageableNums = PageRequest.of(Math.max(0, nPage), Math.max(1, nSize),
+//	                Sort.by(Sort.Direction.ASC, "valor"));
+//
+////	        Page<Numero> pageNumerosSel = servicioNumeros.searchNumerosSeleccionados(q, estados, rifaId, pageableNums);
+////	        model.addAttribute("nums", pageNumerosSel.getContent());
+////	        model.addAttribute("numsPage", pageNumerosSel);
+//
+//	        // 5) Contadores rápidos (por filtros)
+////	        long countVendidos   = servicioNumeros.countNumerosByEstado(q, "VENDIDO", rifaId);
+////	        long countApartados  = servicioNumeros.countNumerosByEstado(q, "APARTADO", rifaId);
+////	        model.addAttribute("numsVendidos", countVendidos);
+////	        model.addAttribute("numsApartados", countApartados);
+//
+//	        // 6) Map con filtros/paginación para mantenerlos en la vista
+//	        Map<String, String> param = new LinkedHashMap<>();
+//	        param.put("rifaId", rifaId == null ? "" : String.valueOf(rifaId));
+////	        param.put("estado", emptyToNull(estado) == null ? "" : estado);
+////	        param.put("q",      emptyToNull(q) == null ? "" : q);
+//	        param.put("page",   String.valueOf(page));
+//	        param.put("size",   String.valueOf(size));
+//	        param.put("nPage",  String.valueOf(nPage));
+//	        param.put("nSize",  String.valueOf(nSize));
+//	        model.addAttribute("param", param);
+//
+//	        return "admin/tickets";
+//	    }
+//	
+
+	@GetMapping("/tickets")
+	public String seedDefaults(@RequestParam(name = "estadoId", required = false) Long estadoId,
+			@RequestParam(name = "q", required = false) String q,
+			@RequestParam(name = "rifaId", required = false) Integer raffleId, Model model) {
+		// Lista de rifas (si tu pantalla la espera para el <select>)
+		
+		List<EstadoBoleto> estados = serviceEstadoBoleto.regresaAllEstados();
+		model.addAttribute("estados", estados);
+		model.addAttribute("estadoId", estadoId);
+		DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+		
+		if(raffleId == null) {
+			List<Rifa> rifas = servicioRifa.listAll();
+			model.addAttribute("rifas", rifas);
+		}
+		
+		if(raffleId != null) {
+			Rifa rifas = servicioRifa.obtenerRifaPorId(raffleId);
+			model.addAttribute("rifas", rifas);
+			model.addAttribute("tickets",rifas.getBoletos());
+			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+
+		}
+		
+		
+		
+		
+
+		
+
+		if (!model.containsAttribute("rifas")) {
+			try {
+				// Si ya tienes el servicio, úsalo; si no, deja lista vacía
+				model.addAttribute("rifas",
+						servicioRifa != null ? servicioRifa.listAll() : java.util.Collections.emptyList());
+			} catch (Exception e) {
+				model.addAttribute("rifas", java.util.Collections.emptyList());
+			}
+		}
+
+		// Page de tickets (izquierda)
+		if (!model.containsAttribute("page")) {
+			Page<?> emptyTicketsPage = new PageImpl<>(java.util.Collections.emptyList(), PageRequest.of(0, 20), 0);
+			model.addAttribute("page", emptyTicketsPage);
+		}
+		
+		
+		
+		
+		if (!model.containsAttribute("tickets")) {
+			model.addAttribute("tickets", java.util.Collections.emptyList());
+		}
+
+		// Page de números seleccionados (derecha)
+		if (!model.containsAttribute("numsPage")) {
+			Page<?> emptyNumsPage = new PageImpl<>(java.util.Collections.emptyList(), PageRequest.of(0, 100), 0);
+			model.addAttribute("numsPage", emptyNumsPage);
+		}
+		if (!model.containsAttribute("nums")) {
+			model.addAttribute("nums", java.util.Collections.emptyList());
+		}
+
+		// Contadores (si el template los muestra)
+		if (!model.containsAttribute("numsVendidos")) {
+			model.addAttribute("numsVendidos", 0L);
+		}
+		if (!model.containsAttribute("numsApartados")) {
+			model.addAttribute("numsApartados", 0L);
+		}
+
+		// Mapa de parámetros para mantener filtros/paginación en la vista
+		if (!model.containsAttribute("param")) {
+			java.util.Map<String, String> param = new java.util.LinkedHashMap<>();
+			param.put("rifaId", "");
+			param.put("estado", "");
+			param.put("q", "");
+			param.put("page", "0");
+			param.put("size", "20");
+			param.put("nPage", "0");
+			param.put("nSize", "100");
+			model.addAttribute("param", param);
+		}
+
+		return "admin/tickets";
+	}
+
 	private List<Numero> consultaNumerosActualizaLista(Rifa data) {
 
 		List<Numero> numerosActuales = serviceNumero.regresaNumerosRifaActializada(data);
@@ -470,7 +586,5 @@ public class AdminRaffleController {
 	private EstadoEdicion cosultaEdicionActualizada(String idEstado) {
 		return serviceEstadoRifa.consultaEdicionEstado(idEstado);
 	}
-
-	
 
 }

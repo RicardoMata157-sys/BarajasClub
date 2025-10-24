@@ -1,254 +1,590 @@
 <!DOCTYPE html>
-<html lang="es" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments_admin :: head('Admin - Boletos')}"></head>
-<th:block th:replace="~{fragments_admin :: scripts}"></th:block>
-<body>
-	<header th:replace="~{fragments_admin :: navbar}"></header>
-	<main class="container py-4">
-  <div class="d-flex align-items-center justify-content-between mb-3">
-    <div>
-      <h1 class="h5 m-0">Administrar boletos</h1>
-      <div class="text-muted small">Filtra, revisa pago y cambia estado</div>
-    </div>
-    <a th:href="@{/admin/rifas/form}" class="btn btn-sm btn-outline-secondary">Volver</a>
-  </div>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
 
-  <!-- Filtros -->
-  <form class="row g-2 align-items-end mb-3" method="get" th:action="@{/admin/tickets}">
-    <div class="col-12 col-md-4">
-      <label class="form-label mb-1">Buscar</label>
-      <input type="text" name="q" class="form-control form-control-sm"
-             placeholder="Folio, rifa, comprador, email, teléfono"
-             th:value="${param.q}" />
-    </div>
-    <div class="col-6 col-md-3">
-      <label class="form-label mb-1">Estado</label>
-      <select name="estado" class="form-select form-select-sm">
-        <option value="">VENDIDOS + APARTADOS</option>
-        <option value="VENDIDO" th:selected="${param.estado=='VENDIDO'}">VENDIDO</option>
-        <option value="APARTADO" th:selected="${param.estado=='APARTADO'}">APARTADO</option>
-        <option value="CANCELADO" th:selected="${param.estado=='CANCELADO'}">CANCELADO</option>
-      </select>
-    </div>
-    <div class="col-6 col-md-2">
-      <label class="form-label mb-1">Rifa</label>
-      <select name="rifaId" class="form-select form-select-sm">
-        <option value="">Todas</option>
-        <option th:each="r : ${rifas}"
-                th:value="${r.id}"
-                th:selected="${param.rifaId == ${r.id}}"
-                th:text="${r.nombre}"></option>
-      </select>
-    </div>
-    <div class="col-12 col-md-3 text-end">
-      <button class="btn btn-sm btn-primary">Aplicar filtros</button>
-    </div>
-  </form>
+  <meta charset="UTF-8" />
+  <title>BarajasClub · Admin Tickets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
+  <!-- CSRF (Spring Security) -->
+  <meta name="_csrf" th:content="${_csrf.token}">
+  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+
+  <!-- Bootstrap (o tu bundle) -->
+  <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}" />
+  
+  <head th:insert="~{fragments_admin :: head('Comprar boleto')}">
   <style>
-    .tbl-sticky thead th { position: sticky; top: 0; background: #f8f9fa; z-index: 1; }
-    .badge-state { font-weight: 600; }
-    .badge-apartado { background: #fff3cd; color: #856404; border: 1px solid #ffe8a1; }
-    .badge-vendido  { background: #d1e7dd; color: #0f5132; border: 1px solid #badbcc; }
-    .badge-cancelado{ background: #e2e3e5; color: #41464b; border: 1px solid #d3d6d8; }
-    .chip { border: 1px solid #dee2e6; border-radius: 999px; padding: .1rem .5rem; font-size: .8rem; background: #f8f9fa; }
-    .table-sm td, .table-sm th { vertical-align: middle; }
+  
+.td-estado .badge{
+  font-weight: 800;
+  font-size: .9rem;
+  letter-spacing: .5px;
+  text-transform: uppercase;
+  border-width: 2px;
+  padding: .25rem .6rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+}
+
+/* Forzar amarillo visible en APARTADO (texto + icono) */
+.td-estado .badge-apartado,
+.td-estado .badge-apartado [aria-hidden="true"]{
+  color: #fbbf24 !important;           /* amarillo */
+}
+
+/* Fondo y borde suaves para que resalte en modo oscuro */
+.td-estado .badge-apartado{
+  background: rgba(245,158,11,.12) !important;
+  border-color: rgba(245,158,11,.35) !important;
+}
+
+.badge-vendido{
+  color:#052e1b !important;
+  background:#34d399 !important;
+  border-color:#059669;
+  box-shadow: 0 0 0 2px rgba(52,211,153,.25);
+}
+
+.badge-cancelado{
+  color:#3b0a0a !important;
+  background:#fca5a5 !important;
+  border-color:#ef4444;
+  box-shadow: 0 0 0 2px rgba(239,68,68,.25);
+}
+
+    :root{
+      --bc-bg: #0b1220;           /* fondo */
+      --bc-card: #0f172a;         /* cards */
+      --bc-soft: #111827;         /* subcards */
+      --bc-border: #1f2937;
+      --bc-text: #e5e7eb;
+      --bc-muted: #9ca3af;
+      --bc-accent: #22c55e;       /* verde */
+      --bc-warn: #f59e0b;         /* ámbar */
+      --bc-danger: #ef4444;       /* rojo */
+      --bc-info: #60a5fa;         /* azul */
+      --bc-chip: #0c1426;
+      --bc-glow: 0 12px 40px rgba(0,0,0,.35);
+    }
+    body{
+      background: radial-gradient(1200px 600px at 20% -10%, rgba(37,99,235,.12), transparent 60%),
+                  radial-gradient(900px 500px at 80% -10%, rgba(34,197,94,.10), transparent 60%),
+                  linear-gradient(180deg,#0a0f1d,#0b1220 60%, #0b1220) fixed;
+      color: var(--bc-text);
+    }
+    .page-title{ font-weight: 800; letter-spacing:.4px; }
+    .subtle{ color: var(--bc-muted); }
+
+    /* Cards */
+    .card-d{
+      background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.00));
+      border: 1px solid var(--bc-border);
+      border-radius: 18px;
+      box-shadow: var(--bc-glow);
+      overflow: hidden;
+    }
+    .card-d .card-header{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0));
+      border-bottom: 1px solid var(--bc-border);
+    }
+    .card-d .card-body{ background: transparent; }
+
+    /* Filtros */
+    .filter-label{ font-size:.8rem; color: var(--bc-muted); }
+    .form-select, .form-control{
+      background: var(--bc-soft);
+      border:1px solid var(--bc-border);
+      color: var(--bc-text);
+    }
+    .form-select:focus, .form-control:focus{
+      border-color: var(--bc-info);
+      box-shadow: 0 0 0 .2rem rgba(96,165,250,.15);
+      color: var(--bc-text);
+      background: var(--bc-soft);
+    }
+
+    /* Tabla */
+    .tbl-sticky thead th{ position: sticky; top:0; background: #0d1527; z-index:2; }
+    table.table{ color: var(--bc-text); }
+    .table thead th{ border-bottom: 1px solid var(--bc-border); font-weight:700; }
+    .table tbody tr{ border-bottom: 1px solid var(--bc-border); }
+    .table tbody tr:hover{ background: rgba(96,165,250,.08); }
+
+    /* Badges estado */
+    .badge{
+      font-weight: 700; letter-spacing:.3px;
+      border:1px solid transparent;
+    }
+    .badge-apartado{
+      color:#fbbf24; background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.35);
+    }
+    .badge-vendido{
+      color:#34d399; background: rgba(16,185,129,.12); border-color: rgba(16,185,129,.35);
+    }
+    .badge-cancelado{
+      color:#fca5a5; background: rgba(239,68,68,.12); border-color: rgba(239,68,68,.35);
+    }
+
+    /* Chips Números */
+    .chip{
+      display:inline-flex; align-items:center; gap:.35rem;
+      padding:.36rem .7rem; font-size:.9rem; font-weight:800; letter-spacing:.2px;
+      border-radius:999px; border:1px dashed var(--bc-border);
+      background: var(--bc-chip);
+      color: var(--bc-text);
+      user-select: none;
+      transition: transform .08s ease;
+    }
+    .chip:hover{ transform: translateY(-1px); }
+    .chip small{ color: var(--bc-muted); font-weight:700; }
+    .chip input[type="checkbox"]{ margin:0; transform: translateY(1px); }
+
+    /* Botones */
+    .btn-outline-light{ border-color: var(--bc-border); color: var(--bc-text); }
+    .btn-outline-light:hover{ background: var(--bc-soft); border-color: var(--bc-info); color: var(--bc-text); }
+    .btn-primary{ background: linear-gradient(90deg,#3b82f6,#2563eb); border:0; }
+    .btn-success{ background: linear-gradient(90deg,#22c55e,#16a34a); border:0; }
+    .btn-danger { background: linear-gradient(90deg,#ef4444,#dc2626); border:0; }
+
+    /* Panel derecho */
+    .side-wrap{ max-height:60vh; overflow:auto; border:1px solid var(--bc-border); border-radius: 12px; padding:.6rem; background: rgba(255,255,255,.02); }
+
+    /* Paginación */
+    .pagination .page-link{ background: var(--bc-soft); border-color: var(--bc-border); color: var(--bc-text); }
+    .pagination .page-link:hover{ background:#172036; }
+    .pagination .disabled .page-link{ color: var(--bc-muted); }
+
+    /* Bloques */
+    .divider{ height:1px; background: var(--bc-border); margin: .9rem 0; opacity:.7; }
+    
+ /* Tabla moderna y legible — NUEVO SKIN */
+.table-modern{
+  --row-bg-1: rgba(255,255,255,.02);
+  --row-bg-2: rgba(255,255,255,.05);
+  --row-hover: rgba(96,165,250,.12);
+  --head-bg: linear-gradient(180deg, #15233f, #0f1c33);
+  --head-text: #eaf2ff;
+  --head-border: rgba(255,255,255,.08);
+
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--bc-border);
+  box-shadow: var(--bc-glow);
+}
+
+.table-modern thead th{
+  position: sticky; top:0; z-index: 2;
+  background: var(--head-bg);
+  color: var(--head-text);
+  border: 0;
+  border-bottom: 1px solid var(--head-border);
+  font-weight: 800;
+  letter-spacing: .35px;
+  text-transform: uppercase;
+  font-size: .78rem;
+  padding: .9rem 1rem;
+}
+
+.table-modern td, .table-modern th{
+  padding: .85rem 1rem;
+  vertical-align: middle;
+  border-color: var(--bc-border);
+}
+
+.table-modern tbody tr{
+  background: var(--row-bg-1);
+  transition: background .15s ease, transform .05s ease;
+}
+.table-modern tbody tr:nth-child(even){ background: var(--row-bg-2); }
+
+.table-modern tbody tr:hover{
+  background: var(--row-hover);
+}
+
+.table-modern .col-actions{ width: 220px; }
+.table-modern .mini{ color: var(--bc-muted); font-size: .8rem; }
+
+/* Índice más legible (se mantiene tu lógica) */
+.col-idx .idx-badge{
+  filter: saturate(1.1) contrast(1.05);
+}
+ 
+/* Etiqueta de índice con colores legibles en modo oscuro */
+.idx-badge{
+  display:inline-flex; align-items:center; justify-content:center;
+  min-width: 2rem; height: 2rem;
+  padding: .25rem .5rem;
+  font-weight: 900; font-size: .95rem;
+  color: #ffffff;                      /* texto siempre blanco */
+  border-radius: 999px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+  border: 1px solid rgba(255,255,255,.15);
+}
+
+/* Paleta profesional (rotamos por fila con %6) */
+.idx-0{ background:#1d4ed8; } /* azul     */
+.idx-1{ background:#22c55e; } /* verde    */
+.idx-2{ background:#f59e0b; } /* ámbar    */
+.idx-3{ background:#ef4444; } /* rojo     */
+.idx-4{ background:#a855f7; } /* violeta  */
+.idx-5{ background:#06b6d4; } /* cian     */
+    
   </style>
+</head>
+<body>
+  <header th:replace="~{fragments_admin :: navbar}"></header>
 
-  <!-- Tabla de boletos -->
-  <div class="table-responsive tbl-sticky" style="max-height: 65vh;">
-    <table class="table table-sm align-middle">
-      <thead>
-        <tr>
-          <th style="width:36px;">#</th>
-          <th>Folio</th>
-          <th>Rifa</th>
-          <th>Comprador</th>
-          <th>Números</th>
-          <th>Fecha</th>
-          <th>Pago</th>
-          <th>Estado</th>
-          <th style="width: 260px;">Acciones</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr th:each="t, it : ${tickets}"
-            th:data-id="${t.id}"
-            th:data-estado="${t.estado}"
-            th:data-pago="${t.pagoRealizado}">
-          <td class="text-muted" th:text="${it.index + 1}">1</td>
+  <div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h3 class="page-title m-0">Administración de Tickets</h3>
+    </div>
 
-          <!-- Folio (fallback a número si no tienes folio) -->
-          <td class="fw-semibold" th:text="${t.folio != null ? t.folio : t.numero}">ABC123</td>
+    <!-- FILTROS -->
+    <div class="card-d mb-3">
+      <div class="card-header py-3">
+        <strong>Filtros</strong>
+      </div>
+      <div class="card-body">
+        <form class="row gy-3 gx-3 align-items-end" method="get" th:action="@{/admin/rifas/tickets}">
+					<div class="col-12 col-md-3">
+						<label class="filter-label mb-1">Edición</label>
+            <select id="selectRifa" name="rifaId" class="form-select form-select-sm">
+							<option value="">Todas</option>
+							<option th:each="r : ${rifas}" th:value="${r.id}"
+								th:text="${r.nombre}"
+								th:selected="${param.rifaId != null and param.rifaId[0] == #strings.toString(r.id)}">
+							</option>
+						</select>
+					</div>
 
-          <td th:text="${t.rifa != null ? t.rifa.nombre : '—'}">Rifa X</td>
-
-          <td>
-            <div th:text="${t.cliente != null ? t.cliente.nombreCompleto : '—'}">Juan Pérez</div>
-            <div class="small text-muted">
-              <span th:text="${t.cliente != null ? t.cliente.email : ''}">correo@ejemplo.com</span>
-              <span th:if="${t.cliente != null && t.cliente.telefono != null}"> · </span>
-              <span th:text="${t.cliente != null ? t.cliente.telefono : ''}">55 0000 0000</span>
-            </div>
-          </td>
-
-          <td>
-            <div class="d-flex flex-wrap gap-1">
-              <span class="chip" th:each="n : ${t.numeros}" th:text="${n}">0007</span>
-            </div>
-          </td>
-
-          <td th:text="${t.fechaCompra != null ? #temporals.format(t.fechaCompra,'dd/MM/yyyy HH:mm') : '—'}">
-            01/10/2025 14:20
-          </td>
-
-          <!-- Pago -->
-          <td>
-            <span th:if="${t.pagoRealizado}" class="badge text-bg-success">Pagado</span>
-            <span th:unless="${t.pagoRealizado}" class="badge text-bg-warning">Pendiente</span>
-            <div class="small text-muted" th:text="${t.tipoPago != null ? t.tipoPago.nombre : ''}">Tarjeta</div>
-          </td>
-
-          <!-- Estado -->
-          <td>
-            <span class="badge badge-state"
-                  th:classappend="${t.estado.name()=='APARTADO'} ? ' badge-apartado' :
-                                  ${t.estado.name()=='VENDIDO'}  ? ' badge-vendido'  :
-                                  ${t.estado.name()=='CANCELADO'}? ' badge-cancelado' : ''"
-                  th:text="${t.estado}">APARTADO</span>
-          </td>
-
-          <!-- Acciones -->
-          <td>
-            <form th:action="@{'/admin/tickets/' + ${t.id} + '/estado'}" method="post" class="d-flex flex-wrap gap-2 align-items-center ticket-form">
-              <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
-              <input type="hidden" name="confirmPago" value="false" />
-              <select name="estado" class="form-select form-select-sm w-auto estado-select">
-                <!-- Opción: pásame la lista de estados desde el controlador como 'estados' -->
-                <option th:each="s: ${estados}" th:value="${s}" th:text="${s}" th:selected="${s==t.estado}"></option>
-              </select>
-              <button type="submit" class="btn btn-sm btn-primary guardar-btn">Guardar</button>
-              <a th:href="@{'/admin/tickets/' + ${t.id}}" class="btn btn-sm btn-outline-secondary">Detalle</a>
-            </form>
-          </td>
-        </tr>
-        <tr th:if="${#lists.isEmpty(tickets)}">
-          <td colspan="9" class="text-center text-muted py-4">No hay boletos para los filtros seleccionados.</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
-  <!-- Modal: Validar pago -->
-  <div class="modal fade" id="validarPagoModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content border-0">
-        <div class="modal-header">
-          <h6 class="modal-title m-0">Confirmar pago</h6>
-          <button class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
-        </div>
-        <div class="modal-body">
-          <p class="mb-2">Estás por cambiar el estado a <strong>VENDIDO</strong>.</p>
-          <div class="border rounded p-2 bg-light mb-2">
-            <div>Folio: <strong id="vpFolio">—</strong></div>
-            <div>Comprador: <span id="vpCliente">—</span></div>
-            <div>Importe (ref.): <span id="vpImporte">—</span></div>
-            <div>Método: <span id="vpMetodo">—</span></div>
+					<div class="col-6 col-md-2">
+            <label class="filter-label mb-1">Estado</label>
+            <select name="estadoId" class="form-select form-select-sm">
+              <option value="" th:selected="${estadoId} == null">Vendidos + Apartados</option>
+              <option th:each="e : ${estados}"
+                      th:value="${e.idEstadoBoleto}"
+                      th:text="${e.nombre}"
+                      th:selected="${estadoId} != null and e.idEstadoBoleto == estadoId">
+              </option>
+            </select>
           </div>
-          <div class="form-check">
-            <input id="vpCheck" type="checkbox" class="form-check-input">
-            <label for="vpCheck" class="form-check-label">Confirmo que el usuario realizó el pago</label>
+
+					<div class="col-12 col-md-4">
+            <label class="filter-label mb-1">Buscar (folio, comprador, email, teléfono)</label>
+            <input id="q" name="q" type="search" class="form-control form-control-sm"
+                   placeholder="Escribe para filtrar…" th:value="${param.q}">
+          </div>
+
+          <div class="col-6 col-md-1">
+            <button class="btn btn-primary btn-sm w-100" type="submit">Buscar</button>
+          </div>
+          <div class="col-6 col-md-2">
+            <a class="btn btn-outline-light btn-sm w-100" th:href="@{/admin/rifas/tickets}">Limpiar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <!-- IZQUIERDA · BOLETOS -->
+      <div class="col-lg-8">
+        <div class="card-d">
+          <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <strong>Boletos</strong>
+            <span class="subtle"
+                  th:text="'Mostrando ' + ((${page} != null) ? ${page.numberOfElements} : 0) + ' de ' + ((${page} != null) ? ${page.totalElements} : 0)">
+              Mostrando …
+            </span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive tbl-sticky" style="max-height: 65vh;">
+              <table class="table table-modern table-hover align-middle mb-0">
+                <thead>
+                <tr>
+                  <th style="width:48px;">#</th>
+                  <th>Folio</th>
+                  <th>Rifa</th>
+                  <th>Comprador</th>
+                  <th>Números</th>
+                  <th>Fecha</th>
+                  <th>Pago</th>
+                  <th>Estado</th>
+                  <th style="width: 200px;">Acciones</th>
+                </tr>
+                </thead>
+                <tbody id="tblTicketsBody">
+                <tr th:each="t, it : ${tickets}" th:attr="data-ticket-id=${t.id}">
+										<td class="col-idx">
+                      <span class="idx-badge"
+											th:text="${it.index + 1}"
+											th:classappend="' idx-' + (${it.index} % 6)">1</span>
+                    </td>
+
+										<td>
+                      <span class="fw-bold" th:text="${t.folio}">FOLIO</span><br/>
+                      <small class="subtle" th:text="${t.id}">#ID</small>
+                    </td>
+                    <td th:text="${t.rifa != null ? t.rifa.nombre : '—'}">Rifa</td>
+                    <td>
+                      <div th:text="${t.cliente != null ? (t.cliente.nombre + ' ' + t.cliente.apellido_patrno + ' ' + t.cliente.apellido_materno) : '—'}">Cliente</div>
+                      <small class="subtle" th:text="${t.cliente != null ? t.cliente.telefono : ''}">55…</small>
+                    </td>
+                    <td>
+                      <small th:text="${t.numeros == null or #lists.isEmpty(t.numeros) ? '—' : #strings.listJoin(t.numeros.![valor], ', ')}">0001, 0002</small>
+                    </td>
+                    <td>
+                      <small th:text="${t.fechaCompra == null ? '—' : t.fechaCompra.format(fmtFecha)}">2025-01-01 12:00</small>
+                    </td>
+                    <td>
+                      <span th:text="${t.tipoPago != null ? #strings.toUpperCase(#strings.trim(t.tipoPago.nombre)) : '—'}">-</span>
+                    </td>
+                    <td class="td-estado">
+                      <span th:if="${t.estadoBoleto != null}"
+                            class="badge"
+                            th:with="estado=${#strings.toUpperCase(#strings.trim(t.estadoBoleto.nombre))}"
+                            th:classappend="${
+                              estado == 'APARTADO' ? ' badge-apartado' :
+                              (estado == 'VENDIDO' ? ' badge-vendido' :
+                              (estado == 'CANCELADO' ? ' badge-cancelado' : ''))
+                            }">
+                        <span th:if="${estado == 'APARTADO'}" aria-hidden="true">⏸</span>
+                        <span th:if="${estado == 'VENDIDO'}"  aria-hidden="true">✔</span>
+                        <span th:if="${estado == 'CANCELADO'}" aria-hidden="true">✖</span>
+                        <span th:text="${estado}">APARTADO</span>
+                      </span>
+                      <span th:if="${t.estadoBoleto == null}" class="badge badge-cancelado">SIN ESTADO</span>
+                    </td>
+
+                    <td>
+                      <div class="d-flex flex-wrap gap-2">
+                        <button type="button"
+                                class="btn btn-sm btn-success btn-mark-sold"
+                                th:if="${t.estadoBoleto != null and #strings.equalsIgnoreCase(t.estadoBoleto.nombre,'APARTADO')}"
+                                th:attr="data-ticket-id=${t.id}">
+                          Marcar vendido
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Paginación izquierda (solo si existe 'page') -->
+          <div class="card-body" th:if="${page != null}">
+            <div class="divider"></div>
+            <nav>
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item" th:classappend="${page.first} ? 'disabled'">
+                  <a class="page-link"
+                     th:href="@{/admin/rifas/tickets(q=${param.q},estado=${param.estado},rifaId=${param.rifaId},page=${page.number-1},size=${page.size},nPage=${param.nPage},nSize=${param.nSize})}">‹</a>
+                </li>
+                <li class="page-item disabled">
+                  <span class="page-link" th:text="'Página ' + (${page.number}+1) + ' / ' + ${page.totalPages}">Página</span>
+                </li>
+                <li class="page-item" th:classappend="${page.last} ? 'disabled'">
+                  <a class="page-link"
+                     th:href="@{/admin/rifas/tickets(q=${param.q},estado=${param.estado},rifaId=${param.rifaId},page=${page.number+1},size=${page.size},nPage=${param.nPage},nSize=${param.nSize})}">›</a>
+                </li>
+              </ul>
+            </nav>
           </div>
         </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button id="vpConfirmBtn" class="btn btn-primary" disabled>Confirmar y guardar</button>
+      </div>
+
+      <!-- DERECHA · NÚMEROS SELECCIONADOS -->
+      <div class="col-lg-4">
+        <div class="card-d h-100">
+          <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <strong>Números seleccionados</strong>
+            <small class="subtle">
+              Vendidos: <b id="numsVendidos" th:text="${numsVendidos}">0</b> ·
+              Apartados: <b id="numsApartados" th:text="${numsApartados}">0</b>
+            </small>
+          </div>
+          <div class="card-body">
+            <div class="side-wrap">
+              <div class="d-flex flex-wrap gap-1" id="numsGrid">
+                <label class="chip"
+                       th:each="n : ${nums}"
+                       th:attr="data-num-id=${n.id}, data-state=${n.boleto != null ? (n.boleto.estadoBoleto != null ? n.boleto.estadoBoleto.nombre : '') : ''}">
+                  <input type="checkbox" class="form-check-input me-1 num-select" th:value="${n.id}"/>
+                  <span th:text="${n.valor}">0001</span>
+                  <small class="ms-1"
+                         th:text="${n.boleto != null ? (n.boleto.estadoBoleto != null ? n.boleto.estadoBoleto.nombre : '') : ''}">APARTADO</small>
+                </label>
+              </div>
+              <div th:if="${#lists.isEmpty(nums)}" class="text-center subtle py-4 small">
+                No hay números con los filtros actuales.
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" id="btnLiberar" class="btn btn-danger btn-sm">Liberar seleccionados</button>
+              <button type="button" id="btnClearSel" class="btn btn-outline-light btn-sm">Limpiar selección</button>
+            </div>
+
+            <!-- Paginación derecha (solo si existe 'numsPage') -->
+            <div class="divider" th:if="${numsPage != null}"></div>
+            <nav th:if="${numsPage != null}">
+              <ul class="pagination pagination-sm justify-content-center mb-0">
+                <li class="page-item" th:classappend="${numsPage.first} ? 'disabled'">
+                  <a class="page-link"
+                     th:href="@{/admin/rifas/tickets(q=${param.q},estado=${param.estado},rifaId=${param.rifaId},page=${param.page},size=${param.size},nPage=${numsPage.number-1},nSize=${numsPage.size})}">‹</a>
+                </li>
+                <li class="page-item disabled">
+                  <span class="page-link" th:text="'Pág ' + (${numsPage.number}+1) + '/' + ${numsPage.totalPages}">Pág</span>
+                </li>
+                <li class="page-item" th:classappend="${numsPage.last} ? 'disabled'">
+                  <a class="page-link"
+                     th:href="@{/admin/rifas/tickets(q=${param.q},estado=${param.estado},rifaId=${param.rifaId},page=${param.page},size=${param.size},nPage=${numsPage.number+1},nSize=${numsPage.size})}">›</a>
+                </li>
+              </ul>
+            </nav>
+
+          </div>
         </div>
       </div>
     </div>
   </div>
-</main>
 
-<script th:inline="javascript">
-/*<![CDATA[*/
-document.addEventListener('DOMContentLoaded', () => {
-  const modalEl = document.getElementById('validarPagoModal');
-  const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
-  const vpCheck = document.getElementById('vpCheck');
-  const vpConfirmBtn = document.getElementById('vpConfirmBtn');
-  const vpFolio = document.getElementById('vpFolio');
-  const vpCliente = document.getElementById('vpCliente');
-  const vpImporte = document.getElementById('vpImporte');
-  const vpMetodo = document.getElementById('vpMetodo');
+  <!-- JS -->
+  <script th:src="@{/js/bootstrap.bundle.min.js}"></script>
+  <script th:inline="javascript">
+  /*<![CDATA[*/
+  document.addEventListener('DOMContentLoaded', () => {
+    // CSRF
+    const CSRF = (() => {
+      const token  = document.querySelector('meta[name="_csrf"]')?.content;
+      const header = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+      return { token, header };
+    })();
 
-  let pendingForm = null;
-  let pendingSelect = null;
-  let prevValue = null;
+    async function postJSON(url, payload){
+      const headers = { 'Content-Type': 'application/json' };
+      if (CSRF.token) headers[CSRF.header] = CSRF.token;
+      const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(payload) });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    }
+    async function postForm(url, formData){
+      const headers = {};
+      if (CSRF.token) headers[CSRF.header] = CSRF.token;
+      const res = await fetch(url, { method:'POST', headers, body: formData });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      return res.json();
+    }
 
-  vpCheck.addEventListener('change', () => {
-    vpConfirmBtn.disabled = !vpCheck.checked;
-  });
+    // Cambiar estado APARTADO -> VENDIDO
+    const tbl = document.getElementById('tblTicketsBody');
+    tbl?.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.btn-mark-sold');
+      if (!btn) return;
 
-  // Interceptar submit para validar pago si corresponde
-  document.querySelectorAll('.ticket-form').forEach(form => {
-    const select = form.querySelector('.estado-select');
-    const row = form.closest('tr');
+      const ticketId = btn.dataset.ticketId;
+      if (!ticketId) return;
 
-    // Guardar valor anterior al cambiar el select
-    select.addEventListener('focus', () => { select.dataset.prev = select.value; });
-    select.addEventListener('change', () => { /* visual */ });
+      btn.disabled = true;
+      const original = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando…';
 
-    form.addEventListener('submit', (e) => {
-      const nuevo = select.value;
-      const pagoRealizado = (row.dataset.pago === 'true'); // Thymeleaf llena data-pago
-      const estadoActual = row.dataset.estado;
+      try{
+        const data = await postForm(`/admin/rifas/tickets/estado/${ticketId}`, new URLSearchParams({ nuevoEstado:'VENDIDO' }));
+        if (!data.ok) throw new Error(data.error || 'Error');
 
-      // Si se intenta pasar a VENDIDO sin pago → modal de confirmación
-      if (nuevo === 'VENDIDO' && !pagoRealizado) {
-        e.preventDefault();
+        const row = btn.closest('tr');
+        const tdEstado = row?.querySelector('.td-estado');
+        if (tdEstado){
+          tdEstado.innerHTML = '<span class="badge badge-vendido px-2 py-1">VENDIDO</span>';
+        }
+        btn.remove();
 
-        // Llenar info modal (usa datos visibles en la fila)
-        vpCheck.checked = false;
-        vpConfirmBtn.disabled = true;
-        vpFolio.textContent = row.querySelector('td:nth-child(2)')?.textContent?.trim() || '—';
-        vpCliente.textContent = row.querySelector('td:nth-child(4) > div:first-child')?.textContent?.trim() || '—';
-        vpImporte.textContent = (row.querySelector('td:nth-child(7) .badge')?.textContent?.includes('Pagado'))
-                                  ? 'Pagado' : 'Pendiente';
-        vpMetodo.textContent = row.querySelector('td:nth-child(7) .small')?.textContent?.trim() || '—';
+        if (typeof data.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = data.numsVendidos;
+        if (typeof data.numsApartados === 'number') document.getElementById('numsApartados').textContent = data.numsApartados;
 
-        pendingForm = form;
-        pendingSelect = select;
-        prevValue = select.dataset.prev || estadoActual;
-
-        modal.show();
-      } else {
-        // Submit normal
+      } catch(err){
+        alert('No se pudo cambiar el estado: ' + err.message);
+      } finally {
+        if (btn.isConnected){ btn.disabled = false; btn.innerHTML = original; }
       }
     });
-  });
 
-  // Confirmar en el modal
-  vpConfirmBtn.addEventListener('click', () => {
-    if (!pendingForm) return;
-    // Marcar confirmación de pago para que el backend lo procese (si corresponde)
-    const confirmPagoInput = pendingForm.querySelector('input[name="confirmPago"]');
-    if (confirmPagoInput) confirmPagoInput.value = 'true';
-    modal.hide();
-    pendingForm.submit();
-  });
+    // Liberar números seleccionados
+    const btnLiberar = document.getElementById('btnLiberar');
+    const btnClearSel= document.getElementById('btnClearSel');
+    const grid       = document.getElementById('numsGrid');
 
-  // Si se cancela el modal, revertir selección
-  modalEl.addEventListener('hidden.bs.modal', () => {
-    if (pendingSelect && prevValue != null) {
-      pendingSelect.value = prevValue;
+    btnClearSel?.addEventListener('click', () => {
+      grid?.querySelectorAll('input.num-select:checked')?.forEach(chk => chk.checked = false);
+    });
+
+    btnLiberar?.addEventListener('click', async () => {
+      const checks = Array.from(grid?.querySelectorAll('input.num-select:checked') || []);
+      if (!checks.length) { alert('Selecciona al menos un número'); return; }
+
+      btnLiberar.disabled = true;
+      const original = btnLiberar.innerHTML;
+      btnLiberar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Liberando…';
+
+      const items = checks.map(chk => {
+        const label = chk.closest('[data-num-id]');
+        return { id: Number(chk.value), state: (label?.dataset?.state || '').toUpperCase() };
+      });
+
+      try {
+        const data = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds: items.map(i => i.id) });
+        if (!data.ok) throw new Error(data.error || 'Error');
+
+        items.forEach(i => {
+          grid.querySelector(`[data-num-id="${i.id}"]`)?.remove();
+        });
+
+        const vendEl = document.getElementById('numsVendidos');
+        const apaEl  = document.getElementById('numsApartados');
+
+        if (typeof data.numsVendidos === 'number') vendEl.textContent = data.numsVendidos;
+        if (typeof data.numsApartados === 'number') apaEl.textContent  = data.numsApartados;
+
+        if (typeof data.numsVendidos !== 'number' || typeof data.numsApartados !== 'number') {
+          let vend = vendEl ? parseInt(vendEl.textContent||'0',10) : 0;
+          let apa  = apaEl ? parseInt(apaEl.textContent||'0',10) : 0;
+          items.forEach(i => {
+            if (i.state === 'VENDIDO') vend = Math.max(0, vend - 1);
+            if (i.state === 'APARTADO') apa  = Math.max(0, apa  - 1);
+          });
+          vendEl.textContent = String(vend);
+          apaEl.textContent  = String(apa);
+        }
+
+      } catch(err){
+        alert('No se pudieron liberar: ' + err.message);
+      } finally {
+        btnLiberar.disabled = false;
+        btnLiberar.innerHTML = original;
+      }
+    });
+
+    // Cambiar rifa / búsqueda (recarga con filtros)
+    const selRifa = document.getElementById('selectRifa');
+    const inputQ  = document.getElementById('q');
+    function goWithParams(params){
+      const url = new URL(window.location.href);
+      Object.entries(params).forEach(([k,v]) => {
+        if (v === null || v === undefined || v === '') url.searchParams.delete(k);
+        else url.searchParams.set(k, v);
+      });
+      window.location.href = url.toString();
     }
-    pendingForm = null;
-    pendingSelect = null;
-    prevValue = null;
+    selRifa?.addEventListener('change', () => { goWithParams({ rifaId: selRifa.value, page:0, nPage:0 }); });
+    let qTimer;
+    inputQ?.addEventListener('input', () => {
+      clearTimeout(qTimer);
+      qTimer = setTimeout(()=> goWithParams({ q: inputQ.value, page:0, nPage:0 }), 400);
+    });
   });
-});
-/*]]>*/
-</script>
-
+  /*]]>*/
+  </script>
 </body>
 </html>
