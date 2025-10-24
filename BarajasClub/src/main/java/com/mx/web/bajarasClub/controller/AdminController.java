@@ -4,7 +4,6 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -30,7 +29,6 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.mx.web.bajarasClub.dto.CompraRequest;
 import com.mx.web.bajarasClub.dto.LimpiarSeleccionRequest;
-import com.mx.web.bajarasClub.dto.SeleccionNumeroRequest;
 import com.mx.web.bajarasClub.model.Boleto;
 import com.mx.web.bajarasClub.model.Cliente;
 import com.mx.web.bajarasClub.model.EstadoBoleto;

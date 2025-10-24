@@ -2,6 +2,9 @@ package com.mx.web.bajarasClub.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+
 import com.mx.web.bajarasClub.model.Numero;
 import com.mx.web.bajarasClub.model.Rifa;
 
@@ -28,6 +31,10 @@ public interface ServiceNumero {
 	public int limpiarSeleccion(List<String> numeroIds, Integer rifaId);
 
 	public int limpiarSeleccionUnico(String numero, Integer rifaId);
+
+	public long countByRifaAndEstadoNombre(Integer raffleId, String string);
+
+	public Page<Numero> searchByRifaAndEstado(Integer raffleId, Integer estadoId, Pageable numerosPg);
 
 	
 

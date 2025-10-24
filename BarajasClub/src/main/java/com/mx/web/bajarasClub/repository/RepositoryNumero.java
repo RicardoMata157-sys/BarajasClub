@@ -2,6 +2,8 @@ package com.mx.web.bajarasClub.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -67,6 +69,38 @@ public interface RepositoryNumero extends JpaRepository<Numero, String>{
 			+ "and nb.valor = :valor"  )
 	public Numero consultaNumeroEstadoSeleccion(@Param("id")Integer id, @Param("valor")String valor);
 	
-	
+	   @Query("""
+			      SELECT COUNT(n) FROM Numero n
+			      LEFT JOIN n.rifa r
+			      LEFT JOIN n.boleto b
+			      LEFT JOIN b.EstadoBoleto eb
+			      WHERE (:rifaId IS NULL OR r.id = :rifaId)
+			        AND (eb IS NOT NULL AND UPPER(eb.nombre) = UPPER(:estadoNombre))
+			    """)
+			    long countByRifaAndEstadoNombre(Integer rifaId, String estadoNombre);
+			
+	   
+	   
+	   
+	   
+	   
+
+	    @Query("""
+	      SELECT n FROM Numero n
+	      LEFT JOIN n.rifa r
+	      LEFT JOIN n.boleto b
+	      LEFT JOIN b.EstadoBoleto eb
+	      WHERE (:rifaId IS NULL OR r.id = :rifaId)
+	        AND (
+	              :estadoId IS NULL
+	              OR (eb IS NOT NULL AND eb.idEstadoBoleto = :estadoId)
+	            )
+	      ORDER BY n.valor ASC
+	    """)
+	  public  Page<Numero> searchByRifaAndEstado(Integer rifaId, Integer estadoId, Pageable pageable);
+
+	   
+	   
+	   
 	
 }

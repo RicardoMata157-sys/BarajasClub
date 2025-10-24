@@ -18,6 +18,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -34,6 +35,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.mx.web.bajarasClub.dto.RaffleForm;
+import com.mx.web.bajarasClub.model.Boleto;
 import com.mx.web.bajarasClub.model.EstadoBoleto;
 import com.mx.web.bajarasClub.model.EstadoEdicion;
 import com.mx.web.bajarasClub.model.Numero;
@@ -491,11 +493,44 @@ public class AdminRaffleController {
 //	
 
 	@GetMapping("/tickets")
-	public String seedDefaults(@RequestParam(name = "estadoId", required = false) Long estadoId,
+	public String seedDefaults(
+			@RequestParam(name = "estadoId", required = false) Integer estadoId,
 			@RequestParam(name = "q", required = false) String q,
-			@RequestParam(name = "rifaId", required = false) Integer raffleId, Model model) {
+			@RequestParam(name = "rifaId", required = false) Integer raffleId,
+			
+			  // paginación izquierda (boletos)
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            
+            // paginación derecha (números)
+            @RequestParam(name = "nPage", defaultValue = "0") int nPage,
+            @RequestParam(name = "nSize", defaultValue = "60") int nSize,
+            
+            
+			Model model) {
 		// Lista de rifas (si tu pantalla la espera para el <select>)
 		
+		
+		
+	    Pageable boletosPg = PageRequest.of(Math.max(0, page), Math.max(1, size));
+        Pageable numerosPg = PageRequest.of(Math.max(0, nPage), Math.max(1, nSize));
+
+        String term = (q != null && !q.isBlank()) ? q.trim() : null;
+        
+        Page<Boleto> boletosPage = servicioBoletos.regresaBoletosEstado(raffleId, estadoId, term, boletosPg);
+        
+        Page<Numero> numeros = serviceNumero.searchByRifaAndEstado(raffleId, estadoId, numerosPg);
+
+        long numsVendidos   = serviceNumero.countByRifaAndEstadoNombre(raffleId, "VENDIDO");
+        long numsApartados  = serviceNumero.countByRifaAndEstadoNombre(raffleId, "APARTADO");
+		
+		
+        model.addAttribute("numsVendidos", numsVendidos);
+        model.addAttribute("numsApartados", numsApartados);
+        
+        model.addAttribute("numsPage", numeros);
+        
+        model.addAttribute("page", boletosPage);
 		List<EstadoBoleto> estados = serviceEstadoBoleto.regresaAllEstados();
 		model.addAttribute("estados", estados);
 		model.addAttribute("estadoId", estadoId);
@@ -504,12 +539,24 @@ public class AdminRaffleController {
 		if(raffleId == null) {
 			List<Rifa> rifas = servicioRifa.listAll();
 			model.addAttribute("rifas", rifas);
+			rifas.stream().forEach(boletos -> {
+				model.addAttribute("tickets",boletosPage.getContent());
+			});
+			model.addAttribute("rifas", rifas);
+			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 		}
 		
 		if(raffleId != null) {
+			List<Numero> numerosSeleccionados = new ArrayList();
 			Rifa rifas = servicioRifa.obtenerRifaPorId(raffleId);
-			model.addAttribute("rifas", rifas);
-			model.addAttribute("tickets",rifas.getBoletos());
+			model.addAttribute("rifas", servicioRifa.listAll());
+			model.addAttribute("tickets",boletosPage.getContent());
+			rifas.getNumeros().stream().forEach(nums -> {
+				if(nums.getSeleccionado()) {
+					numerosSeleccionados.add(nums);
+				}
+			});
+			model.addAttribute("nums", numerosSeleccionados);
 			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
 		}

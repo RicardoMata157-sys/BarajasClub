@@ -6,6 +6,8 @@ import java.util.List;
 import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.mx.web.bajarasClub.model.Numero;
@@ -99,6 +101,23 @@ public class ServiceNumeroImpl implements ServiceNumero {
 		
 		 
 	}
+
+	@Override
+	public long countByRifaAndEstadoNombre(Integer raffleId, String string) {
+		// TODO Auto-generated method stub
+		return repositoryNumero.countByRifaAndEstadoNombre(raffleId, string);
+	}
+
+	@Override
+	public Page<Numero> searchByRifaAndEstado(Integer raffleId, Integer estadoId, Pageable numerosPg) {
+		// TODO Auto-generated method stub
+		return repositoryNumero.searchByRifaAndEstado(raffleId,estadoId,numerosPg);
+	}
+	
+	
+	
+	
+	
 
 
 	

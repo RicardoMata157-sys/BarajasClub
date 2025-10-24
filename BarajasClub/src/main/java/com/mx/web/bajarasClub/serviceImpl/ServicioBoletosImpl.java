@@ -3,6 +3,8 @@ package com.mx.web.bajarasClub.serviceImpl;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import com.mx.web.bajarasClub.model.Boleto;
@@ -23,6 +25,11 @@ public class ServicioBoletosImpl implements ServicioBoletos {
 	public void guardaBoletoClienteAsignado(Boleto boleto) {
 		respoitoryBoleto.save(boleto);
 		
+	}
+	@Override
+	public Page<Boleto> regresaBoletosEstado(Integer raffleId, Integer estadoId, String term, Pageable boletosPg) {
+		// TODO Auto-generated method stub
+		return respoitoryBoleto.search(raffleId, estadoId, term, boletosPg);
 	}
 
 }
