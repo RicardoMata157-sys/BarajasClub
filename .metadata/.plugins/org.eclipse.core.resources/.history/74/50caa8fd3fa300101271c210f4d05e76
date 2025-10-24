@@ -1,0 +1,5 @@
+package com.mx.web.bajarasClub.dto;
+
+public class NumeroItemDTO {
+
+}
