@@ -1586,43 +1586,68 @@ modal.show();
 
 // Click en botón WhatsApp
 document.getElementById('btnEnviarWhats')?.addEventListener('click', async () => {
+	  // 1) Llama a tus endpoints (igual que ya hacías)
+	  try {
+	    const body = new URLSearchParams({
+	      telefono: (tel || '').trim(),
+	      compraId: String(compraId || '')
+	    });
 
-	 // 1) Llama a tu endpoint enviando telefono y compraId como form-url-encoded
-    try {
-      const body = new URLSearchParams({
-        telefono: (tel || '').trim(),
-        compraId: String(compraId || '')
-      });
+	    await fetch('/detalle/enviar-whatsapp', {
+	      method: 'POST',
+	      headers: {
+	        'Content-Type': 'application/x-www-form-urlencoded',
+	        ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+	      },
+	      body
+	    });
+	  } catch (e) {
+	    console.error('Fallo enviar-whatsapp', e);
+	  }
 
-      await fetch('/detalle/enviar-whatsapp', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
-        },
-        body
-      });
-    } catch (e) {
-      console.error('Fallo enviar-whatsapp', e);
-    }
+	  // 2) (opcional) SMS existente
+	  try {
+	    await fetch(`/detalle/${compraId}/enviar-sms`, {
+	      method: 'POST',
+	      headers: (CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+	    });
+	  } catch {}
 
-    // 2) (opcional) tu SMS existente
-    try { await fetch(`/detalle/${compraId}/enviar-sms`, { method: 'POST', headers: (CSRF.token ? { [CSRF.header]: CSRF.token } : {}) }); } catch {}
+	  // 3) Abrir WhatsApp de forma compatible con Safari iOS
+	  const numeroDestino = '527731440601'; // tu número E.164 MX (52 + 10 dígitos)
+	  const texto = encodeURIComponent(mensaje);
 
-    // 3) Abrir WhatsApp con mensaje
-   const numeroDestino = '527731440601'; // tu número de WhatsApp con lada de México (52)
-   const url = `https://wa.me/${numeroDestino}?text=${encodeURIComponent(mensaje)}`;
-   window.open(url, '_blank');
+	  const isIOS  = /iP(hone|od|ad)/.test(navigator.userAgent);
+	  const appUrl = `whatsapp://send?phone=${numeroDestino}&text=${texto}`;   // abre la app
+	  const webUrl = `https://wa.me/${numeroDestino}?text=${texto}`;           // fallback web
 
-    // 4) Redirigir al detalle si quieres
-    const rifaIdRedir = /*[[${ticketGroup != null ? ticketGroup.rifaId : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)}]]*/ 0;
-    if (rifaIdRedir) window.location.href = `/detalle/${rifaIdRedir}`;
-	
-	
-	
-	
-	
-});
+	  // Usar <a> oculto preserva el gesto del usuario en iOS
+	  const a = document.createElement('a');
+	  a.style.display = 'none';
+	  a.rel = 'noopener';
+	  a.target = '_self';     // importante para iOS
+	  a.href = isIOS ? appUrl : webUrl;
+	  document.body.appendChild(a);
+	  a.click();
+
+	  // Fallback si la app no abre (o no está instalada)
+	  setTimeout(() => {
+	    // en iOS intentamos web como plan B; en Android casi nunca llega aquí
+	    if (isIOS) window.location.href = webUrl;
+	  }, 1200);
+
+	  // 4) NO redirijas de inmediato. Espera a que el usuario regrese a la página
+	  //    y entonces llevas a /detalle/{rifaId} si quieres.
+	  const rifaIdRedir = /*[[${ticketGroup != null ? ticketGroup.rifaId : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)}]]*/ 0;
+	  if (rifaIdRedir) {
+	    document.addEventListener('visibilitychange', () => {
+	      if (!document.hidden) {
+	        window.location.href = `/detalle/${rifaIdRedir}`;
+	      }
+	    }, { once: true });
+	  }
+	});
+
 }
 });
 /*]]>*/
