@@ -272,114 +272,283 @@ public class AdminController {
 	}
 
 	
-
+	
+	// Ideal: marca todo el flujo como transaccional para evitar condiciones de carrera
+	// @Transactional
 	@GetMapping("/comprar")
-	public String comprar(@RequestParam(name = "rifaId", required = false) Integer id, CompraRequest request,
-			Model model, @RequestParam String numeroTicket,
-			@RequestParam(name = "cantidadBoletos", required = false, defaultValue = "1") Integer cantidadBoletos,
-			RedirectAttributes ra) {
-		// Aquí puedes guardar el ticket y comprador en la BD
-		List<Map<String, Object>> tickets = new ArrayList<>();
-		Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
-		Map<String, Object> payload = new HashMap<>();
+	public String comprar(@RequestParam(name = "rifaId", required = false) Integer id,
+	                      CompraRequest request,
+	                      Model model,
+	                      @RequestParam String numeroTicket,
+	                      @RequestParam(name = "cantidadBoletos", required = false, defaultValue = "1") Integer cantidadBoletos,
+	                      RedirectAttributes ra) {
 
-		if (rifaSeleccionada == null) {
-			ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
-			return "redirect:/admin/edicion";
-		}
+	    // 0) Buscar rifa
+	    Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
+	    if (rifaSeleccionada == null) {
+	        ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
+	        return "redirect:/admin/edicion";
+	    }
 
-		int porBoleto = rifaSeleccionada.getNumerosPorBoleto() != null ? rifaSeleccionada.getNumerosPorBoleto() : 1;
-		if (porBoleto <= 0)
-			porBoleto = 1;
-		if (cantidadBoletos == null || cantidadBoletos < 1)
-			cantidadBoletos = 1;
+	    // 1) Parámetros de negocio
+	    int porBoleto = (rifaSeleccionada.getNumerosPorBoleto() != null && rifaSeleccionada.getNumerosPorBoleto() > 0)
+	                    ? rifaSeleccionada.getNumerosPorBoleto() : 1;
+	    cantidadBoletos = (cantidadBoletos == null || cantidadBoletos < 1) ? 1 : cantidadBoletos;
+	    int totalEsperado = porBoleto * cantidadBoletos;
 
-		EstadoBoleto estadoBoleto = serviceEstadoBoleto.regresaEstadoVendido();
-		TipoPago tipoPago = serviceTipoPago.regresaTipoPagoId(request.getTipoPagoId());
+	    // 2) Parseo de números
+	    List<String> numeros = NumeroGenerator.parseNumerosCsv(numeroTicket); // conserva padding 0001
+	    if (numeros == null || numeros.isEmpty()) {
+	        ra.addFlashAttribute("error", "Debes seleccionar al menos un número.");
+	        ra.addAttribute("id", rifaSeleccionada.getId());
+	        return "redirect:/admin/edicion";
+	    }
 
-		List<String> numeros = NumeroGenerator.parseNumerosCsv(numeroTicket);
-		int totalEsperado = porBoleto * cantidadBoletos;
+	    if (numeros.size() != totalEsperado) {
+	        ra.addFlashAttribute("error",
+	                "Debes seleccionar exactamente " + totalEsperado + " números (" + porBoleto + " por boleto × " + cantidadBoletos + ").");
+	        ra.addAttribute("id", rifaSeleccionada.getId());
+	        return "redirect:/admin/edicion";
+	    }
 
-		if (numeros.size() != totalEsperado) {
-			ra.addFlashAttribute("error", "Debes seleccionar exactamente " + totalEsperado + " números (" + porBoleto
-					+ " por boleto × " + cantidadBoletos + ").");
-			return "redirect:/admin/edicion";
-		}
+	    // 3) Recuperar desde BD los números solicitados (DE ESA RIFA)
+	    List<Numero> numeroSeleccionados = serviceNumero.regresaNumerosSeleccionados(rifaSeleccionada, numeros);
 
-		Cliente comprador = null;
-		List<Numero> numeroSeleccionados = serviceNumero.regresaNumerosSeleccionados(rifaSeleccionada, numeros);
+	    // Si faltan números (no existen / no pertenecen a la rifa), bloquear
+	    if (numeroSeleccionados.size() != numeros.size()) {
+	        ra.addFlashAttribute("error", "Algunos números seleccionados no pertenecen a la rifa o ya no están disponibles.");
+	        ra.addAttribute("id", rifaSeleccionada.getId());
+	        return "redirect:/admin/edicion";
+	    }
 
-		if (numeroSeleccionados.size() != totalEsperado) {
-			ra.addFlashAttribute("error", "Algunos números seleccionados ya no están disponibles.");
-			return "redirect:/admin/rifa";
-		}
+	    // 4) Validar NO disponibles (ya seleccionados/apartados/vendidos)
+	    //    Usa las señales que tengas en tu entidad: getSeleccionado(), getBoleto() != null, estado, etc.
+	    List<String> yaTomados = numeroSeleccionados.stream()
+	            .filter(n ->
+	                    Boolean.TRUE.equals(n.getSeleccionado())    // marcado como seleccionado
+	                 || n.getBoleto() != null                        // ya asignado a un boleto
+	                 // || (n.getEstado() != null && !n.getEstado().esDisponible()) // opcional si tienes estado
+	            )
+	            .map(Numero::getValor) // conserva el "0001"
+	            .toList();
 
-		List<List<Numero>> grupos = new ArrayList<>();
-		for (int i = 0; i < totalEsperado; i += porBoleto) {
-			grupos.add(numeroSeleccionados.subList(i, i + porBoleto));
-		}
+	    if (!yaTomados.isEmpty()) {
+	        ra.addFlashAttribute("error",
+	                "Los siguientes números ya fueron seleccionados por otra persona: " + String.join(", ", yaTomados)
+	                        + ". Selecciona otros números.");
+	        // Para “recargar” la página con el estado actualizado y mantener la edición:
+	        ra.addAttribute("id", rifaSeleccionada.getId());
+	        return "redirect:/admin/edicion";
+	    }
 
-		Cliente cliente = NumeroGenerator.generaCliente(request);
-		Cliente clienteGuardado = serviceCliente.guardaClienteEdicion(cliente);
+	    // 5) Si pasaron la validación, continuar con la venta
+	    EstadoBoleto estadoBoleto = serviceEstadoBoleto.regresaEstadoVendido();
+	    TipoPago tipoPago = serviceTipoPago.regresaTipoPagoId(request.getTipoPagoId());
 
-		for (int i = 0; i < grupos.size(); i++) {
-			List<Numero> grupo = new ArrayList<>(grupos.get(i)); // copia por seguridad
+	    // Agrupar números por boleto
+	    List<List<Numero>> grupos = new ArrayList<>();
+	    for (int i = 0; i + porBoleto <= numeroSeleccionados.size(); i += porBoleto) {
+	        grupos.add(new ArrayList<>(numeroSeleccionados.subList(i, i + porBoleto))); // copia segura
+	    }
+	    if (grupos.size() != cantidadBoletos) {
+	        ra.addFlashAttribute("error", "No se pudieron agrupar los números por boleto. Intenta nuevamente.");
+	        ra.addAttribute("id", rifaSeleccionada.getId());
+	        return "redirect:/admin/edicion";
+	    }
 
-			// Para folio por boleto, usa la misma ventana en la lista de strings
-			List<String> numerosStrDelBoleto = numeros.subList(i * porBoleto, (i + 1) * porBoleto);
+	    // Cliente
+	    Cliente cliente = NumeroGenerator.generaCliente(request);
+	    Cliente clienteGuardado = serviceCliente.guardaClienteEdicion(cliente);
 
-			Boleto boleto = new Boleto();
-			boleto.setRifa(rifaSeleccionada);
-			boleto.setCliente(clienteGuardado);
-			boleto.setEstadoBoleto(estadoBoleto);
-			boleto.setTipoPago(tipoPago);
-			boleto.setNumeros(grupo);
-			boleto.setFechaCompra(LocalDateTime.now());
-			boleto.setFolio(NumeroGenerator.generarFolio(boleto.getFechaCompra(), numerosStrDelBoleto,
-					clienteGuardado.getIdCliente()));
+	    // Tickets para la vista
+	    List<Map<String, Object>> tickets = new ArrayList<>();
 
-			// back-reference
-			for (Numero n : grupo) {
-				n.setBoleto(boleto);
-			}
+	    for (int i = 0; i < grupos.size(); i++) {
+	        List<Numero> grupo = grupos.get(i);
 
-			// Persistir
-			servicioBoletos.guardaBoletoClienteAsignado(boleto);
+	        // Ventana de strings para folio (mantén el padding)
+	        List<String> numerosStrDelBoleto = numeros.subList(i * porBoleto, (i + 1) * porBoleto);
 
-			// Armar objeto de ticket para la vista
-			Map<String, Object> t = new HashMap<>();
-			t.put("folio", boleto.getFolio());
-			t.put("numeros", new ArrayList<>(numerosStrDelBoleto));
-			t.put("fechaCompra", boleto.getFechaCompra());
-			tickets.add(t);
-		}
+	        Boleto boleto = new Boleto();
+	        boleto.setRifa(rifaSeleccionada);
+	        boleto.setCliente(clienteGuardado);
+	        boleto.setEstadoBoleto(estadoBoleto);
+	        boleto.setTipoPago(tipoPago);
+	        boleto.setNumeros(grupo);
+	        boleto.setFechaCompra(LocalDateTime.now());
+	        boleto.setFolio(NumeroGenerator.generarFolio(
+	                boleto.getFechaCompra(), numerosStrDelBoleto, clienteGuardado.getIdCliente()));
 
-		BigDecimal total = NumeroGenerator.calcularTotal(BigDecimal.valueOf(rifaSeleccionada.getPrecioBoleto()),
-				cantidadBoletos);
+	        // back-reference
+	        for (Numero n : grupo) {
+	            n.setBoleto(boleto);
+	        }
 
-		// 7) Marcar números como vendidos (todos a la vez)
-		serviceNumero.actualizaNumeros(numeroSeleccionados);
+	        // Persistir
+	        servicioBoletos.guardaBoletoClienteAsignado(boleto);
 
-		// 8) Datos para la vista
-		model.addAttribute("rifaSeleccionada", rifaSeleccionada);
-		payload.put("rifaId", rifaSeleccionada.getId());
-		payload.put("nombreRifa", rifaSeleccionada.getNombre());
-		payload.put("numeros", numeros);
-		payload.put("comprador", clienteGuardado);
-		payload.put("precioUnitario", rifaSeleccionada.getPrecioBoleto());
-		payload.put("tickets", tickets);
-		payload.put("cantidadBoletos", cantidadBoletos);
-		payload.put("numerosPorBoleto", porBoleto);
-		payload.put("total", total);
-		ra.addFlashAttribute("ticketGroup", payload);
-		ra.addFlashAttribute("mostrarTicket", true);
+	        Map<String, Object> t = new HashMap<>();
+	        t.put("folio", boleto.getFolio());
+	        t.put("numeros", new ArrayList<>(numerosStrDelBoleto));
+	        t.put("fechaCompra", boleto.getFechaCompra());
+	        tickets.add(t);
+	    }
 
-		// importante: conserva la edición seleccionada en el redirect
-		ra.addAttribute("id", rifaSeleccionada.getId());
-		model.addAttribute("nombreRifaSeleccionada", rifaSeleccionada.getNombre());
+	    // 6) Total
+	    BigDecimal total = NumeroGenerator.calcularTotal(
+	            BigDecimal.valueOf(rifaSeleccionada.getPrecioBoleto()), cantidadBoletos);
 
-		return "redirect:/admin/edicion";
+	    // 7) Marcar números como vendidos (si tu método ya persiste estados, perfecto)
+	    serviceNumero.actualizaNumeros(numeroSeleccionados);
+
+	    // 8) Datos para la vista (ticketGroup)
+	    Map<String, Object> payload = new HashMap<>();
+	    payload.put("rifaId", rifaSeleccionada.getId());
+	    payload.put("nombreRifa", rifaSeleccionada.getNombre());
+	    payload.put("numeros", numeros);
+	    payload.put("comprador", clienteGuardado);
+	    payload.put("precioUnitario", rifaSeleccionada.getPrecioBoleto());
+	    payload.put("tickets", tickets);
+	    payload.put("cantidadBoletos", cantidadBoletos);
+	    payload.put("numerosPorBoleto", porBoleto);
+	    payload.put("total", total);
+
+	    model.addAttribute("rifaSeleccionada", rifaSeleccionada);
+	    model.addAttribute("nombreRifaSeleccionada", rifaSeleccionada.getNombre());
+	    ra.addFlashAttribute("ticketGroup", payload);
+	    ra.addFlashAttribute("mostrarTicket", true);
+
+	    // Mantén la edición seleccionada en el redirect
+	    ra.addAttribute("id", rifaSeleccionada.getId());
+	    return "redirect:/admin/edicion";
 	}
+
+	
+	
+	
+	
+	
+	
+	
+
+//	@GetMapping("/comprar")
+//	public String comprar(@RequestParam(name = "rifaId", required = false) Integer id, CompraRequest request,
+//			Model model, @RequestParam String numeroTicket,
+//			@RequestParam(name = "cantidadBoletos", required = false, defaultValue = "1") Integer cantidadBoletos,
+//			RedirectAttributes ra) {
+//		// Aquí puedes guardar el ticket y comprador en la BD
+//		List<Map<String, Object>> tickets = new ArrayList<>();
+//		Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(id);
+//		Map<String, Object> payload = new HashMap<>();
+//
+//		if (rifaSeleccionada == null) {
+//			ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
+//			return "redirect:/admin/edicion";
+//		}
+//
+//		int porBoleto = rifaSeleccionada.getNumerosPorBoleto() != null ? rifaSeleccionada.getNumerosPorBoleto() : 1;
+//		if (porBoleto <= 0)
+//			porBoleto = 1;
+//		if (cantidadBoletos == null || cantidadBoletos < 1)
+//			cantidadBoletos = 1;
+//
+//		EstadoBoleto estadoBoleto = serviceEstadoBoleto.regresaEstadoVendido();
+//		TipoPago tipoPago = serviceTipoPago.regresaTipoPagoId(request.getTipoPagoId());
+//
+//		List<String> numeros = NumeroGenerator.parseNumerosCsv(numeroTicket);
+//		
+//		
+//		int totalEsperado = porBoleto * cantidadBoletos;
+//
+//		if (numeros.size() != totalEsperado) {
+//			ra.addFlashAttribute("error", "Debes seleccionar exactamente " + totalEsperado + " números (" + porBoleto
+//					+ " por boleto × " + cantidadBoletos + ").");
+//			return "redirect:/admin/edicion";
+//		}
+//
+//		Cliente comprador = null;
+//		List<Numero> numeroSeleccionados = serviceNumero.regresaNumerosSeleccionados(rifaSeleccionada, numeros);
+//
+//		numeroSeleccionados.stream().forEach(numero -> {
+//			if(numero.getSeleccionado()) {
+//				ra.addFlashAttribute("error", "Los numero que escogiste fueron seleccionados por otra persona selecciona otros nùmeros");
+//				return "redirect:/admin/edicion";
+//			}
+//		});
+//		
+//		
+//		
+//		if (numeroSeleccionados.size() != totalEsperado) {
+//			ra.addFlashAttribute("error", "Algunos números seleccionados ya no están disponibles.");
+//			return "redirect:/admin/rifa";
+//		}
+//
+//		List<List<Numero>> grupos = new ArrayList<>();
+//		for (int i = 0; i < totalEsperado; i += porBoleto) {
+//			grupos.add(numeroSeleccionados.subList(i, i + porBoleto));
+//		}
+//
+//		Cliente cliente = NumeroGenerator.generaCliente(request);
+//		Cliente clienteGuardado = serviceCliente.guardaClienteEdicion(cliente);
+//
+//		for (int i = 0; i < grupos.size(); i++) {
+//			List<Numero> grupo = new ArrayList<>(grupos.get(i)); // copia por seguridad
+//
+//			// Para folio por boleto, usa la misma ventana en la lista de strings
+//			List<String> numerosStrDelBoleto = numeros.subList(i * porBoleto, (i + 1) * porBoleto);
+//
+//			Boleto boleto = new Boleto();
+//			boleto.setRifa(rifaSeleccionada);
+//			boleto.setCliente(clienteGuardado);
+//			boleto.setEstadoBoleto(estadoBoleto);
+//			boleto.setTipoPago(tipoPago);
+//			boleto.setNumeros(grupo);
+//			boleto.setFechaCompra(LocalDateTime.now());
+//			boleto.setFolio(NumeroGenerator.generarFolio(boleto.getFechaCompra(), numerosStrDelBoleto,
+//					clienteGuardado.getIdCliente()));
+//
+//			// back-reference
+//			for (Numero n : grupo) {
+//				n.setBoleto(boleto);
+//			}
+//
+//			// Persistir
+//			servicioBoletos.guardaBoletoClienteAsignado(boleto);
+//
+//			// Armar objeto de ticket para la vista
+//			Map<String, Object> t = new HashMap<>();
+//			t.put("folio", boleto.getFolio());
+//			t.put("numeros", new ArrayList<>(numerosStrDelBoleto));
+//			t.put("fechaCompra", boleto.getFechaCompra());
+//			tickets.add(t);
+//		}
+//
+//		BigDecimal total = NumeroGenerator.calcularTotal(BigDecimal.valueOf(rifaSeleccionada.getPrecioBoleto()),
+//				cantidadBoletos);
+//
+//		// 7) Marcar números como vendidos (todos a la vez)
+//		serviceNumero.actualizaNumeros(numeroSeleccionados);
+//
+//		// 8) Datos para la vista
+//		model.addAttribute("rifaSeleccionada", rifaSeleccionada);
+//		payload.put("rifaId", rifaSeleccionada.getId());
+//		payload.put("nombreRifa", rifaSeleccionada.getNombre());
+//		payload.put("numeros", numeros);
+//		payload.put("comprador", clienteGuardado);
+//		payload.put("precioUnitario", rifaSeleccionada.getPrecioBoleto());
+//		payload.put("tickets", tickets);
+//		payload.put("cantidadBoletos", cantidadBoletos);
+//		payload.put("numerosPorBoleto", porBoleto);
+//		payload.put("total", total);
+//		ra.addFlashAttribute("ticketGroup", payload);
+//		ra.addFlashAttribute("mostrarTicket", true);
+//
+//		// importante: conserva la edición seleccionada en el redirect
+//		ra.addAttribute("id", rifaSeleccionada.getId());
+//		model.addAttribute("nombreRifaSeleccionada", rifaSeleccionada.getNombre());
+//
+//		return "redirect:/admin/edicion";
+//	}
 
 	@GetMapping(value = "/rifa/{rifaId}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<List<String>> autoNumeros(@PathVariable("rifaId") Long rifaId,
