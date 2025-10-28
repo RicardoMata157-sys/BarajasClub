@@ -1,5 +1,6 @@
 package com.mx.web.bajarasClub.serviceImpl;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -83,18 +84,28 @@ public class ServiceNumeroImpl implements ServiceNumero {
 		// TODO Auto-generated method stub
 		 return repositoryNumero.actulizaEstadoDeseleccionado(numeroIds,rifaId);
 	}
+	
+	
+	@Override
+	public boolean SeleccionUnico(String sid, String numero, Integer rifaId, int minutos) {
+		
+		int updated = repositoryNumero.actulizaEstadoSeleccionadoUnico(sid, rifaId, numero,LocalDateTime.now().plusMinutes(minutos), false);
+		return updated == 1;
+	}
 
 	@Transactional
 	@Override
-	public int limpiarSeleccionUnico(String numero, Integer rifaId) {
+	public int limpiarSeleccionUnico(String sid,String numero, Integer rifaId) {
 		// TODO Auto-generated method stub
-		Numero numeroData = repositoryNumero.consultaNumeroEstadoSeleccion(rifaId,numero);
-		if(numeroData.getSeleccionado()) {
-			return repositoryNumero.actulizaEstadoSeleccionadoUnico(rifaId, numero,false);
-		}
-		if(!numeroData.getSeleccionado()) {
-			return repositoryNumero.actulizaEstadoSeleccionadoUnico(rifaId, numero,true);
-		}
+//		Numero numeroData = repositoryNumero.consultaNumeroEstadoSeleccion(rifaId,numero);
+//		if(numeroData.getSeleccionado()) {
+//			return repositoryNumero.actulizaEstadoSeleccionadoUnico(sid,rifaId, numero,false);
+//		}
+//		if(!numeroData.getSeleccionado()) {
+//			return repositoryNumero.actulizaEstadoSeleccionadoUnico(sid,rifaId, numero,true);
+//		}
+		
+		repositoryNumero.liberar(rifaId, numero,sid);
 		
 		return 0;
 		
@@ -113,6 +124,8 @@ public class ServiceNumeroImpl implements ServiceNumero {
 		// TODO Auto-generated method stub
 		return repositoryNumero.searchByRifaAndEstado(raffleId,estadoId,numerosPg);
 	}
+
+
 	
 	
 	

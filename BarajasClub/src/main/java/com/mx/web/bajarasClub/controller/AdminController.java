@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import javax.servlet.http.HttpSession;
 import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -587,10 +588,12 @@ public class AdminController {
 	@Transactional
 	@GetMapping(value = "/rifa/{rifaId}/seleccion", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public ResponseEntity<Map<String, Object>> setSeleccionAdminGet(@PathVariable Integer rifaId,
-			@RequestParam String numero, @RequestParam(defaultValue = "false") boolean seleccionado) {
-
-		int updated = serviceNumero.limpiarSeleccionUnico(numero, rifaId);
+	public ResponseEntity<Map<String, Object>> setSeleccionAdminGet(HttpSession session,
+			@PathVariable Integer rifaId,
+			@RequestParam String numero, 
+			@RequestParam(defaultValue = "false") boolean seleccionado) {
+		String sid = session.getId();
+		int updated = serviceNumero.limpiarSeleccionUnico(sid, numero, rifaId);
 		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
 	}
 

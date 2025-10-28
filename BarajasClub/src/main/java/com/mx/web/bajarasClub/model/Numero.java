@@ -1,5 +1,7 @@
 package com.mx.web.bajarasClub.model;
 
+import java.time.LocalDateTime;
+
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.FetchType;
@@ -23,12 +25,47 @@ public class Numero {
 	@JoinColumn(name = "rifa_id", nullable = false, foreignKey = @ForeignKey(name = "fk_numero_rifa"))
 	private Rifa rifa;
 
+	public String getSeleccionadoSessionId() {
+		return seleccionadoSessionId;
+	}
+
+
+
+
+
+	public void setSeleccionadoSessionId(String seleccionadoSessionId) {
+		this.seleccionadoSessionId = seleccionadoSessionId;
+	}
+
+
+
+
+
+	public LocalDateTime getSeleccionadoExpira() {
+		return seleccionadoExpira;
+	}
+
+
+
+
+
+	public void setSeleccionadoExpira(LocalDateTime seleccionadoExpira) {
+		this.seleccionadoExpira = seleccionadoExpira;
+	}
+
 	@ManyToOne(fetch = FetchType.LAZY, optional = true)
 	@JoinColumn(name = "boleto_id", nullable = true, foreignKey = @ForeignKey(name = "fk_numero_boleto"))
 	private Boleto boleto;
 	
 	@Column(nullable = false)
 	private Boolean seleccionado = false;
+	
+	
+	@Column(name="sel_session_id", length=100)
+	private String seleccionadoSessionId;   // HttpSession.getId()
+
+	@Column(name="sel_expira")
+	private LocalDateTime seleccionadoExpira;
 	
 	
 

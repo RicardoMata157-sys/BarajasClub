@@ -1,5 +1,6 @@
 package com.mx.web.bajarasClub.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -46,10 +47,16 @@ public interface RepositoryNumero extends JpaRepository<Numero, String>{
 	
 	@Modifying()
 	@Query(nativeQuery = true, value = "UPDATE numero_boleto "
-			+ "SET seleccionado= :estado "
+			+ "SET seleccionado= :estado , sel_session_id = :idSession, sel_expira = :until  "
 			+ "where rifa_id in (:ids) "
-			+ "and valor in (:numero)   " )
-	public int actulizaEstadoSeleccionadoUnico(@Param("ids") Integer ids, @Param("numero") String  valor, @Param("estado") boolean  estado);
+			+ "and valor in (:numero) " )
+	public int actulizaEstadoSeleccionadoUnico(
+			@Param("idSession") String sessionId,
+			@Param("ids") Integer ids,
+			@Param("numero") String  valor,
+			@Param("until") LocalDateTime until,
+			@Param("estado") boolean  estado
+			);
 	
 	
 	@Modifying()
@@ -100,6 +107,22 @@ public interface RepositoryNumero extends JpaRepository<Numero, String>{
 	  public  Page<Numero> searchByRifaAndEstado(Integer rifaId, Integer estadoId, Pageable pageable);
 
 	   
+	    
+	    
+	    @Modifying
+	    @Query("""
+	    UPDATE Numero n
+	       SET n.seleccionado = FALSE,
+	           n.seleccionadoSessionId    = NULL,
+	           n.seleccionadoExpira    = NULL
+	     WHERE n.rifa.id = :rifaId
+	       AND n.valor = :label
+	       AND (n.seleccionadoSessionId = :owner )
+	    """)
+	    int liberar(@Param("rifaId") Integer rifaId,
+	                @Param("label") String label,
+	                @Param("owner") String owner
+	               );
 	   
 	   
 	

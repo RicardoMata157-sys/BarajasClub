@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import javax.servlet.http.HttpSession;
 import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -409,15 +410,31 @@ public class PublicParticiparController {
 	@Transactional
 	@GetMapping(value = "/detalle/{rifaId}/seleccion", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public ResponseEntity<Map<String, Object>> setSeleccion(@PathVariable Integer rifaId, @RequestParam String numero,
+	public ResponseEntity<Map<String, Object>> setSeleccion(@PathVariable Integer rifaId,
+			@RequestParam String numero,
 			@RequestParam(defaultValue = "false") boolean seleccionado,
-			@RequestParam(required = false) Integer rifaIdParam // por si lo mandas también en query
+			@RequestParam(required = false) Integer rifaIdParam,
+			 HttpSession session// por si lo mandas también en query
 	) {
 
-		System.out.print("");
-		int updated = serviceNumero.limpiarSeleccionUnico(numero, rifaId);
+		String sid = session.getId();
+		boolean ok = false;
+		
+		if (seleccionado) {
+	        ok = serviceNumero.SeleccionUnico(sid,  numero, rifaId, 10);
+		}else {
+			serviceNumero.limpiarSeleccionUnico(sid,numero, rifaId);
+		}
+		
+//		int updated = serviceNumero.limpiarSeleccionUnico(sid,numero, rifaId);
 		//
-		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+		
+		 return ResponseEntity.ok(Map.of(
+			        "ok", ok,
+			        "numero", numero,
+			        "seleccionado", seleccionado
+			    ));
+//		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
 //			return ResponseEntity.ok(null);
 	}
 

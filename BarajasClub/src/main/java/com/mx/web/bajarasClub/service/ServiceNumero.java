@@ -30,8 +30,11 @@ public interface ServiceNumero {
 
 	public int limpiarSeleccion(List<String> numeroIds, Integer rifaId);
 
-	public int limpiarSeleccionUnico(String numero, Integer rifaId);
+	public boolean SeleccionUnico(String sid,String numero, Integer rifaId,int minutos);
 
+	public int limpiarSeleccionUnico(String sid,String numero, Integer rifaId);
+
+	
 	public long countByRifaAndEstadoNombre(Integer raffleId, String string);
 
 	public Page<Numero> searchByRifaAndEstado(Integer raffleId, Integer estadoId, Pageable numerosPg);
