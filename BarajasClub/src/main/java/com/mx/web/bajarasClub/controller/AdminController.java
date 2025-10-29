@@ -324,23 +324,23 @@ public class AdminController {
 
 	    // 4) Validar NO disponibles (ya seleccionados/apartados/vendidos)
 	    //    Usa las señales que tengas en tu entidad: getSeleccionado(), getBoleto() != null, estado, etc.
-	    List<String> yaTomados = numeroSeleccionados.stream()
-	            .filter(n ->
-	                    Boolean.TRUE.equals(n.getSeleccionado())    // marcado como seleccionado
-	                 || n.getBoleto() != null                        // ya asignado a un boleto
-	                 // || (n.getEstado() != null && !n.getEstado().esDisponible()) // opcional si tienes estado
-	            )
-	            .map(Numero::getValor) // conserva el "0001"
-	            .toList();
-
-	    if (!yaTomados.isEmpty()) {
-	        ra.addFlashAttribute("error",
-	                "Los siguientes números ya fueron seleccionados por otra persona: " + String.join(", ", yaTomados)
-	                        + ". Selecciona otros números.");
-	        // Para “recargar” la página con el estado actualizado y mantener la edición:
-	        ra.addAttribute("id", rifaSeleccionada.getId());
-	        return "redirect:/admin/edicion";
-	    }
+//	    List<String> yaTomados = numeroSeleccionados.stream()
+//	            .filter(n ->
+//	                    Boolean.TRUE.equals(n.getSeleccionado())    // marcado como seleccionado
+//	                 || n.getBoleto() != null                        // ya asignado a un boleto
+//	                 // || (n.getEstado() != null && !n.getEstado().esDisponible()) // opcional si tienes estado
+//	            )
+//	            .map(Numero::getValor) // conserva el "0001"
+//	            .toList();
+//
+//	    if (!yaTomados.isEmpty()) {
+//	        ra.addFlashAttribute("error",
+//	                "Los siguientes números ya fueron seleccionados por otra persona: " + String.join(", ", yaTomados)
+//	                        + ". Selecciona otros números.");
+//	        // Para “recargar” la página con el estado actualizado y mantener la edición:
+//	        ra.addAttribute("id", rifaSeleccionada.getId());
+//	        return "redirect:/admin/edicion";
+//	    }
 
 	    // 5) Si pasaron la validación, continuar con la venta
 	    EstadoBoleto estadoBoleto = serviceEstadoBoleto.regresaEstadoVendido();
@@ -553,11 +553,12 @@ public class AdminController {
 
 	@GetMapping(value = "/rifa/{rifaId}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)
 	public ResponseEntity<List<String>> autoNumeros(@PathVariable("rifaId") Long rifaId,
-			@RequestParam(name = "faltan", defaultValue = "1") Integer faltan) {
+			@RequestParam(name = "faltan", defaultValue = "1") Integer faltan,HttpSession session) {
 
 		int req = (faltan == null || faltan < 0) ? 0 : faltan;
 		// Usa una de las dos estrategias:
-		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(rifaId, faltan);
+		  String sid = session.getId();
+		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(sid,rifaId, faltan);
 
 //		    ra.addFlashAttribute("ticket", ticket);
 //
@@ -593,8 +594,27 @@ public class AdminController {
 			@RequestParam String numero, 
 			@RequestParam(defaultValue = "false") boolean seleccionado) {
 		String sid = session.getId();
-		int updated = serviceNumero.limpiarSeleccionUnico(sid, numero, rifaId);
-		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+		 if (seleccionado) {
+		        boolean ok = serviceNumero.SeleccionUnico(sid, numero, rifaId, 10);
+		        if (!ok) {
+		            return ResponseEntity.status(409).body(Map.of(
+		                "ok", false,
+		                "msg", "Número ya no disponible",
+		                "numero", numero,
+		                "seleccionado", false
+		            ));
+		        }
+		        return ResponseEntity.ok(Map.of("ok", true, "numero", numero, "seleccionado", true));
+		    } else {
+		        boolean liberado = serviceNumero.limpiarSeleccionUnico(sid, numero, rifaId);
+		        // Si no eras el dueño, puedes devolver ok=false (y el front revierte)
+		        return ResponseEntity.ok(Map.of(
+		            "ok", liberado,
+		            "msg", liberado ? "Liberado" : "No eras el dueño de la reserva",
+		            "numero", numero,
+		            "seleccionado", false
+		        ));
+		    }
 	}
 
 	@ModelAttribute("tiposPago")

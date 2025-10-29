@@ -124,30 +124,29 @@ public class PublicParticiparController {
 		return t == null ? null : t.replaceAll("[^\\d+]", "");
 	}
 
-	@GetMapping(value = "/detalle/{id}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)
-	@ResponseBody
-	public ResponseEntity<List<String>> autoPick(@PathVariable("id") Long rifaId,
-			@RequestParam(name = "faltan", defaultValue = "1") Integer faltan) {
-
-		int req = (faltan == null || faltan < 0) ? 0 : faltan;
-
-		// Si tu servicio espera el conteo validado, usa 'req'
-		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(rifaId, req);
-
-		return ResponseEntity.ok(nums);
-	}
+	
 
 	@PostMapping("/detalle/confirmar")
-	public String confirmarCompra(@RequestParam Integer rifaId, @RequestParam(required = false) Integer clienteId,
-			@RequestParam Long tipoPagoId, @RequestParam String numeroTicket, // “01, 02, 15…”
-			@RequestParam Integer cantidadBoletos, Model model, RedirectAttributes ra, CompraRequest request) {
+	public String confirmarCompra(@RequestParam Integer rifaId, 
+			@RequestParam(required = false) Integer clienteId,
+			@RequestParam Long tipoPagoId, 
+			@RequestParam String numeroTicket, // “01, 02, 15…”
+			@RequestParam Integer cantidadBoletos, Model model, 
+			RedirectAttributes ra, CompraRequest request) {
 
 		List<Map<String, Object>> tickets = new ArrayList<>();
 		Rifa rifaSeleccionada = servicioRifa.obtenerRifaPorId(rifaId);
 		Map<String, Object> payload = new HashMap<>();
 
+		 int npb = (rifaSeleccionada.getNumerosPorBoleto() != null && rifaSeleccionada.getNumerosPorBoleto() > 0)
+		            ? rifaSeleccionada.getNumerosPorBoleto() : 1;
+		
+		int requeridos = npb * cantidadBoletos;
+		
+		
 		if (rifaSeleccionada == null) {
-			return "redirect:/";
+			  ra.addFlashAttribute("error", "La rifa seleccionada no existe.");
+			  return "redirect:/detalle/" + rifaId;
 		}
 
 		int porBoleto = rifaSeleccionada.getNumerosPorBoleto() != null ? rifaSeleccionada.getNumerosPorBoleto() : 1;
@@ -160,12 +159,25 @@ public class PublicParticiparController {
 		TipoPago tipoPago = serviceTipoPago.regresaTipoPagoId(request.getTipoPagoId());
 
 		List<String> numeros = NumeroGenerator.parseNumerosCsv(numeroTicket);
+		
+		if (numeros.isEmpty()) {
+	        ra.addFlashAttribute("error", "Debes seleccionar al menos un número.");
+	        return "redirect:/detalle/" + rifaId;
+	    }
+		
+		  if (numeros.size() != requeridos) {
+		        ra.addFlashAttribute("error",
+		            "Debes seleccionar exactamente " + requeridos + " número(s). Llevas " + numeros.size() + ".");
+		        return "redirect:/detalle/" + rifaId;
+		    }
+		
+		
 		int totalEsperado = porBoleto * cantidadBoletos;
 		List<Numero> numeroSeleccionados = serviceNumero.regresaNumerosSeleccionados(rifaSeleccionada, numeros);
 
 		if (numeroSeleccionados.size() != totalEsperado) {
-//		        ra.addFlashAttribute("error", "Algunos números seleccionados ya no están disponibles.");
-			return "redirect:/";
+	        ra.addFlashAttribute("error", "Algunos números seleccionados ya no están disponibles.");
+	        return "redirect:/detalle/" + rifaId;
 		}
 
 		Cliente cliente = (clienteId != null) ? serviceCliente.getById(clienteId)
@@ -407,35 +419,86 @@ public class PublicParticiparController {
 //		  return ResponseEntity.ok().build();
 //		}
 
+//	@Transactional
+//	@GetMapping(value = "/detalle/{rifaId}/seleccion", produces = MediaType.APPLICATION_JSON_VALUE)
+//	@ResponseBody
+//	public ResponseEntity<Map<String, Object>> setSeleccion(@PathVariable Integer rifaId,
+//			@RequestParam String numero,
+//			@RequestParam(defaultValue = "false") boolean seleccionado,
+//			@RequestParam(required = false) Integer rifaIdParam,
+//			 HttpSession session// por si lo mandas también en query
+//	) {
+//
+//		String sid = session.getId();
+//		boolean ok = false;
+//		
+//		if (seleccionado) {
+//	        ok = serviceNumero.SeleccionUnico(sid,  numero, rifaId, 10);
+//	        if (!ok) return ResponseEntity.status(409).body(Map.of("ok", false, "msg", "Número ya no disponible"));
+//		}else {
+//			serviceNumero.limpiarSeleccionUnico(sid,numero, rifaId);
+//		}
+//		
+//
+//		
+//		 return ResponseEntity.ok(Map.of(
+//			        "ok", ok,
+//			        "numero", numero,
+//			        "seleccionado", seleccionado
+//			    ));
+////		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
+////			return ResponseEntity.ok(null);
+//	}
+	
+	
 	@Transactional
 	@GetMapping(value = "/detalle/{rifaId}/seleccion", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public ResponseEntity<Map<String, Object>> setSeleccion(@PathVariable Integer rifaId,
-			@RequestParam String numero,
-			@RequestParam(defaultValue = "false") boolean seleccionado,
-			@RequestParam(required = false) Integer rifaIdParam,
-			 HttpSession session// por si lo mandas también en query
-	) {
+	        @RequestParam String numero,
+	        @RequestParam(defaultValue = "false") boolean seleccionado,
+	        HttpSession session) {
 
+	    String sid = session.getId();
+
+	    if (seleccionado) {
+	        boolean ok = serviceNumero.SeleccionUnico(sid, numero, rifaId, 10);
+	        if (!ok) {
+	            return ResponseEntity.status(409).body(Map.of(
+	                "ok", false,
+	                "msg", "Número ya no disponible",
+	                "numero", numero,
+	                "seleccionado", false
+	            ));
+	        }
+	        return ResponseEntity.ok(Map.of("ok", true, "numero", numero, "seleccionado", true));
+	    } else {
+	        boolean liberado = serviceNumero.limpiarSeleccionUnico(sid, numero, rifaId);
+	        // Si no eras el dueño, puedes devolver ok=false (y el front revierte)
+	        return ResponseEntity.ok(Map.of(
+	            "ok", liberado,
+	            "msg", liberado ? "Liberado" : "No eras el dueño de la reserva",
+	            "numero", numero,
+	            "seleccionado", false
+	        ));
+	    }
+	}
+
+	
+	@GetMapping(value = "/detalle/{id}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)
+	@ResponseBody
+	public ResponseEntity<List<String>> autoPick(
+			@PathVariable("id") Long rifaId,
+			@RequestParam(name = "faltan", defaultValue = "1") Integer faltan,
+			 HttpSession session) {
+
+		int req = (faltan == null || faltan < 0) ? 0 : faltan;
 		String sid = session.getId();
-		boolean ok = false;
-		
-		if (seleccionado) {
-	        ok = serviceNumero.SeleccionUnico(sid,  numero, rifaId, 10);
-		}else {
-			serviceNumero.limpiarSeleccionUnico(sid,numero, rifaId);
-		}
-		
-//		int updated = serviceNumero.limpiarSeleccionUnico(sid,numero, rifaId);
-		//
-		
-		 return ResponseEntity.ok(Map.of(
-			        "ok", ok,
-			        "numero", numero,
-			        "seleccionado", seleccionado
-			    ));
-//		return ResponseEntity.ok(Map.of("updated", updated, "ids", rifaId));
-//			return ResponseEntity.ok(null);
+
+		// Si tu servicio espera el conteo validado, usa 'req'
+		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(sid,rifaId, req);
+
+		return ResponseEntity.ok(nums);
 	}
 
 }

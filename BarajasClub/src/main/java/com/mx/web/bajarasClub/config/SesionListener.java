@@ -28,10 +28,16 @@ public class SesionListener implements ApplicationListener<SessionDestroyedEvent
 
 	@Override
 	public void onApplicationEvent(SessionDestroyedEvent event) {
-		event.getSecurityContexts().forEach(ctx -> {
-
-			System.out.print("La session caduco por su navegador...." + event.getId());
-		});
+		 String sid = event.getId();
+		 try {
+//		      repo.liberarPorSesion(sid);
+			 System.out.print("La session caduco por su navegador...." + event.getId());
+		    } catch (Exception ignore) {}
+	  }
+//		event.getSecurityContexts().forEach(ctx -> {
+//
+//			System.out.print("La session caduco por su navegador...." + event.getId());
+//		});
 
 	}
-}
+

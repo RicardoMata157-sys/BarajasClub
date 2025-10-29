@@ -13,6 +13,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import javax.servlet.http.HttpSession;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -163,11 +165,13 @@ public class AdminRaffleController {
 	@GetMapping(value = "/rifa/{id}/auto-numeros", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
 	public ResponseEntity<List<String>> autoPick(@PathVariable Long rifaId,
-			@RequestParam(defaultValue = "1") Integer faltan) {
+			@RequestParam(defaultValue = "1") Integer faltan,HttpSession session) {
 
 		int req = (faltan == null || faltan < 0) ? 0 : faltan;
+		
+		String sid = session.getId();
 		// Usa una de las dos estrategias:
-		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(rifaId, faltan);
+		List<String> nums = serviceNumero.regresaNumerosRandomBaseDisponibles(sid,rifaId, faltan);
 
 //		    ra.addFlashAttribute("ticket", ticket);
 //

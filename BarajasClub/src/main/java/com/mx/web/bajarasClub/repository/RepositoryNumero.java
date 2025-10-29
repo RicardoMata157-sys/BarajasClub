@@ -27,7 +27,10 @@ public interface RepositoryNumero extends JpaRepository<Numero, String>{
 	
 	@Query(nativeQuery = true, value = "SELECT * "
 			+ "        FROM numero_boleto nb  "
-			+ "        WHERE rifa_id = :rifaId AND nb.boleto_id is null and seleccionado is false "
+			+ "        WHERE rifa_id = :rifaId "
+			+ "        AND nb.boleto_id is null "
+			+ "        AND seleccionado is false"
+			+ "        AND  sel_session_id is  NULL "
 			+ "        ORDER BY random() "
 			+ "        LIMIT :lim")
 	public List<Numero> pickRandomDisponibles(@Param("rifaId") Long rifaId, @Param("lim") int lim);
@@ -40,28 +43,38 @@ public interface RepositoryNumero extends JpaRepository<Numero, String>{
 	
 	@Modifying()
 	@Query(nativeQuery = true, value = "UPDATE numero_boleto "
-			+ "SET seleccionado=true "
-			+ "where idnumero in (:ids)  " )
-	public int actulizaEstadoSeleccionado(@Param("ids") List<Integer> ids);
-	
-	
-	@Modifying()
-	@Query(nativeQuery = true, value = "UPDATE numero_boleto "
-			+ "SET seleccionado= :estado , sel_session_id = :idSession, sel_expira = :until  "
-			+ "where rifa_id in (:ids) "
-			+ "and valor in (:numero) " )
-	public int actulizaEstadoSeleccionadoUnico(
-			@Param("idSession") String sessionId,
-			@Param("ids") Integer ids,
-			@Param("numero") String  valor,
-			@Param("until") LocalDateTime until,
-			@Param("estado") boolean  estado
+			+ "SET seleccionado=true , sel_session_id = :idsession ,sel_expira  = :until "
+			+ "where idnumero in (:ids)"
+			)
+	public int actulizaEstadoSeleccionado(
+			@Param("ids") List<Integer> ids, 
+			@Param("idsession") String idSession,
+			@Param("until") LocalDateTime until
 			);
 	
 	
 	@Modifying()
 	@Query(nativeQuery = true, value = "UPDATE numero_boleto "
-			+ "SET seleccionado=false "
+			+ "SET seleccionado= :estado , sel_session_id = :idSession, sel_expira = :until  "
+			+ "WHERE rifa_id = :rifaId " +
+		      "  AND valor   = :numero " +
+		      "  AND boleto_id IS NULL " + // si tienes esta columna; si no, quítala
+		      "  AND (seleccionado = FALSE " +
+		      "       OR sel_expira < :now " +
+		      "       OR sel_session_id = :idSession)" )
+	public int actulizaEstadoSeleccionadoUnico(
+			@Param("idSession") String sessionId,
+			@Param("rifaId") Integer ids,
+			@Param("numero") String  valor,
+			@Param("until") LocalDateTime until,
+			@Param("estado") boolean  estado,
+			 @Param("now") java.time.LocalDateTime now
+			);
+	
+	
+	@Modifying()
+	@Query(nativeQuery = true, value = "UPDATE numero_boleto "
+			+ "SET seleccionado=false, sel_session_id = NULL,sel_expira = NULL  "
 			+ "where rifa_id in (:ids) "
 			+ "and valor in (:numeros) " )
 	public int actulizaEstadoDeseleccionado(@Param("numeros") List<String> numeros, @Param("ids") Integer id);

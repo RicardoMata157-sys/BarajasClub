@@ -52,14 +52,14 @@ public class ServiceNumeroImpl implements ServiceNumero {
 
 	@Override
 	@Transactional
-	public List<String> regresaNumerosRandomBaseDisponibles(Long rifaId, int lim) {
+	public List<String> regresaNumerosRandomBaseDisponibles(String sid,Long rifaId, int lim) {
 		List<String> nums = new ArrayList<String>();
 		List<Integer> idNums = new ArrayList<Integer>();
 		repositoryNumero.pickRandomDisponibles(rifaId, lim).stream().forEach(numero -> {
 			nums.add(numero.getValor());
 			idNums.add(numero.getIdNumero());
 		});
-		actulizaEstadoSeleccionado(idNums);
+		actulizaEstadoSeleccionado(sid,idNums);
 
 		return nums;
 	}
@@ -72,9 +72,9 @@ public class ServiceNumeroImpl implements ServiceNumero {
 
 	@Transactional
 	@Override
-	public int actulizaEstadoSeleccionado(List<Integer> ids) {
+	public int actulizaEstadoSeleccionado(String sid, List<Integer> ids) {
 
-		return repositoryNumero.actulizaEstadoSeleccionado(ids);
+		return repositoryNumero.actulizaEstadoSeleccionado(ids,sid,LocalDateTime.now().plusMinutes(10));
 	}
 
 	
@@ -89,13 +89,13 @@ public class ServiceNumeroImpl implements ServiceNumero {
 	@Override
 	public boolean SeleccionUnico(String sid, String numero, Integer rifaId, int minutos) {
 		
-		int updated = repositoryNumero.actulizaEstadoSeleccionadoUnico(sid, rifaId, numero,LocalDateTime.now().plusMinutes(minutos), false);
+		int updated = repositoryNumero.actulizaEstadoSeleccionadoUnico(sid, rifaId, numero,LocalDateTime.now().plusMinutes(minutos), true,LocalDateTime.now());
 		return updated == 1;
 	}
 
 	@Transactional
 	@Override
-	public int limpiarSeleccionUnico(String sid,String numero, Integer rifaId) {
+	public boolean limpiarSeleccionUnico(String sid,String numero, Integer rifaId) {
 		// TODO Auto-generated method stub
 //		Numero numeroData = repositoryNumero.consultaNumeroEstadoSeleccion(rifaId,numero);
 //		if(numeroData.getSeleccionado()) {
@@ -105,9 +105,9 @@ public class ServiceNumeroImpl implements ServiceNumero {
 //			return repositoryNumero.actulizaEstadoSeleccionadoUnico(sid,rifaId, numero,true);
 //		}
 		
-		repositoryNumero.liberar(rifaId, numero,sid);
+		int updated = repositoryNumero.liberar(rifaId, numero,sid);
 		
-		return 0;
+		return updated == 1;
 		
 		
 		 

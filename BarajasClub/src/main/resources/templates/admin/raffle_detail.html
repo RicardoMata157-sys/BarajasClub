@@ -481,21 +481,22 @@ document.addEventListener('DOMContentLoaded', () => {
       await setSeleccionServidor({ label, selected: true });
     }
     refreshInput();
-  } catch (err) {
-    console.error('Fallo al persistir selección:', err);
-    // rollback UI/estado local
-    btn.className = prevClasses;
-    if (isOn) {
-      // queríamos deseleccionar pero falló → restaura
-      seleccion.add(label);
-    } else {
-      // queríamos seleccionar pero falló → quita
-      seleccion.delete(label);
-    }
-    alert('No se pudo actualizar en el servidor. Intenta de nuevo.');
-  } finally {
-    btn.disabled = false;
-  }
+  }  catch (err) {
+	  console.error('Fallo al persistir selección:', err);
+	  // rollback UI/estado local
+	  btn.className = prevClasses;
+	  if (isOn) { seleccion.add(label); } else { seleccion.delete(label); }
+
+	  // Popup específico si es 409; genérico si es red/500/404
+	  if (String(err.message).startsWith('409')) {
+	    showNoDisp('Número ya no disponible');
+	  } else {
+	    showNoDisp('No se pudo contactar al servidor. Intenta de nuevo.');
+	  }
+	} finally {
+	  btn.disabled = false;
+	}
+
 });
   
   
@@ -540,6 +541,24 @@ document.addEventListener('DOMContentLoaded', () => {
 //   }
 // }
 
+// async function setSeleccionServidor({ label, selected }) {
+//   showLoader();
+//   try {
+//     const qs = new URLSearchParams({
+//       numero: label,
+//       seleccionado: String(!!selected)
+//     });
+//     const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion?${qs}`, {
+//       method: 'GET',
+//       credentials: 'same-origin',
+//       cache: 'no-store'
+//     });
+//     if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+//     return res.json();
+//   } finally { hideLoader(); }
+// }
+
+
 async function setSeleccionServidor({ label, selected }) {
   showLoader();
   try {
@@ -547,14 +566,33 @@ async function setSeleccionServidor({ label, selected }) {
       numero: label,
       seleccionado: String(!!selected)
     });
+
     const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion?${qs}`, {
       method: 'GET',
       credentials: 'same-origin',
       cache: 'no-store'
     });
-    if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+
+    // Conflicto: otro usuario lo ganó → 409
+    if (res.status === 409) {
+      let data;
+      try { data = await res.json(); } catch {}
+      showNoDisp(data?.msg || `El ${label} ya no está disponible`);
+      // Rechaza para que el caller haga rollback
+      throw new Error('409 numero-no-disponible');
+    }
+
+    if (!res.ok) {
+      // 404/500/etc → muestra popup genérico
+      const txt = await res.text().catch(()=>'');
+      showNoDisp('No se pudo contactar al servidor. Intenta de nuevo.');
+      throw new Error(txt || `HTTP ${res.status}`);
+    }
+
     return res.json();
-  } finally { hideLoader(); }
+  } finally {
+    hideLoader();
+  }
 }
 
   
@@ -1490,6 +1528,33 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 </script>
 
+<script>
+function getSeleccionStatus() {
+  const txtNumeros  = document.getElementById('numeroTicket');     // textarea con la lista
+  const selBoletos  = document.getElementById('selBoletos');       // # de boletos
+  const spanNPB     = document.getElementById('spanNumPorBoleto'); // números por boleto
+  const seleccionados = (txtNumeros?.value || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const npb      = Math.max(1, parseInt((spanNPB?.textContent || '1'), 10));
+  const boletos  = Math.max(1, parseInt((selBoletos?.value || '1'), 10));
+  const requeridos = npb * boletos;
+
+  return { seleccionados, requeridos };
+}
+
+function needMoreNumbersToast(sel, req) {
+  showVal(`Debes seleccionar exactamente ${req} número(s). Llevas ${sel}.`);
+  document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+</script>
+
+
+
+
+
 	<script th:inline="javascript">
 /*<![CDATA[*/
 document.addEventListener('DOMContentLoaded', () => {
@@ -1529,6 +1594,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 2) Antes de enviar, chequeo de duplicados por AJAX
   form?.addEventListener('submit', async (e) => {
+	  
+	// === VALIDACIÓN DE NÚMEROS REQUERIDOS (ANTES DE CUALQUIER OTRA COSA) ===
+	  {
+	    const { seleccionados, requeridos } = getSeleccionStatus();
+	    if (seleccionados.length === 0) {
+	      e.preventDefault();
+	      showVal('Selecciona al menos un número para continuar.');
+	      document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+	      return;
+	    }
+	    if (seleccionados.length !== requeridos) {
+	      e.preventDefault();
+	      needMoreNumbersToast(seleccionados.length, requeridos);
+	      return;
+	    }
+	  }
+	  // === FIN VALIDACIÓN ===
+
+	  
+	  
+	  
+	  
     if (!validarContactoRequerido() || !form.checkValidity()) {
       e.preventDefault();
       form.reportValidity();
@@ -1698,6 +1785,30 @@ document.addEventListener('DOMContentLoaded', () => {
     <div class="small mt-2">Cargando…</div>
   </div>
 </div>
+
+<!-- Toast: Número no disponible / errores -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index:2100">
+  <div id="popNumeroNoDisp" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="popNumeroNoDispText">Número ya no disponible</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+<script>
+function showNoDisp(msg){
+  const el  = document.getElementById('popNumeroNoDisp');
+  const txt = document.getElementById('popNumeroNoDispText');
+  if (!el) return;
+  if (txt) txt.textContent = msg || 'Número ya no disponible';
+  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 3000, autohide: true });
+  t.show();
+}
+</script>
+
+
+
+
 
 
 

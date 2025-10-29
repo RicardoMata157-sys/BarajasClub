@@ -24,15 +24,15 @@ public interface ServiceNumero {
 	public List<Numero> regresaNumerosSeleccionados(Rifa rifa, List<String> seleccionados);
 	
 	
-	public List<String> regresaNumerosRandomBaseDisponibles(Long rifaId ,int lim);
+	public List<String> regresaNumerosRandomBaseDisponibles(String idSession,Long rifaId ,int lim);
 	
-    public int actulizaEstadoSeleccionado(List<Integer> ids);
+    public int actulizaEstadoSeleccionado(String sid,List<Integer> ids);
 
 	public int limpiarSeleccion(List<String> numeroIds, Integer rifaId);
 
 	public boolean SeleccionUnico(String sid,String numero, Integer rifaId,int minutos);
 
-	public int limpiarSeleccionUnico(String sid,String numero, Integer rifaId);
+	public boolean limpiarSeleccionUnico(String sid,String numero, Integer rifaId);
 
 	
 	public long countByRifaAndEstadoNombre(Integer raffleId, String string);

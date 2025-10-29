@@ -448,56 +448,114 @@ document.addEventListener('DOMContentLoaded', () => {
 //   });
 
   
+//   grid.addEventListener('click', async (e) => {
+//   const btn = e.target.closest('.num-btn');
+//   if (!btn || btn.disabled) return;
+
+//   // usa el label tal como lo guardas (si puedes, mejor usa data-id con el ID real de BD)
+//   const label = norm(btn.dataset.label || btn.textContent);
+//   const isOn  = seleccion.has(label);
+//   const MAX   = getMAX();
+//   if (!isOn && seleccion.size >= MAX) return;
+
+//   // Optimistic UI
+//   btn.disabled = true;
+//   let prevClasses = btn.className;
+
+//   try {
+//     if (isOn){
+//       // quitar en UI
+//       seleccion.delete(label);
+//       btn.classList.remove('btn-primary','selected');
+//       btn.classList.add('btn-success');
+
+//       // persistir en servidor
+//       await setSeleccionServidor({ label, selected: false });
+//     } else {
+//       // poner en UI
+//       seleccion.add(label);
+//       btn.classList.remove('btn-success');
+//       btn.classList.add('btn-primary','selected');
+
+//       // persistir en servidor
+//       await setSeleccionServidor({ label, selected: true });
+//     }
+//     refreshInput();
+//   } catch (err) {
+// 	  console.error('Fallo al persistir selección:', err);
+// 	  // rollback UI/estado local (ya lo tenías)
+// 	  btn.className = prevClasses;
+// 	  if (isOn) { seleccion.add(label); } else { seleccion.delete(label); }
+
+// 	  // Usa toast si fue conflicto 409; si no, un mensaje genérico
+// 	  if (String(err.message).startsWith('409')) {
+// 	    showNoDisp('Número ya no disponible');
+// 	  } else {
+// 	    showNoDisp('No se pudo actualizar en el servidor. Intenta de nuevo.');
+// 	  }
+// 	}
+// });
+  
+  
+  
   grid.addEventListener('click', async (e) => {
   const btn = e.target.closest('.num-btn');
   if (!btn || btn.disabled) return;
 
-  // usa el label tal como lo guardas (si puedes, mejor usa data-id con el ID real de BD)
   const label = norm(btn.dataset.label || btn.textContent);
   const isOn  = seleccion.has(label);
   const MAX   = getMAX();
   if (!isOn && seleccion.size >= MAX) return;
 
-  // Optimistic UI
-  btn.disabled = true;
-  let prevClasses = btn.className;
+  btn.disabled = true;               // <— desactiva durante la petición
+  const prevClasses = btn.className;
 
   try {
-    if (isOn){
-      // quitar en UI
+    if (isOn) {
+      // UI optimista
       seleccion.delete(label);
       btn.classList.remove('btn-primary','selected');
       btn.classList.add('btn-success');
-
-      // persistir en servidor
-      await setSeleccionServidor({ label, selected: false });
+      // persistir
+      const data = await setSeleccionServidor({ label, selected: false });
+      // si el backend responde ok=false (no eras el dueño), revierte
+      if (data && data.ok === false) {
+        btn.className = prevClasses;
+        seleccion.add(label);
+        showNoDisp(data.msg || 'No se pudo deseleccionar');
+      }
     } else {
-      // poner en UI
       seleccion.add(label);
       btn.classList.remove('btn-success');
       btn.classList.add('btn-primary','selected');
-
-      // persistir en servidor
       await setSeleccionServidor({ label, selected: true });
     }
     refreshInput();
-  } catch (err) {
-    console.error('Fallo al persistir selección:', err);
-    // rollback UI/estado local
-    btn.className = prevClasses;
-    if (isOn) {
-      // queríamos deseleccionar pero falló → restaura
-      seleccion.add(label);
-    } else {
-      // queríamos seleccionar pero falló → quita
-      seleccion.delete(label);
-    }
-    alert('No se pudo actualizar en el servidor. Intenta de nuevo.');
-  } finally {
-    btn.disabled = false;
+  }  catch (err) {
+	  if (String(err.message).startsWith('409')) {
+		    // 1) Toast
+		    showNoDisp('Número ya no disponible');
+
+		    // 2) Opción LIGERA: dejar el botón en VERDE y sacar el número de la selección
+		    rollbackToGreen(btn, label, seleccion);
+
+		    // 3) (Opcional) Opción FUERTE: recargar el grid para reflejar estados actuales
+		    const REFRESH_ON_CONFLICT = true;  // <-- pon en false si no quieres recargar
+		    if (REFRESH_ON_CONFLICT) {
+		      await fetchAndRender(currentPage);
+		    }
+		  } else {
+		    // Errores no 409: rollback visual previo y toast genérico
+		    btn.className = prevClasses;
+		    if (isOn) { seleccion.add(label); } else { seleccion.delete(label); }
+		    showNoDisp('No se pudo actualizar en el servidor. Intenta de nuevo.');
+		  }
+		}
+    finally {
+    btn.disabled = false;            // <— REACTÍVALO SIEMPRE
   }
 });
-  
+
   
   
 //   async function setSeleccionServidor({ label, selected }) {
@@ -521,6 +579,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   
+// async function setSeleccionServidor({ label, selected }) {
+//   showLoader();
+//   try {
+//     const qs = new URLSearchParams({
+//       numero: label,
+//       seleccionado: String(!!selected),
+//       rifaId: String(RIFA_ID)
+//     });
+
+//     const res = await fetch(`${BASE}detalle/${RIFA_ID}/seleccion?${qs.toString()}`, {
+//       method: 'GET',
+//       credentials: 'same-origin',
+//       cache: 'no-store' // evita cachear la respuesta
+//       // ⚠️ NO body, NO 'Content-Type' en GET
+//     });
+
+//     if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+//     return res.json();
+//   } finally {
+//     hideLoader();
+//   }
+// }
+
+
 async function setSeleccionServidor({ label, selected }) {
   showLoader();
   try {
@@ -533,16 +615,28 @@ async function setSeleccionServidor({ label, selected }) {
     const res = await fetch(`${BASE}detalle/${RIFA_ID}/seleccion?${qs.toString()}`, {
       method: 'GET',
       credentials: 'same-origin',
-      cache: 'no-store' // evita cachear la respuesta
-      // ⚠️ NO body, NO 'Content-Type' en GET
+      cache: 'no-store'
     });
 
-    if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+    // Caso “Número ya no disponible” → 409
+    if (res.status === 409) {
+      let data;
+      try { data = await res.json(); } catch {}
+      showNoDisp(data?.msg || 'Número ya no disponible');
+      // Lanza error para que el caller haga rollback visual
+      throw new Error('409 Numero no disponible');
+    }
+
+    if (!res.ok) {
+      throw new Error((await res.text()) || `HTTP ${res.status}`);
+    }
+
     return res.json();
   } finally {
     hideLoader();
   }
 }
+
 
 
   
@@ -875,7 +969,7 @@ function updateLegendFromData(data) {
       <div class="card card-soft p-3 sticky-lg-top" style="top: 1rem;">
         <h2 class="h6 mb-3">Datos del comprador</h2>
 
-        <form method="POST" th:action="@{/detalle/confirmar}">
+        <form id="formCompra" method="POST" th:action="@{/detalle/confirmar}">
         <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
         
           <input type="hidden" id="rifaId" name="rifaId"
@@ -902,8 +996,14 @@ function updateLegendFromData(data) {
 <!--             <div class="col-12"><label class="form-label">Correo</label><input id="email" name="email" type="email" class="form-control" /></div> -->
             <div class="col-12">
               <label class="form-label">Teléfono</label>
-              <input id="telefono" name="telefono" class="form-control" inputmode="tel" pattern="^\+?\d{10,15}$" required/>
-              <div class="form-text">10–15 dígitos, permite + opcional.</div>
+              <input id="telefono" name="telefono"
+       class="form-control"
+       type="tel" inputmode="numeric"
+       pattern="^\d{10}$"
+       minlength="10" maxlength="10"
+       required />
+<div class="form-text">Exactamente 10 dígitos (solo números).</div>
+
             </div>
             <div class="col-sm-6"><label class="form-label">Municipio</label><input name="municipio" class="form-control" /></div>
             <div class="col-sm-6"><label class="form-label">Estado</label><input name="estado" class="form-control" /></div>
@@ -1273,9 +1373,66 @@ function updateLegendFromData(data) {
   </div>
 </div>
 	
+	
+	<!-- Toast: Número ya no disponible -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index:2100">
+  <div id="popNumeroNoDisp" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="popNumeroNoDispText">Número ya no disponible</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Toast: Validación de selección -->
+<div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:2100">
+  <div id="popValidacion" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="popValidacionText">
+        Debes seleccionar todos los números requeridos antes de continuar.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
 
 
 
+<div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:2100">
+  <div id="popValidacion" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="popValidacionText">
+        Debes seleccionar todos los números requeridos antes de continuar.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+
+
+
+<script>
+function showVal(msg){
+  const el  = document.getElementById('popValidacion');
+  const txt = document.getElementById('popValidacionText');
+  if (txt) txt.textContent = msg || 'Completa la selección antes de continuar.';
+  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true });
+  t.show();
+}
+</script>
+
+	
+
+
+<script>
+function rollbackToGreen(btn, label, seleccion) {
+  // borra de seleccionados y pinta VERDE
+  seleccion.delete(label);
+  btn.classList.remove('btn-primary', 'selected', 'btn-warning', 'btn-dark');
+  btn.classList.add('btn-success');
+}
+</script>
 
 <style>
   /* Colores y contraste SOLO dentro del modal */
@@ -1406,6 +1563,15 @@ function updateLegendFromData(data) {
 
 
 
+<script>
+function showNoDisp(msg){
+  const el  = document.getElementById('popNumeroNoDisp');
+  const txt = document.getElementById('popNumeroNoDispText');
+  if (txt) txt.textContent = msg || 'Número ya no disponible';
+  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true });
+  t.show();
+}
+</script>
 
 
 
@@ -1443,7 +1609,85 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 </script>
 
-	<script th:inline="javascript">
+
+
+<script>
+// Se ejecuta cuando el DOM está listo
+document.addEventListener('DOMContentLoaded', () => {
+  const form        = document.getElementById('formCompra');     // <-- el form de compra
+  if (!form) return;  // por si el id cambia en otra vista
+
+  const txtNumeros  = document.getElementById('numeroTicket');   // textarea oculto/campo con los números
+  const selBoletos  = document.getElementById('selBoletos');     // select de cantidad de boletos
+  const spanNPB     = document.getElementById('spanNumPorBoleto'); // span con “números por boleto”
+
+  // Helper de toast (o cambia por alert si aún no tienes toast)
+  function showVal(msg){
+    if (window.bootstrap && document.getElementById('popValidacion')) {
+      const el  = document.getElementById('popValidacion');
+      const txt = document.getElementById('popValidacionText');
+      if (txt) txt.textContent = msg || 'Completa la selección antes de continuar.';
+      bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true }).show();
+    } else {
+      alert(msg || 'Completa la selección antes de continuar.');
+    }
+  }
+
+  // Valida ANTES de enviar
+  form.addEventListener('submit', (e) => {
+    const seleccionados = (txtNumeros?.value || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const npb      = Math.max(1, parseInt((spanNPB?.textContent || '1'), 10)); // números por boleto
+    const boletos  = Math.max(1, parseInt((selBoletos?.value || '1'), 10));    // boletos seleccionados
+    const requeridos = npb * boletos;
+
+    if (seleccionados.length === 0) {
+      e.preventDefault();
+      showVal('Selecciona al menos un número para continuar.');
+      document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+      return;
+    }
+    if (seleccionados.length !== requeridos) {
+      e.preventDefault();
+      showVal(`Debes seleccionar exactamente ${requeridos} número(s). Llevas ${seleccionados.length}.`);
+      document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+      return;
+    }
+    // si pasa la validación, se envía normal
+  });
+});
+</script>
+
+<script>
+function getSeleccionStatus() {
+  const txtNumeros  = document.getElementById('numeroTicket');     // textarea con la lista
+  const selBoletos  = document.getElementById('selBoletos');       // cantidad de boletos
+  const spanNPB     = document.getElementById('spanNumPorBoleto'); // números por boleto
+  const seleccionados = (txtNumeros?.value || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const npb      = Math.max(1, parseInt((spanNPB?.textContent || '1'), 10));
+  const boletos  = Math.max(1, parseInt((selBoletos?.value || '1'), 10));
+  const requeridos = npb * boletos;
+
+  return { seleccionados, requeridos };
+}
+
+function needMoreNumbersToast(sel, req) {
+  showVal(`Debes seleccionar exactamente ${req} número(s). Llevas ${sel}.`);
+  document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+</script>
+
+
+
+
+<script th:inline="javascript">
 /*<![CDATA[*/
 document.addEventListener('DOMContentLoaded', () => {
   const BASE      = /*[[@{/}]]*/ '/';
@@ -1451,7 +1695,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const telefono  = document.getElementById('telefono');
   const clienteId = document.getElementById('clienteId');
 
-  // Modal y elementos del modal (ya existen en tu HTML)
   const modalEl   = document.getElementById('clienteExistenteModal');
   const modal     = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
   const cliNom    = document.getElementById('cliNombre');
@@ -1461,10 +1704,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function telValido() {
     const raw = (telefono?.value || '').trim();
-    return raw.length >= 10; // puedes reforzar con regex como ya tienes en el input
+    return raw.length >= 10;
   }
 
   form?.addEventListener('submit', async (e) => {
+    // === VALIDACIÓN DE NÚMEROS REQUERIDOS (ANTES DE TODO) ===
+    {
+      const { seleccionados, requeridos } = getSeleccionStatus();
+      if (seleccionados.length === 0) {
+        e.preventDefault();
+        showVal('Selecciona al menos un número para continuar.');
+        document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+        return;
+      }
+      if (seleccionados.length !== requeridos) {
+        e.preventDefault();
+        needMoreNumbersToast(seleccionados.length, requeridos);
+        return;
+      }
+    }
+    // === FIN VALIDACIÓN ===
+
     if (!telValido() || !form.checkValidity()) {
       e.preventDefault();
       form.reportValidity();
@@ -1480,14 +1740,14 @@ document.addEventListener('DOMContentLoaded', () => {
       const data = await res.json();
 
       if (data && data.exists) {
-        // llena modal
-        cliNom.textContent  = data.nombre || '—';
-        cliEmail.textContent= data.email  || '—';
-        cliTel.textContent  = data.telefono || '—';
+        // abre modal de cliente existente
+        cliNom.textContent   = data.nombre   || '—';
+        cliEmail.textContent = data.email    || '—';
+        cliTel.textContent   = data.telefono || '—';
         modalEl.dataset.clienteId = data.id || '';
         modal?.show();
       } else {
-        form.submit(); // no existe -> se creará
+        form.submit(); // no existe -> continuar
       }
     } catch (err) {
       console.error('Error check-telefono', err);
@@ -1495,17 +1755,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  btnUsar?.addEventListener('click', () => {
-    const id = modalEl?.dataset?.clienteId || '';
-    if (id && clienteId) {
-      clienteId.value = id;
+  // === AQUÍ VIENE EL ARREGLO CLAVE DEL MODAL ===
+  btnUsar?.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    // revalidar selección ANTES de continuar con el submit
+    const { seleccionados, requeridos } = getSeleccionStatus();
+    if (seleccionados.length !== requeridos) {
+      needMoreNumbersToast(seleccionados.length, requeridos);
+      // cerrar el modal para que el usuario siga eligiendo
       modal?.hide();
-      form?.submit();
+      return; // NO continuar
     }
+    // Si está completo: setear clienteId y enviar
+    const id = modalEl?.dataset?.clienteId || '';
+    const hiddenCli = document.getElementById('clienteId');
+    if (hiddenCli) hiddenCli.value = id;
+    modal?.hide();
+    document.getElementById('formCompra')?.submit();
   });
 });
 /*]]>*/
 </script>
+
 	
 
 <script th:inline="javascript">
