@@ -1021,8 +1021,11 @@ function updateLegendFromData(data) {
           <input type="hidden" name="cantidadBoletos" id="cantidadBoletos" value="">
           <input type="hidden" name="clienteId" id="clienteId" />
 
-          <button class="btn btn-primary w-100 mt-3" type="submit">Comprar boleto</button>
-        </form>
+							<button class="btn btn-primary w-100 mt-3" type="submit"
+								id="btnComprar" data-loading-text="Procesando...">
+								Comprar boleto</button>
+
+						</form>
       </div>
     </div>
 
@@ -1365,9 +1368,7 @@ function updateLegendFromData(data) {
         <button id="btnEnviarWhats" type="button" class="btn btn-success">
           Aceptar y enviar datos por WhatsApp/SMS
         </button>
-        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-          Cerrar
-        </button>
+       
       </div>
     </div>
   </div>
@@ -1409,6 +1410,22 @@ function updateLegendFromData(data) {
     </div>
   </div>
 </div>
+
+
+<!-- Overlay global para bloquear la pantalla -->
+<div id="loadingOverlay"
+     class="d-none position-fixed top-0 start-0 w-100 h-100"
+     style="z-index: 2500;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(3px);">
+  <div class="d-flex w-100 h-100 align-items-center justify-content-center">
+    <div class="bg-white rounded px-4 py-3 shadow-lg d-flex align-items-center gap-2">
+      <div class="spinner-border text-primary spinner-border-sm" role="status" aria-hidden="true"></div>
+      <strong>CARGANDO....</strong>
+    </div>
+  </div>
+</div>
+
 
 
 
@@ -1613,52 +1630,186 @@ document.addEventListener('DOMContentLoaded', () => {
 
 <script>
 // Se ejecuta cuando el DOM está listo
+// document.addEventListener('DOMContentLoaded', () => {
+//   const form        = document.getElementById('formCompra');     // <-- el form de compra
+//   if (!form) return;  // por si el id cambia en otra vista
+
+//   const txtNumeros  = document.getElementById('numeroTicket');   // textarea oculto/campo con los números
+//   const selBoletos  = document.getElementById('selBoletos');     // select de cantidad de boletos
+//   const spanNPB     = document.getElementById('spanNumPorBoleto'); // span con “números por boleto”
+
+//   // Helper de toast (o cambia por alert si aún no tienes toast)
+//   function showVal(msg){
+//     if (window.bootstrap && document.getElementById('popValidacion')) {
+//       const el  = document.getElementById('popValidacion');
+//       const txt = document.getElementById('popValidacionText');
+//       if (txt) txt.textContent = msg || 'Completa la selección antes de continuar.';
+//       bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true }).show();
+//     } else {
+//       alert(msg || 'Completa la selección antes de continuar.');
+//     }
+//   }
+
+//   // Valida ANTES de enviar
+//   form.addEventListener('submit', (e) => {
+//     const seleccionados = (txtNumeros?.value || '')
+//       .split(',')
+//       .map(s => s.trim())
+//       .filter(Boolean);
+
+//     const npb      = Math.max(1, parseInt((spanNPB?.textContent || '1'), 10)); // números por boleto
+//     const boletos  = Math.max(1, parseInt((selBoletos?.value || '1'), 10));    // boletos seleccionados
+//     const requeridos = npb * boletos;
+
+//     if (seleccionados.length === 0) {
+//       e.preventDefault();
+//       showVal('Selecciona al menos un número para continuar.');
+//       document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+//       return;
+//     }
+//     if (seleccionados.length !== requeridos) {
+//       e.preventDefault();
+//       showVal(`Debes seleccionar exactamente ${requeridos} número(s). Llevas ${seleccionados.length}.`);
+//       document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+//       return;
+//     }
+//     // si pasa la validación, se envía normal
+//   });
+// });
+
 document.addEventListener('DOMContentLoaded', () => {
-  const form        = document.getElementById('formCompra');     // <-- el form de compra
-  if (!form) return;  // por si el id cambia en otra vista
+  const form        = document.getElementById('formCompra');
+  const btnComprar  = document.getElementById('btnComprar'); // <-- nuevo
+  const telefono    = document.getElementById('telefono');
+  const clienteId   = document.getElementById('clienteId');
 
-  const txtNumeros  = document.getElementById('numeroTicket');   // textarea oculto/campo con los números
-  const selBoletos  = document.getElementById('selBoletos');     // select de cantidad de boletos
-  const spanNPB     = document.getElementById('spanNumPorBoleto'); // span con “números por boleto”
+  const modalEl     = document.getElementById('clienteExistenteModal');
+  const modal       = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+  const cliNom      = document.getElementById('cliNombre');
+  const cliEmail    = document.getElementById('cliEmail');
+  const cliTel      = document.getElementById('cliTel');
+  const btnUsar     = document.getElementById('btnUsarCliente');
 
-  // Helper de toast (o cambia por alert si aún no tienes toast)
-  function showVal(msg){
-    if (window.bootstrap && document.getElementById('popValidacion')) {
-      const el  = document.getElementById('popValidacion');
-      const txt = document.getElementById('popValidacionText');
-      if (txt) txt.textContent = msg || 'Completa la selección antes de continuar.';
-      bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true }).show();
-    } else {
-      alert(msg || 'Completa la selección antes de continuar.');
-    }
+  
+  function showLoader(){
+	  __loadingCount++;
+	  document.getElementById('loadingOverlay')?.classList.remove('d-none');
+	}
+	function hideLoader(){
+	  __loadingCount = Math.max(0, __loadingCount-1);
+	  if (__loadingCount === 0) {
+	    document.getElementById('loadingOverlay')?.classList.add('d-none');
+	  }
+	}
+
+  
+  
+  
+  function telValido() {
+    const raw = (telefono?.value || '').trim();
+    return raw.length >= 10;
   }
 
-  // Valida ANTES de enviar
-  form.addEventListener('submit', (e) => {
-    const seleccionados = (txtNumeros?.value || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
+  form?.addEventListener('submit', (e) => {
+    // ⚠️ Siempre detenemos el submit primero.
+    e.preventDefault();
 
-    const npb      = Math.max(1, parseInt((spanNPB?.textContent || '1'), 10)); // números por boleto
-    const boletos  = Math.max(1, parseInt((selBoletos?.value || '1'), 10));    // boletos seleccionados
-    const requeridos = npb * boletos;
+    // 1. Validación de números seleccionados (ya la tienes en el archivo)
+    {
+      const { seleccionados, requeridos } = getSeleccionStatus();
+      if (seleccionados.length === 0) {
+        showVal('Selecciona al menos un número para continuar.');
+        document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+        return;
+      }
+      if (seleccionados.length !== requeridos) {
+        needMoreNumbersToast(seleccionados.length, requeridos);
+        return;
+      }
+    }
 
-    if (seleccionados.length === 0) {
-      e.preventDefault();
-      showVal('Selecciona al menos un número para continuar.');
-      document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    // 2. Validación de campos del form
+    if (!telValido() || !form.checkValidity()) {
+      form.reportValidity();
       return;
     }
-    if (seleccionados.length !== requeridos) {
-      e.preventDefault();
-      showVal(`Debes seleccionar exactamente ${requeridos} número(s). Llevas ${seleccionados.length}.`);
-      document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+
+    // 3. Si ya hay clienteId elegido antes, ya no preguntamos nada -> submit directo
+    if (clienteId?.value) {
+      // deshabilitar doble clic y mostrar spinner DURANTE el submit real
+      withBtnSpinner(btnComprar, async () => {
+        showLoader();
+        form.submit(); // submit real
+      });
       return;
     }
-    // si pasa la validación, se envía normal
+
+    // 4. Si NO hay clienteId aún, llamamos al backend para revisar teléfono
+    withBtnSpinner(btnComprar, async () => {
+      showLoader();
+      try {
+        const params = new URLSearchParams({
+          telefono: telefono.value.trim()
+        });
+
+        const res = await fetch(`/detalle/clientes/check-telefono?${params.toString()}`, {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+
+        if (!res.ok) {
+          // si falla la validación previa del cliente, reactivamos botón
+          console.error('Error check-telefono:', res.status);
+          showVal('No se pudo validar el teléfono. Intenta de nuevo.');
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data.exists) {
+          // Abrimos modal de "cliente ya registrado"
+          if (cliNom)   cliNom.textContent   = data.nombre || '—';
+          if (cliEmail) cliEmail.textContent = data.email  || '—';
+          if (cliTel)   cliTel.textContent   = data.telefono || '—';
+
+          if (clienteId) clienteId.value = data.id || '';
+
+          // Mostrar modal para confirmar uso de ese cliente
+          modal?.show();
+
+          // Cuando el usuario presione "Usar cliente", hacemos submit definitivo
+          btnUsar?.addEventListener('click', () => {
+            modal?.hide();
+            // IMPORTANTE: hacemos el submit final con spinner otra vez para que no puedan spamear
+            withBtnSpinner(btnComprar, async () => {
+              showLoader();
+              form.submit();
+            });
+          }, { once:true });
+
+        } else {
+          // No existe cliente previo -> submit directo
+          form.submit();
+        }
+
+      } catch (err) {
+        console.error('Fallo en validación cliente:', err);
+        showVal('No se pudo validar el cliente. Intenta otra vez.');
+      } finally {
+        hideLoader();
+        // OJO: withBtnSpinner ya vuelve a habilitar el botón y restaura el texto
+        // cuando termina la promesa. No necesitas hacerlo manual.
+      }
+    }); // fin withBtnSpinner
   });
 });
+
+
+
+
+
+
 </script>
 
 <script>

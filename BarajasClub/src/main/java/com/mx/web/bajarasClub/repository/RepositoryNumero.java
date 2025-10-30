@@ -60,7 +60,7 @@ public interface RepositoryNumero extends JpaRepository<Numero, String>{
 		      "  AND valor   = :numero " +
 		      "  AND boleto_id IS NULL " + // si tienes esta columna; si no, quítala
 		      "  AND (seleccionado = FALSE " +
-		      "       OR sel_expira < :now " +
+		      "        OR (sel_expira IS NULL OR sel_expira < :now) " +
 		      "       OR sel_session_id = :idSession)" )
 	public int actulizaEstadoSeleccionadoUnico(
 			@Param("idSession") String sessionId,

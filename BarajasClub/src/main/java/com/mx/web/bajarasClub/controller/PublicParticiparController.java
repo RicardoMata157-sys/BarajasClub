@@ -95,8 +95,14 @@ public class PublicParticiparController {
 
 		// Tipos de pago SIN “EFECTIVO”
 		List<TipoPago> tipos = serviceTipoPago.getAllTipoPagos().stream()
-				.filter(tp -> !"EFECTIVO".equalsIgnoreCase(tp.getNombre())).toList();
-		model.addAttribute("tiposPago", tipos);
+			    .filter(tp ->
+			        !"EFECTIVO".equalsIgnoreCase(tp.getNombre()) &&
+			        !"TARJETA".equalsIgnoreCase(tp.getNombre())
+			    )
+			    .toList();
+
+			model.addAttribute("tiposPago", tipos);
+
 
 		// Reusa el MISMO template admin
 		return "compra_public";
