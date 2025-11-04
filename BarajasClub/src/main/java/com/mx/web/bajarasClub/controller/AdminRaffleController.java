@@ -8,12 +8,15 @@ import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 import javax.servlet.http.HttpSession;
+import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -495,6 +498,49 @@ public class AdminRaffleController {
 //	        return "admin/tickets";
 //	    }
 //	
+	
+	
+	
+	
+	
+	
+	
+	@PostMapping(
+			  value = "/tickets/estado/{ticketId}",
+			  consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE,
+			  produces = MediaType.APPLICATION_JSON_VALUE
+			)
+			@Transactional
+			public ResponseEntity<Map<String,Object>> cambiarEstadoForm(
+			    @PathVariable Integer ticketId,
+			    @RequestParam String nuevoEstado
+			){
+			    Map<String,Object> out = new HashMap<>();
+			    try {
+			        // TODO: busca ticket, cambia estado, persiste; actualiza contadores
+			        // Ejemplo:
+			        // Ticket t = ticketRepo.findById(ticketId).orElseThrow(...);
+			        // EstadoBoleto e = estadoRepo.findByNombreIgnoreCase(nuevoEstado).orElseThrow(...);
+			        // t.setEstadoBoleto(e);
+			        // ticketRepo.save(t);
+			        // if ("CANCELADO".equalsIgnoreCase(nuevoEstado)) numeroRepo.liberarNumeros(...);
+			        // if ("VENDIDO".equalsIgnoreCase(nuevoEstado))  numeroRepo.marcarVendido(...);
+
+			        out.put("ok", true);
+			        out.put("numsVendidos", /* contador */ 0);
+			        out.put("numsApartados", /* contador */ 0);
+			        return ResponseEntity.ok(out);
+			    } catch (Exception ex) {
+			        out.put("ok", false);
+			        out.put("error", ex.getMessage());
+			        return ResponseEntity.ok(out);
+			    }
+			}
+	
+	
+	
+	
+	
 
 	@GetMapping("/tickets")
 	public String seedDefaults(
@@ -556,9 +602,18 @@ public class AdminRaffleController {
 			model.addAttribute("rifas", servicioRifa.listAll());
 			model.addAttribute("tickets",boletosPage.getContent());
 			rifas.getNumeros().stream().forEach(nums -> {
-				if(nums.getSeleccionado()) {
-					numerosSeleccionados.add(nums);
+				if(nums.getBoleto() != null) {
+					if(nums.getBoleto().getEstadoBoleto().getNombre() == "APARTADO"  && nums.getSeleccionado() ) {
+						numerosSeleccionados.add(nums);
+					}
 				}
+				
+				if(nums.getBoleto() != null ) {
+					if( nums.getSeleccionado()) {
+						numerosSeleccionados.add(nums);
+					}
+				}
+				
 			});
 			model.addAttribute("nums", numerosSeleccionados);
 			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));

@@ -27,6 +27,7 @@ public class BarajasClub extends ResponseEntityExceptionHandler implements WebMv
 		SpringApplication.run(BarajasClub.class, args);
 	}
 	
+
 	
 	 @PostConstruct
 	  public void init() throws Exception {

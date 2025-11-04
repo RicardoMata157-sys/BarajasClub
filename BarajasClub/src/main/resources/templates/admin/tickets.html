@@ -6,8 +6,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
   <!-- CSRF (Spring Security) -->
-  <meta name="_csrf" th:content="${_csrf.token}">
-  <meta name="_csrf_header" th:content="${_csrf.headerName}">
+<meta name="_csrf" th:content="${_csrf.token}"/>
+<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
 
   <!-- Bootstrap (o tu bundle) -->
   <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}" />
@@ -250,262 +250,187 @@
 
   <!-- JS -->
  
-  <script th:inline="javascript">
-  /*<![CDATA[*/
-  document.addEventListener('DOMContentLoaded', () => {
-    // CSRF
-    const CSRF = (() => {
-      const token  = document.querySelector('meta[name="_csrf"]')?.content;
-      const header = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
-      return { token, header };
-    })();
+ <script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  // === CSRF desde las <meta> ===
+  const CSRF = (() => {
+    const token  = document.querySelector('meta[name="_csrf"]')?.content;
+    const header = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return { token, header };
+  })();
 
-    async function postJSON(url, payload){
-      const headers = { 'Content-Type': 'application/json' };
-      if (CSRF.token) headers[CSRF.header] = CSRF.token;
-      const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(payload) });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      return res.json();
-    }
-    async function postForm(url, formData){
-      const headers = {};
-      if (CSRF.token) headers[CSRF.header] = CSRF.token;
-      const res = await fetch(url, { method:'POST', headers, body: formData });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      return res.json();
-    }
+  // === Helpers de fetch ===
+  async function postJSON(url, payload){
+    const headers = { 'Content-Type': 'application/json' };
+    if (CSRF.token) headers[CSRF.header] = CSRF.token;
+    const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    return res.json();
+  }
+  async function postForm(url, formData){
+    const headers = {};
+    if (CSRF.token) headers[CSRF.header] = CSRF.token;
+    const res = await fetch(url, { method:'POST', headers, body: formData });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    return res.json();
+  }
 
-    // Cambiar estado APARTADO -> VENDIDO
-    const tbl = document.getElementById('tblTicketsBody');
-//     tbl?.addEventListener('click', async (e) => {
-//       const btn = e.target.closest('.btn-mark-sold');
-//       if (!btn) return;
+  // === Botones del panel derecho ===
+  const btnLiberar = document.getElementById('btnLiberar');
+  const btnClearSel= document.getElementById('btnClearSel');
+  const grid       = document.getElementById('numsGrid');
 
-//       const ticketId = btn.dataset.ticketId;
-//       if (!ticketId) return;
-
-//       btn.disabled = true;
-//       const original = btn.innerHTML;
-//       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Guardando…';
-
-//       try{
-//         const data = await postForm(`/admin/rifas/tickets/estado/${ticketId}`, new URLSearchParams({ nuevoEstado:'VENDIDO' }));
-//         if (!data.ok) throw new Error(data.error || 'Error');
-
-//         const row = btn.closest('tr');
-//         const tdEstado = row?.querySelector('.td-estado');
-//         if (tdEstado){
-//           tdEstado.innerHTML = '<span class="badge badge-vendido px-2 py-1">VENDIDO</span>';
-//         }
-//         btn.remove();
-
-//         if (typeof data.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = data.numsVendidos;
-//         if (typeof data.numsApartados === 'number') document.getElementById('numsApartados').textContent = data.numsApartados;
-
-//       } catch(err){
-//         alert('No se pudo cambiar el estado: ' + err.message);
-//       } finally {
-//         if (btn.isConnected){ btn.disabled = false; btn.innerHTML = original; }
-//       }
-//     });
-
-    // Liberar números seleccionados
-    const btnLiberar = document.getElementById('btnLiberar');
-    const btnClearSel= document.getElementById('btnClearSel');
-    const grid       = document.getElementById('numsGrid');
-
-    btnClearSel?.addEventListener('click', () => {
-      grid?.querySelectorAll('input.num-select:checked')?.forEach(chk => chk.checked = false);
-    });
-
-    btnLiberar?.addEventListener('click', async () => {
-      const checks = Array.from(grid?.querySelectorAll('input.num-select:checked') || []);
-      if (!checks.length) { alert('Selecciona al menos un número'); return; }
-
-      btnLiberar.disabled = true;
-      const original = btnLiberar.innerHTML;
-      btnLiberar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Liberando…';
-
-      const items = checks.map(chk => {
-        const label = chk.closest('[data-num-id]');
-        return { id: Number(chk.value), state: (label?.dataset?.state || '').toUpperCase() };
-      });
-
-      try {
-        const data = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds: items.map(i => i.id) });
-        if (!data.ok) throw new Error(data.error || 'Error');
-
-        items.forEach(i => {
-          grid.querySelector(`[data-num-id="${i.id}"]`)?.remove();
-        });
-
-        const vendEl = document.getElementById('numsVendidos');
-        const apaEl  = document.getElementById('numsApartados');
-
-        if (typeof data.numsVendidos === 'number') vendEl.textContent = data.numsVendidos;
-        if (typeof data.numsApartados === 'number') apaEl.textContent  = data.numsApartados;
-
-        if (typeof data.numsVendidos !== 'number' || typeof data.numsApartados !== 'number') {
-          let vend = vendEl ? parseInt(vendEl.textContent||'0',10) : 0;
-          let apa  = apaEl ? parseInt(apaEl.textContent||'0',10) : 0;
-          items.forEach(i => {
-            if (i.state === 'VENDIDO') vend = Math.max(0, vend - 1);
-            if (i.state === 'APARTADO') apa  = Math.max(0, apa  - 1);
-          });
-          vendEl.textContent = String(vend);
-          apaEl.textContent  = String(apa);
-        }
-
-      } catch(err){
-        alert('No se pudieron liberar: ' + err.message);
-      } finally {
-        btnLiberar.disabled = false;
-        btnLiberar.innerHTML = original;
-      }
-    });
-
-    // Cambiar rifa / búsqueda (recarga con filtros)
-    const selRifa = document.getElementById('selectRifa');
-    const inputQ  = document.getElementById('q');
-    function goWithParams(params){
-      const url = new URL(window.location.href);
-      Object.entries(params).forEach(([k,v]) => {
-        if (v === null || v === undefined || v === '') url.searchParams.delete(k);
-        else url.searchParams.set(k, v);
-      });
-      window.location.href = url.toString();
-    }
-    selRifa?.addEventListener('change', () => { goWithParams({ rifaId: selRifa.value, page:0, nPage:0 }); });
-    let qTimer;
-    inputQ?.addEventListener('input', () => {
-      clearTimeout(qTimer);
-      qTimer = setTimeout(()=> goWithParams({ q: inputQ.value, page:0, nPage:0 }), 400);
-    });
-    
-    
-    
-    
- // === Persistencia de selección entre recargas ===
-    const SEL_KEY = 'bc:selectedNums';
-
-    function getSelSet(){
-      try { return new Set(JSON.parse(sessionStorage.getItem(SEL_KEY) || '[]')); }
-      catch { return new Set(); }
-    }
-    function saveSelSet(set){
-      sessionStorage.setItem(SEL_KEY, JSON.stringify([...set]));
-    }
-
-    // 1) Restaurar selección al cargar
-    const selSet = getSelSet();
-    document.querySelectorAll('#numsGrid input.num-select').forEach(chk => {
-      const id = Number(chk.value);
-      if (selSet.has(id)) chk.checked = true;
-    });
-
-    // 2) Escuchar cambios para mantener el set actualizado
-    document.getElementById('numsGrid')?.addEventListener('change', (e) => {
-      const chk = e.target.closest('input.num-select');
-      if (!chk) return;
-      const id = Number(chk.value);
-      const set = getSelSet();
-      if (chk.checked) set.add(id); else set.delete(id);
-      saveSelSet(set);
-    });
-
-    // 3) Al liberar seleccionados, limpiarlos también del storage
-    function removeFromSelection(ids){
-      const set = getSelSet();
-      ids.forEach(id => set.delete(Number(id)));
-      saveSelSet(set);
-    }
-
-    // Hookeamos tu flujo de "Liberar"
-    const _oldPostJSON = postJSON;
-    postJSON = async (url, payload) => {
-      const res = await _oldPostJSON(url, payload);
-      // Si liberaste números, sácalos del storage
-      if (url.includes('/admin/rifas/tickets/numeros/liberar') && payload?.numeroIds?.length){
-        removeFromSelection(payload.numeroIds);
-      }
-      return res;
-    };
-
- // Acciones por fila: vender o cancelar+liberar
-//     const tbl = document.getElementById('tblTicketsBody');
-
-    tbl?.addEventListener('change', async (e) => {
-      const sel = e.target.closest('.ticket-action');
-      if (!sel) return;
-
-      const action = sel.value;
-      if (!action) return;
-
-      const row = sel.closest('tr');
-      const ticketId = sel.dataset.ticketId || row?.dataset.ticketId;
-      if (!ticketId) { sel.value=''; return; }
-
-      sel.disabled = true;
-
-      try {
-        if (action === 'VENDIDO') {
-          // 1) Cambiar estado a VENDIDO
-          const res = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
-                                     new URLSearchParams({ nuevoEstado:'VENDIDO' }));
-          if (!res.ok) throw new Error(res.error || 'No se pudo marcar vendido');
-
-          // 2) Refrescar badge de estado
-          const tdEstado = row.querySelector('.td-estado');
-          if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-vendido px-2 py-1">VENDIDO</span>';
-
-          // 3) Dejar solo la acción de cancelar+liberar
-          sel.innerHTML = '<option value="">Acciones…</option><option value="CANCELAR_LIBERAR">Cancelar y liberar</option>';
-
-          // 4) Actualizar contadores (si backend los manda)
-          if (typeof res.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res.numsVendidos;
-          if (typeof res.numsApartados === 'number') document.getElementById('numsApartados').textContent = res.numsApartados;
-        }
-
-        if (action === 'CANCELAR_LIBERAR') {
-          // 1) Cambiar estado del boleto a CANCELADO
-          const res1 = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
-                                      new URLSearchParams({ nuevoEstado:'CANCELADO' }));
-          if (!res1.ok) throw new Error(res1.error || 'No se pudo cancelar el boleto');
-
-          // 2) Liberar los números del boleto
-          const numsAttr = row.getAttribute('data-nums') || '';
-          const numeroIds = numsAttr.split(',').map(s => parseInt(s.trim(),10)).filter(Number.isFinite);
-
-          if (numeroIds.length) {
-            const res2 = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds });
-            if (!res2.ok) throw new Error(res2.error || 'No se pudieron liberar los números');
-
-            // Quitar del panel derecho si alguno está renderizado
-            numeroIds.forEach(id => document.querySelector(`#numsGrid [data-num-id="${id}"]`)?.remove());
-
-            // Contadores
-            if (typeof res2.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res2.numsVendidos;
-            if (typeof res2.numsApartados === 'number') document.getElementById('numsApartados').textContent = res2.numsApartados;
-          }
-
-          // 3) Actualizar badge de estado y deshabilitar acciones
-          const tdEstado = row.querySelector('.td-estado');
-          if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-cancelado px-2 py-1">CANCELADO</span>';
-          sel.innerHTML = '<option value="">Acciones…</option>'; // sin más acciones
-        }
-      } catch (err) {
-        alert(err.message);
-      } finally {
-        sel.disabled = false;
-        sel.value = '';
-      }
-    });
-
-    
-    
+  btnClearSel?.addEventListener('click', () => {
+    grid?.querySelectorAll('input.num-select:checked')?.forEach(chk => chk.checked = false);
   });
-  /*]]>*/
-  </script>
+
+  btnLiberar?.addEventListener('click', async () => {
+    const checks = Array.from(grid?.querySelectorAll('input.num-select:checked') || []);
+    if (!checks.length) { alert('Selecciona al menos un número'); return; }
+
+    btnLiberar.disabled = true;
+    const original = btnLiberar.innerHTML;
+    btnLiberar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Liberando…';
+
+    const items = checks.map(chk => {
+      const label = chk.closest('[data-num-id]');
+      return { id: Number(chk.value), state: (label?.dataset?.state || '').toUpperCase() };
+    });
+
+    try {
+      const data = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds: items.map(i => i.id) });
+      if (!data.ok) throw new Error(data.error || 'Error');
+
+      items.forEach(i => {
+        grid.querySelector(`[data-num-id="${i.id}"]`)?.remove();
+      });
+
+      if (typeof data.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = data.numsVendidos;
+      if (typeof data.numsApartados === 'number') document.getElementById('numsApartados').textContent = data.numsApartados;
+
+    } catch(err){
+      alert('No se pudieron liberar: ' + err.message);
+    } finally {
+      btnLiberar.disabled = false;
+      btnLiberar.innerHTML = original;
+    }
+  });
+
+  // === Filtros rápidos (Rifa y búsqueda) ===
+  const selRifa = document.getElementById('selectRifa');
+  const inputQ  = document.getElementById('q');
+  function goWithParams(params){
+    const url = new URL(window.location.href);
+    Object.entries(params).forEach(([k,v]) => {
+      if (v === null || v === undefined || v === '') url.searchParams.delete(k);
+      else url.searchParams.set(k, v);
+    });
+    window.location.href = url.toString();
+  }
+  selRifa?.addEventListener('change', () => { goWithParams({ rifaId: selRifa.value, page:0, nPage:0 }); });
+  let qTimer;
+  inputQ?.addEventListener('input', () => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(()=> goWithParams({ q: inputQ.value, page:0, nPage:0 }), 400);
+  });
+
+  // === Persistencia de selección entre recargas (panel derecho) ===
+  const SEL_KEY = 'bc:selectedNums';
+  const getSelSet = () => {
+    try { return new Set(JSON.parse(sessionStorage.getItem(SEL_KEY) || '[]')); }
+    catch { return new Set(); }
+  };
+  const saveSelSet = (set) => sessionStorage.setItem(SEL_KEY, JSON.stringify([...set]));
+
+  // Restaurar selección al cargar
+  const selSet = getSelSet();
+  document.querySelectorAll('#numsGrid input.num-select').forEach(chk => {
+    const id = Number(chk.value);
+    if (selSet.has(id)) chk.checked = true;
+  });
+  // Mantener selección viva
+  document.getElementById('numsGrid')?.addEventListener('change', (e) => {
+    const chk = e.target.closest('input.num-select');
+    if (!chk) return;
+    const id = Number(chk.value);
+    const set = getSelSet();
+    if (chk.checked) set.add(id); else set.delete(id);
+    saveSelSet(set);
+  });
+
+  // === ACCIONES DEL COMBO POR FILA (delegación global robusta) ===
+  document.addEventListener('change', async (e) => {
+    const sel = e.target.closest('select.ticket-action');
+    if (!sel) return;
+
+    const action = sel.value;
+    if (!action) return;
+
+    const row = sel.closest('tr');
+    const ticketId = sel.dataset.ticketId || row?.dataset.ticketId;
+    if (!ticketId) { sel.value=''; return; }
+
+    sel.disabled = true;
+
+    try {
+      if (action === 'VENDIDO') {
+        // 1) Cambiar estado a VENDIDO
+        const res = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
+                                   new URLSearchParams({ nuevoEstado:'VENDIDO' }));
+        if (!res.ok) throw new Error(res.error || 'No se pudo marcar vendido');
+
+        // 2) Refrescar badge de estado
+        const tdEstado = row.querySelector('.td-estado');
+        if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-vendido px-2 py-1">VENDIDO</span>';
+
+        // 3) Dejar solo la acción de cancelar+liberar
+        sel.innerHTML = '<option value="">Acciones…</option><option value="CANCELAR_LIBERAR">Cancelar y liberar</option>';
+
+        // 4) Contadores
+        if (typeof res.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res.numsVendidos;
+        if (typeof res.numsApartados === 'number') document.getElementById('numsApartados').textContent = res.numsApartados;
+      }
+
+      if (action === 'CANCELAR_LIBERAR') {
+        // 1) Cambiar estado del boleto a CANCELADO
+        const res1 = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
+                                    new URLSearchParams({ nuevoEstado:'CANCELADO' }));
+        if (!res1.ok) throw new Error(res1.error || 'No se pudo cancelar el boleto');
+
+        // 2) Liberar los números del boleto
+        const numsAttr = row.getAttribute('data-nums') || '';
+        const numeroIds = numsAttr.split(',').map(s => parseInt(s.trim(),10)).filter(Number.isFinite);
+
+        if (numeroIds.length) {
+          const res2 = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds });
+          if (!res2.ok) throw new Error(res2.error || 'No se pudieron liberar los números');
+
+          // Quitar del panel derecho si alguno está renderizado
+          numeroIds.forEach(id => document.querySelector(`#numsGrid [data-num-id="${id}"]`)?.remove());
+
+          // Contadores
+          if (typeof res2.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res2.numsVendidos;
+          if (typeof res2.numsApartados === 'number') document.getElementById('numsApartados').textContent = res2.numsApartados;
+        }
+
+        // 3) Actualizar badge y acciones
+        const tdEstado = row.querySelector('.td-estado');
+        if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-cancelado px-2 py-1">CANCELADO</span>';
+        sel.innerHTML = '<option value="">Acciones…</option>'; // sin más acciones
+      }
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      sel.disabled = false;
+      sel.value = '';
+    }
+  });
+});
+/*]]>*/
+</script>
+ 
+
   
   
   <script th:inline="javascript">
