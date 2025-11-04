@@ -29,7 +29,7 @@
     <h3 class="m-0">Consulta de Tickets</h3>
     <form id="frmBuscar" class="search-wrap" method="get" th:action="@{/consulta}">
       <input id="q" name="q" type="search" class="form-control form-control-sm"
-             placeholder="Teléfono · Nombre · Folio · Número"
+             placeholder="Teléfono · Nombre · Folio "
              th:value="${param.q}">
       <button id="btnBuscar" class="btn btn-primary btn-sm" type="submit">
         <span class="spinner-border spinner-border-sm me-1 d-none" id="spnFind"></span>
