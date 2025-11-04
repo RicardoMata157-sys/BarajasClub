@@ -33,6 +33,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -540,6 +541,36 @@ public class AdminRaffleController {
 	
 	
 	
+	@PostMapping(
+			  value = "/tickets/numeros/liberar",
+			  consumes = MediaType.APPLICATION_JSON_VALUE,
+			  produces = MediaType.APPLICATION_JSON_VALUE
+			)
+			@Transactional
+			public ResponseEntity<Map<String,Object>> liberarNumeros(@RequestBody Map<String, List<Integer>> body){
+			    Map<String,Object> out = new HashMap<>();
+			    try {
+			        List<Integer> numeroIds = body.getOrDefault("numeroIds", List.of());
+			        if (numeroIds.isEmpty()){
+			            out.put("ok", false);
+			            out.put("error", "Sin IDs de números");
+			            return ResponseEntity.ok(out);
+			        }
+			        // TODO: numeroRepo.liberarNumeros(numeroIds);
+
+			        out.put("ok", true);
+			        out.put("numsVendidos", /* contador */ 0);
+			        out.put("numsApartados", /* contador */ 0);
+			        return ResponseEntity.ok(out);
+			    } catch (Exception ex) {
+			        out.put("ok", false);
+			        out.put("error", ex.getMessage());
+			        return ResponseEntity.ok(out);
+			    }
+			}
+	
+	
+	
 	
 
 	@GetMapping("/tickets")
@@ -587,11 +618,36 @@ public class AdminRaffleController {
 		DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 		
 		if(raffleId == null) {
+			List<Numero> numerosSeleccionados = new ArrayList();
 			List<Rifa> rifas = servicioRifa.listAll();
 			model.addAttribute("rifas", rifas);
 			rifas.stream().forEach(boletos -> {
 				model.addAttribute("tickets",boletosPage.getContent());
 			});
+			
+			rifas.stream().forEach(rifa -> {
+				rifa.getNumeros().stream().forEach(nums -> {
+					if(nums.getBoleto() != null) {
+						if(nums.getBoleto().getEstadoBoleto().getNombre() == "APARTADO"  && nums.getSeleccionado() ) {
+							numerosSeleccionados.add(nums);
+						}
+					}
+					
+					if(nums.getBoleto() != null ) {
+						if( nums.getSeleccionado()) {
+							numerosSeleccionados.add(nums);
+						}
+					}
+					
+					
+					
+				});
+			});
+			
+			
+			
+			
+			model.addAttribute("nums", numerosSeleccionados);
 			model.addAttribute("rifas", rifas);
 			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 		}
@@ -615,6 +671,7 @@ public class AdminRaffleController {
 				}
 				
 			});
+			
 			model.addAttribute("nums", numerosSeleccionados);
 			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
