@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.mx.web.bajarasClub.model.Boleto;
 import com.mx.web.bajarasClub.model.Numero;
 import com.mx.web.bajarasClub.model.Rifa;
 
@@ -130,12 +131,39 @@ public interface RepositoryNumero extends JpaRepository<Numero, String>{
 	           n.seleccionadoExpira    = NULL
 	     WHERE n.rifa.id = :rifaId
 	       AND n.valor = :label
-	       AND (n.seleccionadoSessionId = :owner )
+	       OR (n.seleccionadoSessionId = :owner )
 	    """)
 	    int liberar(@Param("rifaId") Integer rifaId,
 	                @Param("label") String label,
 	                @Param("owner") String owner
 	               );
+	    
+	    
+	    
+					@Modifying
+					@Query(nativeQuery = true,value ="""
+							UPDATE numero_boleto 
+							   SET seleccionado = FALSE,
+							       sel_session_id    = NULL,
+							       sel_expira    = NULL,
+							       boleto_id = NULL
+							 WHERE rifa_id = :rifaId
+							   AND idnumero = :idNumero
+
+							""")
+					int liberarNumero(@Param("rifaId") Integer rifaId, @Param("idNumero") Integer idNumero
+
+					);
+	    
+	    
+	    
+	    
+	    
+	    public List<Numero> findByboleto(Boleto boleto);
+	    
+	    
+	    
+	    public Numero findByidNumero(Integer idNumero);
 	   
 	   
 	

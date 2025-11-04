@@ -44,7 +44,7 @@ public class ServiceClienteImpl implements ServiceCliente {
 	}
 
 	@Override
-	public Optional<Cliente> findByTelefono(String telefono) {
+	public List<Cliente> findByTelefono(String telefono) {
 		// TODO Auto-generated method stub
 		return repositoryCliente.findByTelefono(telefono);
 	}
@@ -64,7 +64,7 @@ public class ServiceClienteImpl implements ServiceCliente {
 	    }
 
 	    // 1) Buscar por teléfono normalizado
-	    Cliente c = repositoryCliente.findByTelefono(tel).orElseGet(() -> {
+	    Cliente c = repositoryCliente.findByTelefono(tel).stream().findFirst().orElseGet(() -> {
 	        Cliente nuevo = new Cliente();
 	        nuevo.setTelefono(tel);
 	        return nuevo;
@@ -86,7 +86,7 @@ public class ServiceClienteImpl implements ServiceCliente {
 	        return repositoryCliente.save(c);
 	    } catch (DataIntegrityViolationException e) {
 	        // Otro hilo pudo insertar el mismo teléfono antes de este save
-	        Cliente again = repositoryCliente.findByTelefono(tel)
+	        Cliente again = repositoryCliente.findByTelefono(tel).stream().findFirst()
 	                .orElseThrow(() -> e); // si no estaba relacionado al teléfono, relanzamos
 	        // Volvemos a aplicar el merge por si el 'again' es distinto de 'c'
 	        if (request != null) {

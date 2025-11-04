@@ -109,7 +109,11 @@ public class NumeroGenerator {
 	}
 	
 	
-	
+	public static String normalizaTelefono(String q) {
+	        if (q == null) return "";
+	        // quita símbolos, conserva dígitos (útil si guardas el tel normalizado)
+	        return q.replaceAll("\\D", "");
+	    }
 	
 	
 	

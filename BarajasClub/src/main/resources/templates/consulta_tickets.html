@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>BarajasClub · Consulta de Tickets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}" />
+  <head th:insert="~{fragments :: head('Consulta de Tickets')}"></head>
+  <th:block th:replace="~{fragments :: scripts}"></th:block>
+  <style>
+    .hero-bar{display:flex;gap:.75rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
+    .search-wrap{display:flex;gap:.5rem;align-items:center;flex:1}
+    .search-wrap .form-control{border-radius:999px;padding:.55rem 1rem}
+    .empty{
+      text-align:center;padding:3rem 1rem;color:#6b7280
+    }
+    .chip{display:inline-block;padding:.2rem .5rem;border-radius:999px;font-size:.8rem;background:#f3f4f6}
+    .tbl-sticky{max-height:68vh;overflow:auto}
+    thead th{position:sticky;top:0;background:#fff;z-index:1;border-bottom:1px solid #e5e7eb}
+    .table-modern tbody tr:nth-child(odd){background:#fcfcfd}
+    .idx-badge{display:inline-flex;width:28px;height:28px;border-radius:999px;align-items:center;justify-content:center;background:#111827;color:#fff;font-weight:700}
+  </style>
+</head>
+<body>
+<header th:replace="~{fragments :: navbar}"></header>
+
+<div class="container-fluid py-4">
+  <div class="hero-bar mb-3">
+    <h3 class="m-0">Consulta de Tickets</h3>
+    <form id="frmBuscar" class="search-wrap" method="get" th:action="@{/consulta}">
+      <input id="q" name="q" type="search" class="form-control form-control-sm"
+             placeholder="Teléfono · Nombre · Folio · Número"
+             th:value="${param.q}">
+      <button id="btnBuscar" class="btn btn-primary btn-sm" type="submit">
+        <span class="spinner-border spinner-border-sm me-1 d-none" id="spnFind"></span>
+        Buscar
+      </button>
+      <a class="btn btn-outline-light btn-sm" th:href="@{/consulta}">Limpiar</a>
+    </form>
+  </div>
+
+  <div class="card-d">
+    <div class="card-header py-3 d-flex justify-content-between align-items-center">
+      <strong>Resultados</strong>
+      <span class="subtle"
+            th:text="'Mostrando ' + ((${page}!=null)?${page.numberOfElements}:0) + ' de ' + ((${page}!=null)?${page.totalElements}:0)">
+        —
+      </span>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive tbl-sticky">
+        <table class="table table-modern table-hover align-middle mb-0">
+          <thead>
+          <tr>
+            <th style="width:56px;">#</th>
+            <th>Folio</th>
+            <th>Cliente</th>
+            <th>Números</th>
+            <th>Fecha compra</th>
+            <th>Pago</th>
+            <th>Estado</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr th:each="t, it : ${page != null ? page.content : tickets}">
+            <td><span class="idx-badge" th:text="${it.index + 1}">1</span></td>
+
+            <td>
+              <div class="fw-bold" th:text="${t.folio ?: '—'}">FOL-000001</div>
+              <small class="subtle" th:text="${t.rifa != null ? t.rifa.nombre : ''}">Rifa</small>
+            </td>
+
+            <td>
+              <div th:text="${t.cliente != null ? (t.cliente.nombre + ' ' + t.cliente.apellido_patrno + ' ' + t.cliente.apellido_materno) : '—'}">Cliente</div>
+              <small class="subtle">
+                <span class="chip" th:text="${t.cliente != null ? t.cliente.telefono : ''}">55…</span>
+              </small>
+            </td>
+
+            <td>
+              <small th:if="${t.numeros != null and !#lists.isEmpty(t.numeros)}">
+                <span th:each="n : ${t.numeros}" class="chip me-1" th:text="${n.valor}">0001</span>
+              </small>
+              <small th:if="${t.numeros == null or #lists.isEmpty(t.numeros)}">—</small>
+            </td>
+
+            <td><small th:text="${t.fechaCompra == null ? '—' : t.fechaCompra.format(fmtFecha)}">2025-01-01 12:00</small></td>
+            <td><span th:text="${t.tipoPago != null ? #strings.toUpperCase(#strings.trim(t.tipoPago.nombre)) : '—'}">TRANSFERENCIA</span></td>
+
+            <td class="td-estado">
+              <span th:if="${t.estadoBoleto != null}"
+                    class="badge"
+                    th:with="estado=${#strings.toUpperCase(#strings.trim(t.estadoBoleto.nombre))}"
+                    th:classappend="${
+                      estado == 'APARTADO' ? ' badge-apartado' :
+                      (estado == 'VENDIDO' ? ' badge-vendido' :
+                      (estado == 'CANCELADO' ? ' badge-cancelado' : ''))
+                    }">
+                <span th:if="${estado == 'APARTADO'}" aria-hidden="true">⏸</span>
+                <span th:if="${estado == 'VENDIDO'}"  aria-hidden="true">✔</span>
+                <span th:if="${estado == 'CANCELADO'}" aria-hidden="true">✖</span>
+                <span th:text="${estado}">APARTADO</span>
+              </span>
+              <span th:if="${t.estadoBoleto == null}" class="badge badge-cancelado">SIN ESTADO</span>
+            </td>
+          </tr>
+
+          <tr th:if="${page != null and page.totalElements == 0}">
+            <td colspan="7" class="empty">
+              <div class="mb-2">No encontramos resultados con el filtro actual.</div>
+              <div><small>Prueba con otro folio, teléfono de 10 dígitos, nombre o número participante.</small></div>
+            </td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card-body" th:if="${page != null}">
+      <div class="divider"></div>
+      <nav>
+        <ul class="pagination pagination-sm mb-0 justify-content-center">
+          <li class="page-item" th:classappend="${page.first} ? 'disabled'">
+            <a class="page-link" th:href="@{/consulta(q=${param.q},page=${page.number-1},size=${page.size})}">‹</a>
+          </li>
+          <li class="page-item disabled">
+            <span class="page-link" th:text="'Pág ' + (${page.number}+1) + '/' + ${page.totalPages}">Pág</span>
+          </li>
+          <li class="page-item" th:classappend="${page.last} ? 'disabled'">
+            <a class="page-link" th:href="@{/consulta(q=${param.q},page=${page.number+1},size=${page.size})}">›</a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </div>
+</div>
+
+<!-- Overlay de bloqueo (reutilizable) -->
+<div id="pageBlocker" hidden>
+  <div class="blocker-box">
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+    <strong id="blockerMsg">Procesando…</strong>
+  </div>
+</div>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  const spn = document.getElementById('spnFind');
+  document.getElementById('frmBuscar')?.addEventListener('submit', () => spn?.classList.remove('d-none'));
+});
+/*]]>*/
+</script>
+
+
+  <!-- === DROP-IN SKIN: pegar al FINAL del <head> o justo antes de </body> === -->
+<style>
+/* === PAGE BLOCKER styles === */
+#pageBlocker{
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,.65);
+  backdrop-filter: saturate(120%) blur(2px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: wait;
+}
+#pageBlocker[hidden]{ display: none; }
+.blocker-box{
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: #111827;     /* caja oscura para que contraste con el fondo claro */
+  color: #fff;
+  padding: .9rem 1.1rem;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  font-weight: 800;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Tipografía y base */
+:root{
+  --font-body: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  --fx-glow: 0 10px 30px rgba(0,0,0,.25);
+  --bc-bg: #0b1220;              /* ya definido, reforzamos */
+  --bc-card: #0f172a;
+  --bc-border: #1f2937;
+  --bc-text: #e7ecf2;            /* + contraste */
+  --bc-muted: #a8b3c7;           /* más legible */
+  --bc-soft: #111827;
+  --bc-info: #60a5fa;
+  --bc-accent: #22c55e;
+}
+html { scroll-behavior: smooth; }
+body{
+  font-family: var(--font-body);
+  font-size: 15.5px;             /* + tamaño */
+  line-height: 1.45;
+  color: var(--bc-text);
+  text-rendering: optimizeLegibility;
+}
+
+/* Títulos y encabezados */
+.page-title{ 
+  font-weight: 900; 
+  letter-spacing:.3px; 
+  font-size: 1.4rem; 
+}
+.card-d .card-header strong{ font-weight: 800; letter-spacing:.2px; }
+.subtle{ color: var(--bc-muted) !important; }
+
+/* Cards más “elevadas” y respirables */
+.card-d{
+  border-radius: 20px;
+  border: 1px solid var(--bc-border);
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.005));
+  box-shadow: var(--fx-glow);
+}
+.card-d .card-body{ padding: 1rem 1rem; }
+.card-d .card-header{ padding: .85rem 1rem !important; }
+
+/* Controles de filtro: mayor contraste y foco claro */
+.filter-label{ font-size:.82rem; color: var(--bc-muted); font-weight:700; }
+.form-select, .form-control{
+  background: #111827;
+  border:1px solid #223047;
+  color: var(--bc-text);
+  border-radius: 12px;
+}
+.form-select::placeholder, .form-control::placeholder{ color:#98a7be; opacity:.9; }
+.form-select:focus, .form-control:focus{
+  border-color: var(--bc-info);
+  box-shadow: 0 0 0 .25rem rgba(96,165,250,.15);
+}
+
+/* Botones */
+.btn{ border-radius: 12px; font-weight: 700; }
+.btn-primary{ background: linear-gradient(90deg,#3b82f6,#2563eb); border:0; }
+.btn-outline-light{ border-color:#2a3a54; }
+.btn-outline-light:hover{ background:#172036; }
+
+/* Tabla moderna y súper legible */
+.table-modern{
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--bc-border);
+}
+.table-modern thead th{
+  background: linear-gradient(180deg, #15233f, #0f1c33);
+  color: #eaf2ff;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: .78rem;
+  position: sticky; top: 0; z-index: 2;
+}
+.table-modern td, .table-modern th{
+  padding: .9rem 1rem;
+  vertical-align: middle;
+  border-color: #1e2a3f;
+}
+.table-modern tbody tr{ background: rgba(255,255,255,.02); }
+.table-modern tbody tr:nth-child(even){ background: rgba(255,255,255,.045); }
+.table-modern tbody tr:hover{ background: rgba(96,165,250,.14); }
+
+/* Índice con alto contraste */
+.idx-badge{
+  min-width: 2rem; height: 2rem; font-size:.95rem; font-weight:900;
+  color:#fff; border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+
+/* Badges de estado más claras */
+.td-estado .badge{
+  font-weight: 800; letter-spacing:.4px; border:1px solid transparent; padding:.3rem .6rem; border-radius: 999px;
+}
+.badge-apartado{ color:#ffd166; background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.35); }
+.badge-vendido { color:#083c2a; background:#34d399; border-color:#0ea969; }
+.badge-cancelado{ color:#4a0f0f; background:#fca5a5; border-color:#ef4444; }
+
+/* Chips de números más grandes y legibles */
+.chip{
+  background: #0e1730; color: var(--bc-text); border:1px dashed #2a3a54;
+  padding:.45rem .75rem; font-weight:800; font-size:.95rem; letter-spacing:.2px;
+}
+.chip small{ color:#9fb1cc; font-weight:800; }
+
+/* Panel derecho */
+.side-wrap{ 
+  border-radius: 14px; border:1px solid var(--bc-border); 
+  background: rgba(255,255,255,.02); 
+}
+
+/* Paginación mejor centrada y visible */
+.pagination .page-link{
+  background:#121b2f; border-color:#2a3a54; color:#dbe6ff;
+}
+.pagination .page-link:hover{ background:#17253f; }
+.pagination .disabled .page-link{ color:#7d8baa; }
+
+/* Espaciados utilitarios sutiles */
+.container-fluid .row.g-3 > [class*="col-"]{ padding-bottom:.2rem; }
+
+
+@media (max-width: 576px){
+  .table-modern td, .table-modern th{ padding:.7rem .7rem; }
+  .page-title{ font-size: 1.2rem; }
+}
+
+
+
+</style>
+
+
+<style id="light-fix-overrides">
+/* Base clara y texto negro */
+html, body{
+  background: #fff !important;
+  color: #111827 !important; /* negro/gris muy oscuro para buena lectura */
+}
+
+/* Tarjetas, bordes y encabezados */
+.card-d{
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 16px !important;
+  box-shadow: 0 6px 24px rgba(0,0,0,.06) !important;
+}
+.card-d .card-header{
+  background: #f8fafc !important;
+  color: #111827 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Etiquetas y texto tenue */
+.subtle, .filter-label, .text-muted{
+  color: #64748b !important; /* slate-500 */
+}
+
+/* Controles (inputs/selects) en claro */
+.form-select, .form-control{
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #cbd5e1 !important; /* slate-300 */
+  border-radius: 10px !important;
+}
+.form-select:focus, .form-control:focus{
+  border-color: #60a5fa !important;      /* azul suave */
+  box-shadow: 0 0 0 .25rem rgba(96,165,250,.20) !important;
+}
+
+/* Botones outline claros: que no “desaparezcan” en fondo blanco */
+.btn-outline-light{
+  color: #111827 !important;
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+}
+.btn-outline-light:hover{
+  background: #f1f5f9 !important; /* slate-100 */
+}
+
+/* Tabla clara y legible */
+.table-modern{
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+.table-modern thead th{
+  background: #f3f4f6 !important; /* gris claro */
+  color: #111827 !important;
+  font-weight: 800 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+.table-modern td, .table-modern th{
+  border-color: #eef2f7 !important;
+  color: #111827 !important;
+}
+.table-modern tbody tr:nth-child(even){
+  background: #fafafa !important;
+}
+.table-modern tbody tr:hover{
+  background: #eef6ff !important; /* leve highlight */
+}
+
+/* Badges de estado en claro */
+.td-estado .badge{ border: 1px solid transparent; font-weight: 800; }
+.badge-apartado {
+  background: #fef3c7 !important;  /* amber-100 */
+  color: #92400e !important;        /* amber-800 */
+  border-color: #fcd34d !important; /* amber-300 */
+}
+.badge-vendido {
+  background: #dcfce7 !important;  /* emerald-100 */
+  color: #065f46 !important;        /* emerald-800 */
+  border-color: #86efac !important; /* emerald-300 */
+}
+.badge-cancelado {
+  background: #fee2e2 !important;  /* red-100 */
+  color: #991b1b !important;        /* red-800 */
+  border-color: #fca5a5 !important; /* red-300 */
+}
+
+/* Chips del panel derecho en claro */
+.chip{
+  background: #f8fafc !important;   /* slate-50 */
+  color: #0f172a !important;         /* slate-900 */
+  border: 1px dashed #e5e7eb !important;
+}
+.chip small{ color:#475569 !important; } /* slate-600 */
+
+/* Paginación clara */
+.pagination .page-link{
+  background: #ffffff !important;
+  border: 1px solid #dee2e6 !important;
+  color: #0d6efd !important; /* bootstrap primary */
+}
+.pagination .page-link:hover{
+  background: #e9ecef !important;
+}
+.pagination .disabled .page-link{
+  color: #94a3b8 !important; background: #ffffff !important;
+}
+
+/* “Números seleccionados” contadores y etiquetas en oscuro */
+.idx-badge{
+  background: #eef2ff !important;
+  color: #111827 !important;
+  border: 1px solid #c7d2fe !important;
+}
+
+/* Panel lateral contenedor */
+.side-wrap{
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+}
+
+/* Asegura que cualquier resto heredado oscuro no pinte textos en blanco */
+* { color: inherit; }
+
+/* Colorear chip por estado (sin cambiar tu HTML) */
+#numsGrid [data-state*="APARTADO" i]{ background: rgba(251,191,36,.15); border-color: rgba(251,191,36,.5); }
+#numsGrid [data-state*="VENDIDO"  i]{ background: rgba(52,211,153,.16); border-color: rgba(16,185,129,.55); }
+#numsGrid [data-state*="CANCELADO" i]{ background: rgba(239,68,68,.16); border-color: rgba(239,68,68,.55); }
+
+
+
+/* Responsive fino */
+.tbl-sticky{ max-height: 66vh; }
+@media (max-width: 992px){
+  .tbl-sticky{ max-height: unset; }
+}
+@media (max-width: 576px){
+  .page-title{ font-size: 1.35rem; }
+  .table-modern td, .table-modern th{ padding:.7rem .65rem; }
+}
+
+
+</style>
+
+
+
+</body>
+</html>

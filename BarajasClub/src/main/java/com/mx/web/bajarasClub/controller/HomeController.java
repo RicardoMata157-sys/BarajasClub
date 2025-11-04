@@ -1,22 +1,28 @@
 package com.mx.web.bajarasClub.controller;
 
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.mx.web.bajarasClub.dto.CompraRequest;
-import com.mx.web.bajarasClub.model.Cliente;
+import com.mx.web.bajarasClub.model.Boleto;
 import com.mx.web.bajarasClub.model.Rifa;
 import com.mx.web.bajarasClub.service.RaffleService;
 import com.mx.web.bajarasClub.service.ServiceCliente;
+import com.mx.web.bajarasClub.service.ServicioBoletos;
+import com.mx.web.bajarasClub.util.NameParser;
+import com.mx.web.bajarasClub.util.NumeroGenerator;
 
 @Controller
 public class HomeController {
@@ -25,6 +31,10 @@ public class HomeController {
     
     @Autowired
 	private ServiceCliente serviceCliente;
+    
+    
+    @Autowired
+    private ServicioBoletos servicioBoletos;
 
     public HomeController(RaffleService raffleService) {
         this.raffleService = raffleService;
@@ -98,6 +108,75 @@ public class HomeController {
     @GetMapping("/login")
     public String login(Model model) {
         return "auth/login"; // templates/auth/login.html
+    }
+    
+    
+    
+    
+    @GetMapping("/consulta_boleto")
+    public String consultaBoleto(Model model) {
+        return "consulta_tickets"; // templates/auth/login.html
+    }
+    
+  
+    
+    @GetMapping("/consulta")
+    public String consulta(@RequestParam(value = "q", required = false) String q,
+                           @RequestParam(value = "page", defaultValue = "0") int page,
+                           @RequestParam(value = "size", defaultValue = "20") int size,
+                           Model model) {
+    	
+    	Pageable pageable = PageRequest.of(Math.max(0, page),
+                Math.min(Math.max(size,1), 100),
+                Sort.by(Sort.Direction.DESC, "fechaCompra", "id"));
+//    	 NameParser.NameParts p = null;
+    	List<Boleto> resultados = Collections.emptyList();
+    	
+    	 QueryType type = detectType(q);
+    	 
+    	 NameParser.NameParts	 p = NameParser.parse(q, true); // true = quita acentos
+    		 
+    	 if (type != QueryType.VACIA) {
+    		 switch (type) {
+    		 case TELEFONO -> resultados = servicioBoletos.matchTelefono(NumeroGenerator.normalizaTelefono(q));
+    		 case NOMBRE -> resultados = servicioBoletos.matchNombre(p.nombres(),p.apPat(), p.apMat());
+    		 case FOLIO -> resultados = servicioBoletos.matchFolio(q);
+    		 }
+    		 
+    	 }
+    	   model.addAttribute("tickets", resultados);
+           model.addAttribute("fmtFecha",
+                   DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm").withLocale(new Locale("es","MX")));
+
+    	
+    	 return "consulta_tickets";
+    }
+    
+    
+    enum QueryType { TELEFONO, FOLIO, NOMBRE, NUMERO_PARTICIPANTE, VACIA, DESCONOCIDA }
+    private QueryType detectType(String q) {
+        if (q == null || q.isBlank()) return QueryType.VACIA;
+        String s = q.trim();
+        String digits = s.replaceAll("\\D", "");
+
+        boolean hasLetters = s.matches(".*[A-Za-zÁÉÍÓÚÜÑáéíóúüñ].*");
+        boolean onlyDigits = s.matches("\\d+");
+        boolean hasHyphenOrUnderscore = s.contains("-") || s.contains("_");
+
+        // Teléfono: >=10 dígitos y no contiene letras
+        if (!hasLetters && digits.length() >= 10) return QueryType.TELEFONO;
+
+        // Folio: mezcla letras y números, o patrón típico con guion (FOL-000123, TKT_202501, etc.)
+        if (hasLetters && (s.matches(".*\\d.*") || hasHyphenOrUnderscore)) return QueryType.FOLIO;
+
+        // Nombre: 2+ palabras con letras (Ana Pérez, Juan P García)
+        if (hasLetters && s.trim().split("\\s+").length >= 2) return QueryType.NOMBRE;
+
+        // Número participante: solo dígitos y menos de 10 (para no chocar con teléfono)
+        if (onlyDigits && digits.length() > 0 && digits.length() < 10) return QueryType.NUMERO_PARTICIPANTE;
+
+        // Desconocida: fallback (hará OR en todo)
+        return QueryType.DESCONOCIDA;
     }
     
     

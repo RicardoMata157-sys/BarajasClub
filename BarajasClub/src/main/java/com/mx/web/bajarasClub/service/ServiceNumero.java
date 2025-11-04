@@ -5,6 +5,7 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
+import com.mx.web.bajarasClub.model.Boleto;
 import com.mx.web.bajarasClub.model.Numero;
 import com.mx.web.bajarasClub.model.Rifa;
 
@@ -38,7 +39,15 @@ public interface ServiceNumero {
 	public long countByRifaAndEstadoNombre(Integer raffleId, String string);
 
 	public Page<Numero> searchByRifaAndEstado(Integer raffleId, Integer estadoId, Pageable numerosPg);
+	
+	
+	
+	public List<Numero> regresaNumerosBoletosAsignado(Boleto boleto);
 
+	public boolean limpiarNumeroAsigandoBoleto( Integer rifaId,Integer idNumero);
+	
+	
+	public Numero regresaNumeroPorId(Integer id);
 	
 
 }

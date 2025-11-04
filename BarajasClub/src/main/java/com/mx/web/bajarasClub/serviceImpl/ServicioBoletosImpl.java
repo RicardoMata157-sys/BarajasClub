@@ -31,5 +31,27 @@ public class ServicioBoletosImpl implements ServicioBoletos {
 		// TODO Auto-generated method stub
 		return respoitoryBoleto.search(raffleId, estadoId, term, boletosPg);
 	}
+	@Override
+	public Boleto regresaBoletoId(Integer id) {
+		// TODO Auto-generated method stub
+		return respoitoryBoleto.findByid(id);
+	}
+	@Override
+	public List<Boleto> matchTelefono(String telefono) {
+		// TODO Auto-generated method stub
+		return respoitoryBoleto.matchTelefono(telefono);
+	}
+	@Override
+	public List<Boleto> matchNombre(String nombre,String apellidoP,String apellidoM) {
+		// TODO Auto-generated method stub
+		return respoitoryBoleto.findByNombreAtomizadoNativeLike(nombre, apellidoP, apellidoM);
+	}
+	
+	
+	@Override
+	public List<Boleto> matchFolio(String folio) {
+		// TODO Auto-generated method stub
+		return respoitoryBoleto.findByfolio(folio);
+	}
 
 }

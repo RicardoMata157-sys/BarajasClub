@@ -112,17 +112,19 @@ public class PublicParticiparController {
 	@ResponseBody
 	public ResponseEntity<Map<String, Object>> checkTelefono(@RequestParam String telefono) {
 		Map<String, Object> out = new HashMap<>();
-		Optional<Cliente> cli = serviceCliente.findByTelefono(normalizaTel(telefono));
-		if (cli.isPresent()) {
-			Cliente c = cli.get();
+		serviceCliente.findByTelefono(normalizaTel(telefono)).stream().findFirst().ifPresent(c -> {
 			out.put("exists", true);
 			out.put("id", c.getIdCliente());
 			out.put("nombre", c.getNombre() + "" + c.getApellido_patrno() + " " + c.getApellido_materno());
 			out.put("telefono", c.getTelefono());
 			out.put("email", c.getEmail());
-		} else {
-			out.put("exists", false);
-		}
+		});
+//		if (cli.isPresent()) {
+//			Cliente c = cli.get();
+//			
+//		} else {
+//			out.put("exists", false);
+//		}
 		return ResponseEntity.ok(out);
 	}
 

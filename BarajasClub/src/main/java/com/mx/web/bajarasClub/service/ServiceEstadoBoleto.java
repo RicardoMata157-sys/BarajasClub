@@ -14,4 +14,5 @@ public interface ServiceEstadoBoleto {
 	public List<EstadoBoleto> regresaAllEstados();
 	
 
+	public EstadoBoleto regresaEstadoCancelado();
 }

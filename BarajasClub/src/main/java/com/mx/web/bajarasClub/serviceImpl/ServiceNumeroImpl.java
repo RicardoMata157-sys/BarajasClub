@@ -11,6 +11,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import com.mx.web.bajarasClub.model.Boleto;
 import com.mx.web.bajarasClub.model.Numero;
 import com.mx.web.bajarasClub.model.Rifa;
 import com.mx.web.bajarasClub.repository.RepositoryNumero;
@@ -123,6 +124,29 @@ public class ServiceNumeroImpl implements ServiceNumero {
 	public Page<Numero> searchByRifaAndEstado(Integer raffleId, Integer estadoId, Pageable numerosPg) {
 		// TODO Auto-generated method stub
 		return repositoryNumero.searchByRifaAndEstado(raffleId,estadoId,numerosPg);
+	}
+
+	@Override
+	public List<Numero> regresaNumerosBoletosAsignado(Boleto boleto) {
+		// TODO Auto-generated method stub
+		return repositoryNumero.findByboleto(boleto);
+	}
+
+	@Override
+	@Transactional
+	public boolean limpiarNumeroAsigandoBoleto(Integer rifaId, Integer idNumero) {
+		// TODO Auto-generated method stub
+
+		int updated = repositoryNumero.liberarNumero(rifaId, idNumero);
+
+		return updated == 1;
+		
+	}
+
+	@Override
+	public Numero regresaNumeroPorId(Integer id) {
+		// TODO Auto-generated method stub
+		return repositoryNumero.findByidNumero(id);
 	}
 
 

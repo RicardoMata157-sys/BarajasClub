@@ -114,6 +114,8 @@ public class SecurityConfig implements WebMvcConfigurer {
             		  .antMatchers("/error").permitAll()
             	      .antMatchers("/uploads/**","/css/**","/js/**","/img/**","/webjars/**","/detalle/**","/confirmar").permitAll()
             	      .antMatchers(HttpMethod.GET, "/").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/consulta_boleto").permitAll()
+            	      .antMatchers(HttpMethod.GET, "/consulta").permitAll()
             	      .antMatchers(HttpMethod.GET, "/confirmar").permitAll()
             	      .antMatchers(HttpMethod.GET, "/detalle/**").permitAll()
             	

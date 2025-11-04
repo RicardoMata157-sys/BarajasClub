@@ -40,4 +40,12 @@ public class ServicioEstadoBoleto implements ServiceEstadoBoleto {
 		return repositoryEstadoBoleto.findAll();
 	}
 
+
+
+	@Override
+	public EstadoBoleto regresaEstadoCancelado() {
+		// TODO Auto-generated method stub
+		return repositoryEstadoBoleto.regresaEstadoCancelado();
+	}
+
 }

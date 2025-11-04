@@ -14,7 +14,7 @@ public interface ServiceCliente {
 	
 	public List<Cliente> findByEmailOrTelefono(String email, String telefono);
 	
-	public Optional<Cliente> findByTelefono(String telefono);
+	public List<Cliente> findByTelefono(String telefono);
 
 	public Cliente getById(Integer clienteId);
 

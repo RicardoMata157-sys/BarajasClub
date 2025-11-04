@@ -247,6 +247,16 @@
       </div>
     </div>
   </div>
+  
+  
+  <!-- === PAGE BLOCKER (overlay) === -->
+<div id="pageBlocker" hidden>
+  <div class="blocker-box">
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+    <strong id="blockerMsg">Procesando…</strong>
+  </div>
+</div>
+  
 
   <!-- JS -->
  
@@ -268,6 +278,34 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!res.ok) throw new Error('HTTP '+res.status);
     return res.json();
   }
+  
+  // === Page Blocker ===
+  const $blocker   = () => document.getElementById('pageBlocker');
+  const $blockMsg  = () => document.getElementById('blockerMsg');
+
+  function blockPage(msg = 'Procesando…'){
+    const el = $blocker(); if(!el) return;
+    const m  = $blockMsg(); if (m) m.textContent = msg;
+    el.removeAttribute('hidden');
+  }
+  function unblockPage(){
+    const el = $blocker(); if(!el) return;
+    el.setAttribute('hidden','');
+  }
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
   async function postForm(url, formData){
     const headers = {};
     if (CSRF.token) headers[CSRF.header] = CSRF.token;
@@ -286,36 +324,43 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   btnLiberar?.addEventListener('click', async () => {
-    const checks = Array.from(grid?.querySelectorAll('input.num-select:checked') || []);
-    if (!checks.length) { alert('Selecciona al menos un número'); return; }
+	    const checks = Array.from(grid?.querySelectorAll('input.num-select:checked') || []);
+	    if (!checks.length) { alert('Selecciona al menos un número'); return; }
 
-    btnLiberar.disabled = true;
-    const original = btnLiberar.innerHTML;
-    btnLiberar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Liberando…';
+	    // ⬇️ Bloquea pantalla
+	    blockPage('Liberando números…');
 
-    const items = checks.map(chk => {
-      const label = chk.closest('[data-num-id]');
-      return { id: Number(chk.value), state: (label?.dataset?.state || '').toUpperCase() };
-    });
+	    btnLiberar.disabled = true;
+	    const original = btnLiberar.innerHTML;
+	    btnLiberar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Liberando…';
 
-    try {
-      const data = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds: items.map(i => i.id) });
-      if (!data.ok) throw new Error(data.error || 'Error');
+	    const items = checks.map(chk => {
+	      const label = chk.closest('[data-num-id]');
+	      return { id: Number(chk.value), state: (label?.dataset?.state || '').toUpperCase() };
+	    });
 
-      items.forEach(i => {
-        grid.querySelector(`[data-num-id="${i.id}"]`)?.remove();
-      });
+	    try {
+	      const data = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds: items.map(i => i.id) });
+	      if (!data.ok) throw new Error(data.error || 'Error');
 
-      if (typeof data.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = data.numsVendidos;
-      if (typeof data.numsApartados === 'number') document.getElementById('numsApartados').textContent = data.numsApartados;
+	      items.forEach(i => {
+	        grid.querySelector(`[data-num-id="${i.id}"]`)?.remove();
+	      });
 
-    } catch(err){
-      alert('No se pudieron liberar: ' + err.message);
-    } finally {
-      btnLiberar.disabled = false;
-      btnLiberar.innerHTML = original;
-    }
-  });
+	      if (typeof data.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = data.numsVendidos;
+	      if (typeof data.numsApartados === 'number') document.getElementById('numsApartados').textContent = data.numsApartados;
+
+	    } catch(err){
+	      alert('No se pudieron liberar: ' + err.message);
+	    } finally {
+	      btnLiberar.disabled = false;
+	      btnLiberar.innerHTML = original;
+
+	      // ⬇️ Desbloquea pantalla
+	      unblockPage();
+	    }
+	  });
+
 
   // === Filtros rápidos (Rifa y búsqueda) ===
   const selRifa = document.getElementById('selectRifa');
@@ -373,6 +418,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     sel.disabled = true;
 
+    // ⬇️ Bloquea pantalla (mensaje dinámico según acción)
+    blockPage(action === 'VENDIDO' ? 'Marcando como vendido…' : 'Cancelando y liberando…');
+
+
     try {
       if (action === 'VENDIDO') {
         // 1) Cambiar estado a VENDIDO
@@ -424,6 +473,8 @@ document.addEventListener('DOMContentLoaded', () => {
     } finally {
       sel.disabled = false;
       sel.value = '';
+      // ⬇️ Desbloquea pantalla
+      unblockPage();
     }
   });
 });
@@ -452,6 +503,47 @@ document.addEventListener('DOMContentLoaded', () => {
   
   <!-- === DROP-IN SKIN: pegar al FINAL del <head> o justo antes de </body> === -->
 <style>
+/* === PAGE BLOCKER styles === */
+#pageBlocker{
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,.65);
+  backdrop-filter: saturate(120%) blur(2px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: wait;
+}
+#pageBlocker[hidden]{ display: none; }
+.blocker-box{
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: #111827;     /* caja oscura para que contraste con el fondo claro */
+  color: #fff;
+  padding: .9rem 1.1rem;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  font-weight: 800;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Tipografía y base */
 :root{
   --font-body: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";

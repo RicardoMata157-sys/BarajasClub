@@ -518,6 +518,59 @@ public class AdminRaffleController {
 			){
 			    Map<String,Object> out = new HashMap<>();
 			    try {
+			    	
+					if (nuevoEstado.equals("VENDIDO")) {
+						Boleto boletoSeleccionado = servicioBoletos.regresaBoletoId(ticketId);
+						boletoSeleccionado.setEstadoBoleto(serviceEstadoBoleto.regresaEstadoVendido());
+						servicioBoletos.guardaBoletoClienteAsignado(boletoSeleccionado);
+						long numsVendidos = serviceNumero
+								.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "VENDIDO");
+						long numsApartados = serviceNumero
+								.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "APARTADO");
+						out.put("numsVendidos", numsVendidos);
+						out.put("numsApartados", numsApartados);
+						out.put("ok", true);
+
+					}
+
+					if (nuevoEstado.equals("CANCELADO")) {
+
+						// primero liberamos los numeros asiganos al boleto
+						Boleto boletoSeleccionado = servicioBoletos.regresaBoletoId(ticketId);
+						boletoSeleccionado.setEstadoBoleto(serviceEstadoBoleto.regresaEstadoCancelado());
+						serviceNumero.regresaNumerosBoletosAsignado(boletoSeleccionado).stream().forEach(numero -> {
+							long numsVendidos = serviceNumero
+									.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "VENDIDO");
+							long numsApartados = serviceNumero
+									.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "APARTADO");
+							boolean liberado = serviceNumero.limpiarNumeroAsigandoBoleto(numero.getRifa().getId(),
+									numero.getIdNumero());
+							out.put("numsVendidos", numsVendidos);
+							out.put("numsApartados", numsApartados);
+
+						});
+	
+						 boletoSeleccionado.setEstadoBoleto(serviceEstadoBoleto.regresaEstadoCancelado());
+						 servicioBoletos.guardaBoletoClienteAsignado(boletoSeleccionado);
+						 out.put("ok", true);
+						
+					}
+					
+					
+						
+						
+				      
+//					  boolean liberado = serviceNumero.limpiarSeleccionUnico(sid, numero, rifaId);
+//				        // Si no eras el dueño, puedes devolver ok=false (y el front revierte)
+//				        return ResponseEntity.ok(Map.of(
+//				            "ok", liberado,
+//				            "msg", liberado ? "Liberado" : "No eras el dueño de la reserva",
+//				            "numero", numero,
+//				            "seleccionado", false
+//				        ));
+//					
+					
+					
 			        // TODO: busca ticket, cambia estado, persiste; actualiza contadores
 			        // Ejemplo:
 			        // Ticket t = ticketRepo.findById(ticketId).orElseThrow(...);
@@ -527,9 +580,8 @@ public class AdminRaffleController {
 			        // if ("CANCELADO".equalsIgnoreCase(nuevoEstado)) numeroRepo.liberarNumeros(...);
 			        // if ("VENDIDO".equalsIgnoreCase(nuevoEstado))  numeroRepo.marcarVendido(...);
 
-			        out.put("ok", true);
-			        out.put("numsVendidos", /* contador */ 0);
-			        out.put("numsApartados", /* contador */ 0);
+			        
+			      
 			        return ResponseEntity.ok(out);
 			    } catch (Exception ex) {
 			        out.put("ok", false);
@@ -556,11 +608,24 @@ public class AdminRaffleController {
 			            out.put("error", "Sin IDs de números");
 			            return ResponseEntity.ok(out);
 			        }
+			        numeroIds.stream().forEach(numerosId -> {
+			        	Numero numero = serviceNumero.regresaNumeroPorId(numerosId);
+			        	numero.setSeleccionado(false);
+			        	numero.setSeleccionadoExpira(null);
+			        	numero.setSeleccionadoSessionId(null);
+			        	serviceNumero.guardaNumeroRifa(numero);
+			        	long numsVendidos = serviceNumero
+								.countByRifaAndEstadoNombre(numero.getRifa().getId(), "VENDIDO");
+						long numsApartados = serviceNumero
+								.countByRifaAndEstadoNombre(numero.getRifa().getId(), "APARTADO");
+						 out.put("numsVendidos", numsVendidos);
+					        out.put("numsApartados", numsApartados);
+			        });
+			        
 			        // TODO: numeroRepo.liberarNumeros(numeroIds);
 
 			        out.put("ok", true);
-			        out.put("numsVendidos", /* contador */ 0);
-			        out.put("numsApartados", /* contador */ 0);
+			       
 			        return ResponseEntity.ok(out);
 			    } catch (Exception ex) {
 			        out.put("ok", false);
@@ -590,7 +655,7 @@ public class AdminRaffleController {
             
 			Model model) {
 		// Lista de rifas (si tu pantalla la espera para el <select>)
-		
+		List<Numero> numerosSeleccionados = new ArrayList();
 		
 		
 	    Pageable boletosPg = PageRequest.of(Math.max(0, page), Math.max(1, size));
@@ -618,7 +683,7 @@ public class AdminRaffleController {
 		DateTimeFormatter FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 		
 		if(raffleId == null) {
-			List<Numero> numerosSeleccionados = new ArrayList();
+		
 			List<Rifa> rifas = servicioRifa.listAll();
 			model.addAttribute("rifas", rifas);
 			rifas.stream().forEach(boletos -> {
@@ -627,13 +692,13 @@ public class AdminRaffleController {
 			
 			rifas.stream().forEach(rifa -> {
 				rifa.getNumeros().stream().forEach(nums -> {
-					if(nums.getBoleto() != null) {
-						if(nums.getBoleto().getEstadoBoleto().getNombre() == "APARTADO"  && nums.getSeleccionado() ) {
-							numerosSeleccionados.add(nums);
-						}
-					}
+//					if(nums.getBoleto() != null) {
+//						if(nums.getBoleto().getEstadoBoleto().getNombre() == "APARTADO"  && nums.getSeleccionado() ) {
+//							numerosSeleccionados.add(nums);
+//						}
+//					}
 					
-					if(nums.getBoleto() != null ) {
+					if(nums.getBoleto() == null ) {
 						if( nums.getSeleccionado()) {
 							numerosSeleccionados.add(nums);
 						}
@@ -647,24 +712,23 @@ public class AdminRaffleController {
 			
 			
 			
-			model.addAttribute("nums", numerosSeleccionados);
+			
 			model.addAttribute("rifas", rifas);
 			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 		}
 		
 		if(raffleId != null) {
-			List<Numero> numerosSeleccionados = new ArrayList();
 			Rifa rifas = servicioRifa.obtenerRifaPorId(raffleId);
 			model.addAttribute("rifas", servicioRifa.listAll());
 			model.addAttribute("tickets",boletosPage.getContent());
 			rifas.getNumeros().stream().forEach(nums -> {
-				if(nums.getBoleto() != null) {
-					if(nums.getBoleto().getEstadoBoleto().getNombre() == "APARTADO"  && nums.getSeleccionado() ) {
-						numerosSeleccionados.add(nums);
-					}
-				}
+//				if(nums.getBoleto() != null) {
+//					if(nums.getBoleto().getEstadoBoleto().getNombre() == "APARTADO"  && nums.getSeleccionado() ) {
+//						numerosSeleccionados.add(nums);
+//					}
+//				}
 				
-				if(nums.getBoleto() != null ) {
+				if(nums.getBoleto() == null ) {
 					if( nums.getSeleccionado()) {
 						numerosSeleccionados.add(nums);
 					}
@@ -672,7 +736,7 @@ public class AdminRaffleController {
 				
 			});
 			
-			model.addAttribute("nums", numerosSeleccionados);
+			
 			model.addAttribute("fmtFecha", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
 
 		}
@@ -738,8 +802,9 @@ public class AdminRaffleController {
 			param.put("nPage", "0");
 			param.put("nSize", "100");
 			model.addAttribute("param", param);
+			
 		}
-
+		model.addAttribute("nums", numerosSeleccionados);
 		return "admin/tickets";
 	}
 

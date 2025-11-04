@@ -1,5 +1,7 @@
 package com.mx.web.bajarasClub.repository;
 
+import java.util.List;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -58,6 +60,37 @@ public interface RespoitoryBoleto extends JpaRepository<Boleto, Integer> {
 			                      Pageable pageable);
 			
 
+	 
+	 
+	 Boleto findByid(Integer id);
+	 
+	 
+	 @Query(nativeQuery = true, value = "select * "
+	 		+ "from boleto b  "
+	 		+ "where b.cliente_id in (select idcliente from cliente_rifa where telefono  = :telefono)")
+	 List<Boleto> matchTelefono(@Param("telefono")String telefono);
+	 
+	 
+	 
+	 
+	 @Query(value = """
+		      SELECT b.*
+		      FROM boleto b
+		      JOIN cliente_rifa c ON c.idcliente = b.cliente_id
+		      WHERE UPPER(c.nombre)          LIKE UPPER(CONCAT(:nombres, '%'))
+		        AND UPPER(c.apellido_patrno) LIKE UPPER(CONCAT(:apPat,   '%'))
+		        AND UPPER(COALESCE(c.apellido_materno, '')) LIKE UPPER(CONCAT(COALESCE(:apMat, ''), '%'))
+		      ORDER BY b.fecha_compra DESC
+		      """, nativeQuery = true)
+		  List<Boleto> findByNombreAtomizadoNativeLike(
+		      @Param("nombres") String nombres,
+		      @Param("apPat")   String apPat,
+		      @Param("apMat")   String apMat
+		  );
+	 
+	 
+	 
+	 List<Boleto> findByfolio(String folio);
 	
 
 }

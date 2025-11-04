@@ -18,6 +18,14 @@ public interface ServicioBoletos {
 	
 	public  Page<Boleto> regresaBoletosEstado(Integer raffleId,Integer estadoId,String term, Pageable boletosPg);
 	
+	public Boleto regresaBoletoId(Integer id);
 	
+	
+	public List<Boleto> matchTelefono(String telefono);
+	
+	public List<Boleto> matchNombre(String nombre,String apellidoP,String apellidoM);
+	
+	
+	public List<Boleto> matchFolio(String folio);
 
 }
