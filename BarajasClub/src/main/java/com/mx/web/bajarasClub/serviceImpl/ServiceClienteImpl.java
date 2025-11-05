@@ -39,8 +39,10 @@ public class ServiceClienteImpl implements ServiceCliente {
 		if ((email == null || email.isBlank()) && (telefono == null || telefono.isBlank())) {
 			return new ArrayList<Cliente>();
 		}
-		return repositoryCliente.findFirstByEmailIgnoreCaseOrTelefono(email != null && !email.isBlank() ? email : null,
-				telefono != null && !telefono.isBlank() ? telefono : null);
+		String emailParam    = (email != null && !email.trim().isEmpty()) ? email.trim() : null;
+		String telefonoParam = (telefono != null && !telefono.trim().isEmpty()) ? telefono.trim() : null;
+		
+		return repositoryCliente.findFirstByEmailOrTelefono(emailParam,telefonoParam);
 	}
 
 	@Override
