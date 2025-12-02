@@ -347,83 +347,69 @@ document.addEventListener('DOMContentLoaded', () => {
 // 	}
 
 
-  async function fetchAndRender(page){
-	    if (!RIFA_ID) return;
-	    showLoader();
-	    
-	    
-	    try {
-	        const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
-	        const res = await fetch(url, { cache:'no-store' });
-	        if (!res.ok) throw new Error('HTTP '+res.status);
-	        const data = await res.json();
-	        totalItems = Number(data.total || 0);
-		    
-		    // 1) Título desde JSON
-			  const h1 = document.querySelector('h1.h4.mb-3');
-			  if (h1 && data.nombreRifaSeleccionada) {
-			    h1.textContent = data.nombreRifaSeleccionada;
-			  }
-		    
-		    // 2) Imagen de preview desde JSON
-			  const box  = document.querySelector('.preview-box');
-			  const img  = box?.querySelector('img.preview-img');
-			  const empty= box?.querySelector('.preview-empty');
-			  if (img && data.imgUrl) {
-			    img.src = data.imgUrl;
-			    img.classList.remove('d-none');
-			    empty?.classList.add('d-none');
-			  } else {
-			    img?.classList.add('d-none');
-			    empty?.classList.remove('d-none');
-			  }
-			  updateLegendFromData(data); 
+async function fetchAndRender(page) {
+    if (!RIFA_ID) return;
 
-			    buildGridPayload(data);
-			    updateMaxUI(); 
-			    buildPaginator(data.totalPages || 1);
-			    refreshInput();
-	      } catch (err) {
-	        console.error('[fetchAndRender] error:', err);
-	      } finally {
-	        hideLoader();            // <-- CLAVE
-	      }
-	    
-	   
-	    
-// 	    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
-// 	    const res = await fetch(url, { cache:'no-store' });
-// 	    if (!res.ok) throw new Error('HTTP '+res.status);
-// 	    const data = await res.json();
+    showLoader();
 
-// 	    totalItems = Number(data.total || 0);
-	    
-// 	    // 1) Título desde JSON
-// 		  const h1 = document.querySelector('h1.h4.mb-3');
-// 		  if (h1 && data.nombreRifaSeleccionada) {
-// 		    h1.textContent = data.nombreRifaSeleccionada;
-// 		  }
-	    
-// 	    // 2) Imagen de preview desde JSON
-// 		  const box  = document.querySelector('.preview-box');
-// 		  const img  = box?.querySelector('img.preview-img');
-// 		  const empty= box?.querySelector('.preview-empty');
-// 		  if (img && data.imgUrl) {
-// 		    img.src = data.imgUrl;
-// 		    img.classList.remove('d-none');
-// 		    empty?.classList.add('d-none');
-// 		  } else {
-// 		    img?.classList.add('d-none');
-// 		    empty?.classList.remove('d-none');
-// 		  }
-	    
-// 	    updateLegendFromData(data); 
+    try {
+        const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+        const res = await fetch(url, { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
 
-// 	    buildGridPayload(data);
-// 	    updateMaxUI(); 
-// 	    buildPaginator(data.totalPages || 1);
-// 	    refreshInput();
-	  }
+        const data = await res.json();
+        totalItems = Number(data.total || 0);
+
+        // 🔥 ACTUALIZAR LISTA DE RIFAS ACTIVAS EN EL <select>
+        if (data.rifasActivas) {
+            const sel = document.getElementById('selectRifa');
+            if (sel) {
+                sel.innerHTML = '';
+
+                data.rifasActivas.forEach(r => {
+                    const opt = document.createElement('option');
+                    opt.value = r.id;
+                    opt.textContent = r.nombre;
+                    if (r.id == RIFA_ID) opt.selected = true; // == para tolerar string/number
+                    sel.appendChild(opt);
+                });
+            }
+        }
+
+        // 1) Título desde JSON
+        const h1 = document.querySelector('h1.h4.mb-3');
+        if (h1 && data.nombreRifaSeleccionada) {
+            h1.textContent = data.nombreRifaSeleccionada;
+        }
+
+        // 2) Imagen de preview desde JSON
+        const box   = document.querySelector('.preview-box');
+        const img   = box?.querySelector('img.preview-img');
+        const empty = box?.querySelector('.preview-empty');
+
+        if (img && data.imgUrl) {
+            img.src = data.imgUrl;
+            img.classList.remove('d-none');
+            if (empty) empty.classList.add('d-none');
+        } else {
+            if (img)   img.classList.add('d-none');
+            if (empty) empty.classList.remove('d-none');
+        }
+
+        // 3) Leyenda, grilla, paginador, inputs (tus funciones existentes)
+        updateLegendFromData(data);
+        buildGridPayload(data);
+        updateMaxUI();
+        buildPaginator(data.totalPages || 1);
+        refreshInput();
+
+    } catch (err) {
+        console.error('[fetchAndRender] error:', err);
+    } finally {
+        hideLoader();
+    }
+}
+
 
 
   // Delegación clicks en grilla

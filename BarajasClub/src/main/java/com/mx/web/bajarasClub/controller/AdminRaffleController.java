@@ -539,18 +539,37 @@ public class AdminRaffleController {
 						Boleto boletoSeleccionado = servicioBoletos.regresaBoletoId(ticketId);
 						boletoSeleccionado.setEstadoBoleto(serviceEstadoBoleto.regresaEstadoCancelado());
 						serviceNumero.regresaNumerosBoletosAsignado(boletoSeleccionado).stream().forEach(numero -> {
-							long numsVendidos = serviceNumero
-									.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "VENDIDO");
-							long numsApartados = serviceNumero
-									.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "APARTADO");
-							boolean liberado = serviceNumero.limpiarNumeroAsigandoBoleto(numero.getRifa().getId(),
-									numero.getIdNumero());
-							out.put("numsVendidos", numsVendidos);
-							out.put("numsApartados", numsApartados);
+							
+							numero.setSeleccionado(false);
+				        	numero.setSeleccionadoExpira(null);
+				        	numero.setSeleccionadoSessionId(null);
+				        	numero.setBoleto(null);
+				        	serviceNumero.guardaNumeroRifa(numero);
+//				        	long numsVendidos = serviceNumero
+//									.countByRifaAndEstadoNombre(numero.getRifa().getId(), "VENDIDO");
+//							long numsApartados = serviceNumero
+//									.countByRifaAndEstadoNombre(numero.getRifa().getId(), "APARTADO");
+//							 out.put("numsVendidos", numsVendidos);
+//						        out.put("numsApartados", numsApartados);
+//				        	
+//							
+////							long numsVendidos = serviceNumero
+////									.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "VENDIDO");
+////							long numsApartados = serviceNumero
+////									.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "APARTADO");
+//							boolean liberado = serviceNumero.limpiarNumeroAsigandoBoleto(numero.getRifa().getId(),
+//									numero.getIdNumero());
+//							out.put("numsVendidos", numsVendidos);
+//							out.put("numsApartados", numsApartados);
+				        	
 
 						});
+						
+						
+						
+						
 	
-						 boletoSeleccionado.setEstadoBoleto(serviceEstadoBoleto.regresaEstadoCancelado());
+						// boletoSeleccionado.setEstadoBoleto(serviceEstadoBoleto.regresaEstadoCancelado());
 						 servicioBoletos.guardaBoletoClienteAsignado(boletoSeleccionado);
 						 out.put("ok", true);
 						
@@ -567,7 +586,7 @@ public class AdminRaffleController {
 //				            "msg", liberado ? "Liberado" : "No eras el dueño de la reserva",
 //				            "numero", numero,
 //				            "seleccionado", false
-//				        ));
+//				        ));;
 //					
 					
 					

@@ -14,6 +14,7 @@ import javax.servlet.http.HttpSession;
 import javax.transaction.Transactional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -80,116 +81,140 @@ public class AdminController {
 //	}
 
 	// AdminController.java
-	@Transactional()
+	@Transactional
 	@GetMapping(value = "/rifa/{id}/numeros-simple", produces = MediaType.APPLICATION_JSON_VALUE)
 	@ResponseBody
-	public ResponseEntity<Map<String, Object>> numerosSimplePaged(@PathVariable Integer id,
-			@RequestParam(defaultValue = "1") int page, @RequestParam(defaultValue = "120") int size, Model model) {
+	public ResponseEntity<Map<String, Object>> numerosSimplePaged(
+	        @PathVariable Integer id,
+	        @RequestParam(defaultValue = "1") int page,
+	        @RequestParam(defaultValue = "120") int size) {
 
-		List<String> numeroRifaDisponibles = new ArrayList<String>();
-		List<String> numeroRifaPagodos = new ArrayList<String>();
+	    Map<String, Object> body = new HashMap<>();
 
-		// 1) Trae listas (ajusta a tu servicio real)
-		List<String> disponibles = new ArrayList<>();
-		List<String> apartados = new ArrayList<>();
-		List<String> pagados = new ArrayList<>();
-		Rifa rifa = servicioRifa.obtenerRifaPorId(id);
+	    try {
+	        List<String> numeroRifaDisponibles = new ArrayList<>();
+	        List<String> numeroRifaPagodos    = new ArrayList<>();
+	        edicionesActivas                  = new ArrayList<>();
 
-		String imgUrl = null;
-		if (rifa.getPathImagen() != null && !rifa.getPathImagen().isBlank()) {
-			imgUrl = rifa.getPathImagen();
-		} else if (rifa.getPathImagen() != null && !rifa.getPathImagen().isBlank()) {
-			imgUrl = rifa.getPathImagen();
-		}
+	        List<String> disponibles = new ArrayList<>();
+	        List<String> apartados   = new ArrayList<>();
+	        List<String> pagados     = new ArrayList<>();
 
-		rifa.getNumeros().forEach(numero -> {
-			// Evitar NPE y comparar Strings correctamente
-			String estado = null;
+	        Rifa rifa = servicioRifa.obtenerRifaPorId(id);
 
-			if (numero.getBoleto() != null && numero.getBoleto().getEstadoBoleto() != null) {
+	        if (rifa == null) {
+	            body.put("ok", false);
+	            body.put("error", "Rifa no encontrada");
+	            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+	                    .contentType(MediaType.APPLICATION_JSON)
+	                    .body(body);
+	        }
 
-				estado = numero.getBoleto().getEstadoBoleto().getNombre();
-			}
+	        String imgUrl = null;
+	        if (rifa.getPathImagen() != null && !rifa.getPathImagen().isBlank()) {
+	            imgUrl = rifa.getPathImagen();
+	        } else if (rifa.getPathImagen() != null && !rifa.getPathImagen().isBlank()) {
+	            imgUrl = rifa.getPathImagen();
+	        }
 
-			// Regla de negocio típica:
-			// - Sin boleto => DISPONIBLE
-			// - Con boleto y estado = "DISPONIBLE" => DISPONIBLE (por si así lo modelaste)
-			// - "APARTADO" y "LIQUIDADO"/"PAGADO" según tus nombres reales
+	        // Clasificar números
+	        rifa.getNumeros().forEach(numero -> {
+	            String estado = null;
 
-			if (!numero.getSeleccionado()) {
-				if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
-					numeroRifaDisponibles.add(numero.getValor());
-					disponibles.add(numero.getValor()); // String ya listo para pintar
-				}
-			}
+	            if (numero.getBoleto() != null && numero.getBoleto().getEstadoBoleto() != null) {
+	                estado = numero.getBoleto().getEstadoBoleto().getNombre();
+	            }
 
-			if ("APARTADO".equalsIgnoreCase(estado)) {
-				apartados.add(numero.getValor());
-			}
+	            if (!numero.getSeleccionado()) {
+	                if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
+	                    numeroRifaDisponibles.add(numero.getValor());
+	                    disponibles.add(numero.getValor());
+	                }
+	            }
 
-			if ("VENDIDO".equalsIgnoreCase(estado)) {
-				numeroRifaPagodos.add(numero.getValor());
-				pagados.add(numero.getValor());
-			}
+	            if ("APARTADO".equalsIgnoreCase(estado)) {
+	                apartados.add(numero.getValor());
+	            }
 
-//		        if (numero.getBoleto() == null || "DISPONIBLE".equalsIgnoreCase(estado)) {
-//		        	numeroRifaDisponibles.add(numero.getValor());
-//		            disponibles.add(numero.getValor()); // String ya listo para pintar
-//		        } else if ("APARTADO".equalsIgnoreCase(estado)) {
-//		            apartados.add(numero.getValor());
-//		        } else if ("VENDIDO".equalsIgnoreCase(estado) ) {
-//		        	numeroRifaPagodos.add(numero.getValor());
-//		            pagados.add(numero.getValor());
-//		        } else {
-//		            // Si hay más estados, decide a dónde van o ignóralos
-//		        }
-		});
+	            if ("VENDIDO".equalsIgnoreCase(estado)) {
+	                numeroRifaPagodos.add(numero.getValor());
+	                pagados.add(numero.getValor());
+	            }
+	        });
 
-		// Ordena numéricamente (para Strings “01”, “2”, “003”, etc.)
-		Comparator<String> numCmp = Comparator.comparingInt(s -> {
-			try {
-				return Integer.parseInt(s);
-			} catch (Exception e) {
-				return Integer.MAX_VALUE;
-			}
-		});
-		disponibles.sort(numCmp);
+	        // Rifas activas (pero SOLO las convertimos a DTO)
+	        serviceEstadoRifa.getEstadosActivos().forEach(estado -> {
+	            edicionesActivas = servicioRifa.regresaRifaActivas(estado);
+	        });
 
-		// Paginación sobre DISPONIBLES
-		int total = disponibles.size();
-		int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
-		page = Math.max(1, Math.min(page, totalPages));
-		int from = Math.max(0, (page - 1) * size);
-		int to = Math.min(total, from + size);
+	        // ⚠️ YA NO USAMOS model.addAttribute AQUÍ
+	        // model.addAttribute("rifasActivas", edicionesActivas);
 
-		List<String> sliceDisp = disponibles.subList(from, to);
+	        // Ordena disponibles
+	        Comparator<String> numCmp = Comparator.comparingInt(s -> {
+	            try {
+	                return Integer.parseInt(s);
+	            } catch (Exception e) {
+	                return Integer.MAX_VALUE;
+	            }
+	        });
+	        disponibles.sort(numCmp);
 
-		int digits = disponibles.stream().mapToInt(String::length).max().orElse(2);
-		// - numPorBoleto: si lo tienes en la rifa
-		Integer numPorBoleto = (rifa.getNumerosPorBoleto() != null) ? rifa.getNumerosPorBoleto() : 1;
+	        // Paginación
+	        int total      = disponibles.size();
+	        int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
+	        page           = Math.max(1, Math.min(page, totalPages));
+	        int from       = Math.max(0, (page - 1) * size);
+	        int to         = Math.min(total, from + size);
 
-		Map<String, Object> body = new HashMap<>();
-		body.put("page", page);
-		body.put("size", size);
-		body.put("total", total); // total DISPONIBLES (toda la rifa)
-		body.put("totalPages", totalPages);
-		body.put("digits", digits);
-		body.put("numPorBoleto", numPorBoleto);
+	        List<String> sliceDisp = disponibles.subList(from, to);
 
-		// Datos para la grilla
-		body.put("disp", sliceDisp); // disponibles de ESTA página
-		
-		body.put("ap", apartados);
+	        int digits        = disponibles.stream().mapToInt(String::length).max().orElse(2);
+	        Integer numPorBol = (rifa.getNumerosPorBoleto() != null) ? rifa.getNumerosPorBoleto() : 1;
 
-		// Para la leyenda (elige una de estas dos estrategias):
-//		    body.put("ap", ap);              // 1) listas completas (si no son muy grandes)
-		body.put("pag", pagados);
+	        // ---------- DTO SIMPLE PARA RIFAS ACTIVAS ----------
+	        List<Map<String, Object>> rifasActivasDto = edicionesActivas.stream()
+	                .map(r -> {
+	                    Map<String, Object> m = new HashMap<>();
+	                    m.put("id", r.getId());
+	                    m.put("nombre", r.getNombre());
+	                    return m;
+	                })
+	                .toList();
+	        // ---------------------------------------------------
 
-		body.put("nombreRifaSeleccionada", rifa.getNombre());
-		body.put("imgUrl", imgUrl);
+	        body.put("page", page);
+	        body.put("size", size);
+	        body.put("total", total);
+	        body.put("totalPages", totalPages);
+	        body.put("digits", digits);
+	        body.put("numPorBoleto", numPorBol);
 
-		return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(body);
+	        // aquí mandas las rifas activas listas para el <select>
+	        body.put("rifasActivas", rifasActivasDto);
+
+	        body.put("disp", sliceDisp);
+	        body.put("ap", apartados);
+	        body.put("pag", pagados);
+	        body.put("nombreRifaSeleccionada", rifa.getNombre());
+	        body.put("imgUrl", imgUrl);
+	        body.put("ok", true);
+
+	        return ResponseEntity.ok()
+	                .contentType(MediaType.APPLICATION_JSON)
+	                .body(body);
+
+	    } catch (Exception ex) {
+	        body.clear();
+	        body.put("ok", false);
+	        body.put("error", ex.getMessage());
+	        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+	                .contentType(MediaType.APPLICATION_JSON)
+	                .body(body);
+	    }
 	}
+
+
 
 //	@PostMapping(value = "/rifa/{rifaId}/seleccion")
 //	public ResponseEntity<Map<String, Object>> setSeleccion(

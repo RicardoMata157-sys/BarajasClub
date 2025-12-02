@@ -231,6 +231,7 @@
             <div class="mt-auto d-flex gap-2">
               <!-- AJUSTA la ruta al detalle/compra de tu app -->
 								<button type="button" class="btn btn-primary w-100"
+									th:if="${r.entity.estadoEdicion.nombre == 'ACTIVA'}"
 									th:onclick="|window.location='@{/detalle/{id}(id=${r.entity.id})}'|">
 									Participar ahora</button>
 
@@ -241,7 +242,7 @@
             </div>
             
              <span class="badge position-absolute top-0 end-0 m-3 bg-success" th:if="${r.entity.estadoEdicion.nombre == 'ACTIVA'}">Activa</span>
-                <span class="badge position-absolute top-0 end-0 m-3 bg-secondary" th:if="${r.entity.estadoEdicion.nombre == 'PROXIMA'}">Próxima</span>
+                <span class="badge position-absolute top-0 end-0 m-3 bg-secondary" th:if="${r.entity.estadoEdicion.nombre == 'PROXIMAMENTE'}">PROXIMAMENTE</span>
                 <span class="badge position-absolute top-0 end-0 m-3 bg-dark" th:if="${r.entity.estadoEdicion.nombre == 'CERRADA'}">Cerrada</span>
           </div>
         </div>

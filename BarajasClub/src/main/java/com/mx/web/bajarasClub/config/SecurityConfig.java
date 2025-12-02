@@ -4,6 +4,7 @@ package com.mx.web.bajarasClub.config;
 import java.util.HashMap;
 import java.util.Map;
 
+import javax.servlet.http.HttpServletResponse;
 import javax.sql.DataSource;
 
 import org.springframework.context.annotation.Bean;
@@ -127,6 +128,8 @@ public class SecurityConfig implements WebMvcConfigurer {
             	      .antMatchers(HttpMethod.GET, "/admin/**").hasRole("ADMIN")
             	      .anyRequest().authenticated()
             )
+            
+            
 
             // Form login personalizado
             .formLogin(form -> form
@@ -171,6 +174,8 @@ public class SecurityConfig implements WebMvcConfigurer {
 //        		  .ignoringRequestMatchers(new AntPathRequestMatcher("/admin/rifa/**/seleccion", "POST"))
         		);
 
+  
+        
         return http.build();
     }
 }

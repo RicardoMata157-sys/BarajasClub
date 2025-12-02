@@ -23,32 +23,35 @@ import org.springframework.transaction.annotation.EnableTransactionManagement;
 @EnableJpaRepositories(basePackages = "com.mx.web.bajarasClub.repository")
 public class ConfigDataBases {
 
-	@Bean
-	@Primary
-	public DataSource dataSource() {
-		DriverManagerDataSource dataSource = new DriverManagerDataSource();
-		dataSource.setDriverClassName("org.postgresql.Driver");
-		dataSource.setUrl("jdbc:postgresql://dpg-d3e0plbe5dus73fbifq0-a:5432/sistema_rifas"); // modifica la url y el usuario del ambiente de aurora openbank;
-		dataSource.setUsername("root");
-		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
-	
-		return dataSource;
-	}
-
 //	@Bean
 //	@Primary
 //	public DataSource dataSource() {
 //		DriverManagerDataSource dataSource = new DriverManagerDataSource();
 //		dataSource.setDriverClassName("org.postgresql.Driver");
-//		dataSource.setUrl("jdbc:postgresql://10.1.4.149:5432/sistema_rifas"); // modifica la url y el usuario del ambiente de aurora openbank
-////		dataSource.setUsername("ricardomatacrisostomo");
-////	dataSource.setPassword("postgres");
-//		dataSource.setUsername("postgres");
-//		dataSource.setPassword("admin");
-//		
-//
+//		dataSource.setUrl("jdbc:postgresql://dpg-d3e0plbe5dus73fbifq0-a:5432/sistema_rifas"); // modifica la url y el usuario del ambiente de aurora openbank;
+//		dataSource.setUsername("root");
+//		dataSource.setPassword("VWSdkSmwdGVWXJ8oQFw7cbO4rqP3jB6f");
+//	
 //		return dataSource;
 //	}
+	
+  
+	
+
+	@Bean
+	@Primary
+	public DataSource dataSource() {
+		DriverManagerDataSource dataSource = new DriverManagerDataSource();
+		dataSource.setDriverClassName("org.postgresql.Driver");
+		dataSource.setUrl("jdbc:postgresql://10.1.4.149:5432/sistema_rifas"); // modifica la url y el usuario del ambiente de aurora openbank
+//		dataSource.setUsername("ricardomatacrisostomo");
+//	dataSource.setPassword("postgres");
+		dataSource.setUsername("postgres");
+		dataSource.setPassword("admin");
+		
+
+		return dataSource;
+	}
 
 //	@Bean
 //	@Primary

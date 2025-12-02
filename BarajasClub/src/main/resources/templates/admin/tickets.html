@@ -166,29 +166,50 @@
           </div>
 
           <!-- Paginación izquierda (solo si existe 'page') -->
-          <div class="card-body" th:if="${page != null}">
-            <div class="divider"></div>
-            <nav>
-              <ul class="pagination pagination-sm mb-0">
-                <li class="page-item" th:classappend="${page.first} ? 'disabled'">
-                  <!-- IZQUIERDA: reemplaza param.estado -> param.estadoId -->
-<a class="page-link"
-   th:href="@{/admin/rifas/tickets(q=${param.q},estadoId=${param.estadoId},rifaId=${param.rifaId},page=${page.number-1},size=${page.size},nPage=${param.nPage},nSize=${param.nSize})}">‹</a>
-...
-<a class="page-link"
-   th:href="@{/admin/rifas/tickets(q=${param.q},estadoId=${param.estadoId},rifaId=${param.rifaId},page=${page.number+1},size=${page.size},nPage=${param.nPage},nSize=${param.nSize})}">›</a>
+         <!-- Paginación izquierda (solo si existe 'page') -->
+<div class="card-body" th:if="${page != null and page.totalPages > 1}">
+  <div class="divider"></div>
+  <nav>
+    <ul class="pagination pagination-sm mb-0">
+      <!-- Anterior -->
+      <li class="page-item" th:classappend="${page.first} ? ' disabled'">
+        <a class="page-link"
+           th:href="@{/admin/rifas/tickets(
+              q=${param.q},
+              estadoId=${param.estadoId},
+              rifaId=${param.rifaId},
+              page=${page.number-1},
+              size=${page.size},
+              nPage=${param.nPage},
+              nSize=${param.nSize}
+           )}">&laquo;</a>
+      </li>
 
-<!-- DERECHA: reemplaza param.estado -> param.estadoId -->
-<a class="page-link"
-   th:href="@{/admin/rifas/tickets(q=${param.q},estadoId=${param.estadoId},rifaId=${param.rifaId},page=${param.page},size=${param.size},nPage=${numsPage.number-1},nSize=${numsPage.size})}">‹</a>
-...
-<a class="page-link"
-   th:href="@{/admin/rifas/tickets(q=${param.q},estadoId=${param.estadoId},rifaId=${param.rifaId},page=${param.page},size=${param.size},nPage=${numsPage.number+1},nSize=${numsPage.size})}">›</a>
+      <!-- Info -->
+      <li class="page-item disabled">
+        <span class="page-link"
+              th:text="'Pág ' + (${page.number}+1) + ' / ' + ${page.totalPages}">
+          Pág 1/1
+        </span>
+      </li>
 
-                </li>
-              </ul>
-            </nav>
-          </div>
+      <!-- Siguiente -->
+      <li class="page-item" th:classappend="${page.last} ? ' disabled'">
+        <a class="page-link"
+           th:href="@{/admin/rifas/tickets(
+              q=${param.q},
+              estadoId=${param.estadoId},
+              rifaId=${param.rifaId},
+              page=${page.number+1},
+              size=${page.size},
+              nPage=${param.nPage},
+              nSize=${param.nSize}
+           )}">&raquo;</a>
+      </li>
+    </ul>
+  </nav>
+</div>
+
         </div>
       </div>
 
@@ -225,22 +246,48 @@
             </div>
 
             <!-- Paginación derecha (solo si existe 'numsPage') -->
-            <div class="divider" th:if="${numsPage != null}"></div>
-            <nav th:if="${numsPage != null}">
-              <ul class="pagination pagination-sm justify-content-center mb-0">
-                <li class="page-item" th:classappend="${numsPage.first} ? 'disabled'">
-                  <a class="page-link"
-                     th:href="@{/admin/rifas/tickets(q=${param.q},estado=${param.estado},rifaId=${param.rifaId},page=${param.page},size=${param.size},nPage=${numsPage.number-1},nSize=${numsPage.size})}">‹</a>
-                </li>
-                <li class="page-item disabled">
-                  <span class="page-link" th:text="'Pág ' + (${numsPage.number}+1) + '/' + ${numsPage.totalPages}">Pág</span>
-                </li>
-                <li class="page-item" th:classappend="${numsPage.last} ? 'disabled'">
-                  <a class="page-link"
-                     th:href="@{/admin/rifas/tickets(q=${param.q},estado=${param.estado},rifaId=${param.rifaId},page=${param.page},size=${param.size},nPage=${numsPage.number+1},nSize=${numsPage.size})}">›</a>
-                </li>
-              </ul>
-            </nav>
+            <!-- Paginación derecha (solo si existe 'numsPage') -->
+<div class="divider" th:if="${numsPage != null and numsPage.totalPages > 1}"></div>
+<nav th:if="${numsPage != null and numsPage.totalPages > 1}">
+  <ul class="pagination pagination-sm justify-content-center mb-0">
+    <!-- Anterior -->
+    <li class="page-item" th:classappend="${numsPage.first} ? ' disabled'">
+      <a class="page-link"
+         th:href="@{/admin/rifas/tickets(
+            q=${param.q},
+            estadoId=${param.estadoId},
+            rifaId=${param.rifaId},
+            page=${param.page},
+            size=${param.size},
+            nPage=${numsPage.number-1},
+            nSize=${numsPage.size}
+         )}">&laquo;</a>
+    </li>
+
+    <!-- Info -->
+    <li class="page-item disabled">
+      <span class="page-link"
+            th:text="'Pág ' + (${numsPage.number}+1) + ' / ' + ${numsPage.totalPages}">
+        Pág 1/1
+      </span>
+    </li>
+
+    <!-- Siguiente -->
+    <li class="page-item" th:classappend="${numsPage.last} ? ' disabled'">
+      <a class="page-link"
+         th:href="@{/admin/rifas/tickets(
+            q=${param.q},
+            estadoId=${param.estadoId},
+            rifaId=${param.rifaId},
+            page=${param.page},
+            size=${param.size},
+            nPage=${numsPage.number+1},
+            nSize=${numsPage.size}
+         )}">&raquo;</a>
+    </li>
+  </ul>
+</nav>
+
 
           </div>
         </div>
@@ -500,6 +547,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+  
+  
+  
+  
+  
   
   <!-- === DROP-IN SKIN: pegar al FINAL del <head> o justo antes de </body> === -->
 <style>
@@ -822,6 +874,55 @@ html, body{
 }
 
 
+</style>
+<style>
+  /* Contenedor “tarjeta” del paginador */
+  .pager-shell {
+    background: #f8fafc;
+    border-radius: 999px;
+    padding: .35rem .75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+  }
+
+  .pager-shell small {
+    font-size: .75rem;
+    color: #6b7280;
+    margin-right: .35rem;
+  }
+
+  /* Estilo suave para los links */
+  .pagination-soft .page-link {
+    border-radius: 999px !important;
+    border: none;
+    font-size: .75rem;
+    padding: .3rem .6rem;
+    color: #4b5563;
+    background-color: transparent;
+  }
+
+  .pagination-soft .page-link:hover {
+    background-color: #e5e7eb;
+    color: #111827;
+  }
+
+  .pagination-soft .page-item.disabled .page-link {
+    color: #9ca3af;
+    background-color: transparent;
+  }
+
+  .pagination-soft .page-item.active .page-link {
+    background: linear-gradient(90deg,#2563eb,#3b82f6);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* Para que no se peguen tanto los elementos */
+  .pagination-soft {
+    gap: .15rem;
+  }
 </style>
 
 
