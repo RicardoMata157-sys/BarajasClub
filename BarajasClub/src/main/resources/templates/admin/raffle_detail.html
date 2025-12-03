@@ -1783,17 +1783,22 @@ document.addEventListener('DOMContentLoaded', () => {
 </div>
 <script>
 function showNoDisp(msg){
-  const el  = document.getElementById('popNumeroNoDisp');
-  const txt = document.getElementById('popNumeroNoDispText');
-  if (!el) return;
-  if (txt) txt.textContent = msg || 'Número ya no disponible';
-  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 3000, autohide: true });
-  t.show();
-}
+	  const el  = document.getElementById('popNumeroNoDisp');
+	  const txt = document.getElementById('popNumeroNoDispText');
+	  if (!el) return;
+	  if (txt) txt.textContent = msg || 'Número ya no disponible';
+	  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 3000, autohide: true });
+	  t.show();
+	}
+
 </script>
 
 
-
+<script>
+  function showVal(msg) {
+    alert(msg || 'Faltan números por seleccionar');
+  }
+</script>
 
 
 

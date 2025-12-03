@@ -545,12 +545,12 @@ public class AdminRaffleController {
 				        	numero.setSeleccionadoSessionId(null);
 				        	numero.setBoleto(null);
 				        	serviceNumero.guardaNumeroRifa(numero);
-//				        	long numsVendidos = serviceNumero
-//									.countByRifaAndEstadoNombre(numero.getRifa().getId(), "VENDIDO");
-//							long numsApartados = serviceNumero
-//									.countByRifaAndEstadoNombre(numero.getRifa().getId(), "APARTADO");
-//							 out.put("numsVendidos", numsVendidos);
-//						        out.put("numsApartados", numsApartados);
+				        	long numsVendidos = serviceNumero
+									.countByRifaAndEstadoNombre(numero.getRifa().getId(), "VENDIDO");
+							long numsApartados = serviceNumero
+									.countByRifaAndEstadoNombre(numero.getRifa().getId(), "APARTADO");
+							 out.put("numsVendidos", numsVendidos);
+						     out.put("numsApartados", numsApartados);
 //				        	
 //							
 ////							long numsVendidos = serviceNumero
