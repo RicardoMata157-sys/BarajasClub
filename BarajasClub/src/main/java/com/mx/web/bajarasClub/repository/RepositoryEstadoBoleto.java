@@ -23,5 +23,10 @@ public interface RepositoryEstadoBoleto extends JpaRepository<EstadoBoleto, Inte
 			+ "FROM public.estado_boleto "
 			+ "WHERE idestadoboleto IN (4);")
 	public EstadoBoleto regresaEstadoCancelado();
+	
+	@Query(nativeQuery = true, value = "SELECT idestadoboleto, isestado, nombre "
+			+ "FROM public.estado_boleto "
+			+ "WHERE idestadoboleto IN (5);")
+	public EstadoBoleto regresaEstadoGanador();
 
 }

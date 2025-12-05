@@ -56,7 +56,7 @@
           </div>
 
 					<div class="col-12 col-md-4">
-            <label class="filter-label mb-1">Buscar (folio, comprador, email, teléfono)</label>
+            <label class="filter-label mb-1">Buscar (números)</label>
             <input id="q" name="q" type="search" class="form-control form-control-sm"
                    placeholder="Escribe para filtrar…" th:value="${param.q}">
           </div>
@@ -131,10 +131,12 @@
                             class="badge"
                             th:with="estado=${#strings.toUpperCase(#strings.trim(t.estadoBoleto.nombre))}"
                             th:classappend="${
-                              estado == 'APARTADO' ? ' badge-apartado' :
+                              estado == 'GANADOR' ? ' badge-apartado' :
+                              (estado == 'APARTADO' ? ' badge-apartado' :
                               (estado == 'VENDIDO' ? ' badge-vendido' :
-                              (estado == 'CANCELADO' ? ' badge-cancelado' : ''))
+                              (estado == 'CANCELADO' ? ' badge-cancelado' : '')))
                             }">
+                        <span th:if="${estado == 'GANADOR'}"  aria-hidden="true">✔</span>
                         <span th:if="${estado == 'APARTADO'}" aria-hidden="true">⏸</span>
                         <span th:if="${estado == 'VENDIDO'}"  aria-hidden="true">✔</span>
                         <span th:if="${estado == 'CANCELADO'}" aria-hidden="true">✖</span>
@@ -156,6 +158,8 @@
 
     <!-- Siempre permitir cancelar+liberar -->
     <option value="CANCELAR_LIBERAR">Cancelar y liberar</option>
+    <!-- Siempre permitir GANADOR -->
+    <option value="GANADOR">GANADOR</option>
   </select>
 </td>
 
@@ -466,7 +470,14 @@ document.addEventListener('DOMContentLoaded', () => {
     sel.disabled = true;
 
     // ⬇️ Bloquea pantalla (mensaje dinámico según acción)
-    blockPage(action === 'VENDIDO' ? 'Marcando como vendido…' : 'Cancelando y liberando…');
+// ⬇️ Bloquea pantalla (mensaje dinámico según acción)
+let msg = 'Procesando…';
+if (action === 'VENDIDO')       msg = 'Marcando como vendido…';
+else if (action === 'GANADOR') msg = 'Marcando como ganador…';
+else if (action === 'CANCELAR_LIBERAR') msg = 'Cancelando y liberando…';
+
+blockPage(msg);
+
 
 
     try {
@@ -487,6 +498,25 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof res.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res.numsVendidos;
         if (typeof res.numsApartados === 'number') document.getElementById('numsApartados').textContent = res.numsApartados;
       }
+      
+      
+      if (action === 'GANADOR') {
+          // 1) Cambiar estado a VENDIDO
+          const res = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
+                                     new URLSearchParams({ nuevoEstado:'GANADOR' }));
+          if (!res.ok) throw new Error(res.error || 'No se pudo marcar vendido');
+
+          // 2) Refrescar badge de estado
+          const tdEstado = row.querySelector('.td-estado');
+          if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-vendido px-2 py-1">GANADOR</span>';
+
+          // 3) Dejar solo la acción de cancelar+liberar
+          sel.innerHTML = '<option value="">Acciones…</option><option value="CANCELAR_LIBERAR">Cancelar y liberar</option>';
+
+          // 4) Contadores
+          if (typeof res.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res.numsVendidos;
+          if (typeof res.numsApartados === 'number') document.getElementById('numsApartados').textContent = res.numsApartados;
+        }
 
       if (action === 'CANCELAR_LIBERAR') {
         // 1) Cambiar estado del boleto a CANCELADO

@@ -15,4 +15,6 @@ public interface ServiceEstadoBoleto {
 	
 
 	public EstadoBoleto regresaEstadoCancelado();
+	
+	public EstadoBoleto regresaEstadoGanador();
 }

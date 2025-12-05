@@ -532,6 +532,23 @@ public class AdminRaffleController {
 						out.put("ok", true);
 
 					}
+					
+					
+					if (nuevoEstado.equals("GANADOR")) {
+						Boleto boletoSeleccionado = servicioBoletos.regresaBoletoId(ticketId);
+						boletoSeleccionado.setEstadoBoleto(serviceEstadoBoleto.regresaEstadoGanador());
+						servicioBoletos.guardaBoletoClienteAsignado(boletoSeleccionado);
+						boletoSeleccionado.getRifa().setGanadorRifa(boletoSeleccionado.getCliente().getNombre()+ "" + boletoSeleccionado.getCliente().getApellido_patrno()+ " "+ boletoSeleccionado.getCliente().getApellido_materno());
+						servicioRifa.actualizaRifaService(boletoSeleccionado.getRifa());
+						long numsVendidos = serviceNumero
+								.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "VENDIDO");
+						long numsApartados = serviceNumero
+								.countByRifaAndEstadoNombre(boletoSeleccionado.getRifa().getId(), "APARTADO");
+						out.put("numsVendidos", numsVendidos);
+						out.put("numsApartados", numsApartados);
+						out.put("ok", true);
+
+					}
 
 					if (nuevoEstado.equals("CANCELADO")) {
 
