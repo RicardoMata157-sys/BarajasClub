@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="es">
+
+  <meta charset="UTF-8" />
+  <title>BarajasClub · Admin Tickets</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- CSRF (Spring Security) -->
+<meta name="_csrf" th:content="${_csrf.token}"/>
+<meta name="_csrf_header" th:content="${_csrf.headerName}"/>
+
+  <!-- Bootstrap (o tu bundle) -->
+  <link rel="stylesheet" th:href="@{/css/bootstrap.min.css}" />
+  
+  <head th:insert="~{fragments_admin :: head('Comprar boleto')}">
+ 
+ 
+</head>
+ <th:block th:replace="~{fragments :: scripts}"></th:block>
+<body>
+  <header th:replace="~{fragments_admin :: navbar}"></header>
+
+  <div class="container-fluid py-4">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h3 class="page-title m-0">Administración de Tickets</h3>
+    </div>
+
+    <!-- FILTROS -->
+    <div class="card-d mb-3">
+      <div class="card-header py-3">
+        <strong>Filtros</strong>
+      </div>
+      <div class="card-body">
+        <form class="row gy-3 gx-3 align-items-end" method="get" th:action="@{/admin/rifas/tickets}">
+					<div class="col-12 col-md-3">
+						<label class="filter-label mb-1">Edición</label>
+            <select id="selectRifa" name="rifaId" class="form-select form-select-sm">
+							<option value="">Todas</option>
+							<option th:each="r : ${rifas}" th:value="${r.id}"
+								th:text="${r.nombre}"
+								th:selected="${param.rifaId != null and param.rifaId[0] == #strings.toString(r.id)}">
+							</option>
+						</select>
+					</div>
+
+					<div class="col-6 col-md-2">
+            <label class="filter-label mb-1">Estado</label>
+            <select id="selectEstado" name="estadoId" class="form-select form-select-sm">
+              <option value="" th:selected="${estadoId} == null">Vendidos + Apartados</option>
+              <option th:each="e : ${estados}"
+                      th:value="${e.idEstadoBoleto}"
+                      th:text="${e.nombre}"
+                      th:selected="${estadoId} != null and e.idEstadoBoleto == estadoId">
+              </option>
+            </select>
+          </div>
+
+					<div class="col-12 col-md-4">
+            <label class="filter-label mb-1">Buscar (números)</label>
+            <input id="q" name="q" type="search" class="form-control form-control-sm"
+                   placeholder="Escribe para filtrar…" th:value="${param.q}">
+          </div>
+
+          <div class="col-6 col-md-1">
+            <button class="btn btn-primary btn-sm w-100" type="submit">Buscar</button>
+          </div>
+          <div class="col-6 col-md-2">
+            <a class="btn btn-outline-light btn-sm w-100" th:href="@{/admin/rifas/tickets}">Limpiar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <!-- IZQUIERDA · BOLETOS -->
+      <div class="col-lg-8">
+        <div class="card-d">
+          <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <strong>Boletos</strong>
+            <span class="subtle"
+                  th:text="'Mostrando ' + ((${page} != null) ? ${page.numberOfElements} : 0) + ' de ' + ((${page} != null) ? ${page.totalElements} : 0)">
+              Mostrando …
+            </span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive tbl-sticky" style="max-height: 65vh;">
+              <table class="table table-modern table-hover align-middle mb-0">
+                <thead>
+                <tr>
+                  <th style="width:48px;">#</th>
+                  <th>Folio</th>
+                  <th>Rifa</th>
+                  <th>Comprador</th>
+                  <th>Números</th>
+                  <th>Fecha</th>
+                  <th>Pago</th>
+                  <th>Estado</th>
+                  <th style="width: 200px;">Acciones</th>
+                </tr>
+                </thead>
+                <tbody id="tblTicketsBody">
+                <tr th:each="t, it : ${tickets}" th:attr="data-ticket-id=${t.id},
+             data-nums=${t.numeros != null ? #strings.listJoin(t.numeros.![idNumero], ',') : ''}">
+										<td class="col-idx">
+                      <span class="idx-badge"
+											th:text="${it.index + 1}"
+											th:classappend="' idx-' + (${it.index} % 6)">1</span>
+                    </td>
+
+							<td>
+  <div class="fw-bold" th:text="${t.folio != null ?  t.folio : '—'}">Cliente</div>
+  
+</td>
+
+                    <td th:text="${t.rifa != null ? t.rifa.nombre : '—'}">Rifa</td>
+                    <td>
+                      <div th:text="${t.cliente != null ? (t.cliente.nombre + ' ' + t.cliente.apellido_patrno + ' ' + t.cliente.apellido_materno) : '—'}">Cliente</div>
+                      <small class="subtle" th:text="${t.cliente != null ? t.cliente.telefono : ''}">55…</small>
+                    </td>
+                    <td>
+                      <small th:text="${t.numeros == null or #lists.isEmpty(t.numeros) ? '—' : #strings.listJoin(t.numeros.![valor], ', ')}">0001, 0002</small>
+                    </td>
+                    <td>
+                      <small th:text="${t.fechaCompra == null ? '—' : t.fechaCompra.format(fmtFecha)}">2025-01-01 12:00</small>
+                    </td>
+                    <td>
+                      <span th:text="${t.tipoPago != null ? #strings.toUpperCase(#strings.trim(t.tipoPago.nombre)) : '—'}">-</span>
+                    </td>
+                    <td class="td-estado">
+                      <span th:if="${t.estadoBoleto != null}"
+                            class="badge"
+                            th:with="estado=${#strings.toUpperCase(#strings.trim(t.estadoBoleto.nombre))}"
+                            th:classappend="${
+                              estado == 'GANADOR' ? ' badge-apartado' :
+                              (estado == 'APARTADO' ? ' badge-apartado' :
+                              (estado == 'VENDIDO' ? ' badge-vendido' :
+                              (estado == 'CANCELADO' ? ' badge-cancelado' : '')))
+                            }">
+                        <span th:if="${estado == 'GANADOR'}"  aria-hidden="true">✔</span>
+                        <span th:if="${estado == 'APARTADO'}" aria-hidden="true">⏸</span>
+                        <span th:if="${estado == 'VENDIDO'}"  aria-hidden="true">✔</span>
+                        <span th:if="${estado == 'CANCELADO'}" aria-hidden="true">✖</span>
+                        <span th:text="${estado}">APARTADO</span>
+                      </span>
+                      <span th:if="${t.estadoBoleto == null}" class="badge badge-cancelado">SIN ESTADO</span>
+                    </td>
+
+                    <td>
+  <select class="form-select form-select-sm ticket-action"
+          th:attr="data-ticket-id=${t.id}">
+    <option value="">Acciones…</option>
+
+    <!-- Opción visible si está APARTADO -->
+    <option th:if="${t.estadoBoleto != null and #strings.equalsIgnoreCase(t.estadoBoleto.nombre,'APARTADO')}"
+            value="VENDIDO">
+      Marcar vendido
+    </option>
+
+    <!-- Siempre permitir cancelar+liberar -->
+    <option value="CANCELAR_LIBERAR">Cancelar y liberar</option>
+    <!-- Siempre permitir GANADOR -->
+    <option value="GANADOR">GANADOR</option>
+  </select>
+</td>
+
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Paginación izquierda (solo si existe 'page') -->
+         <!-- Paginación izquierda (solo si existe 'page') -->
+<div class="card-body" th:if="${page != null and page.totalPages > 1}">
+  <div class="divider"></div>
+  <nav>
+    <ul class="pagination pagination-sm mb-0">
+      <!-- Anterior -->
+      <li class="page-item" th:classappend="${page.first} ? ' disabled'">
+        <a class="page-link"
+           th:href="@{/admin/rifas/tickets(
+              q=${param.q},
+              estadoId=${param.estadoId},
+              rifaId=${param.rifaId},
+              page=${page.number-1},
+              size=${page.size},
+              nPage=${param.nPage},
+              nSize=${param.nSize}
+           )}">&laquo;</a>
+      </li>
+
+      <!-- Info -->
+      <li class="page-item disabled">
+        <span class="page-link"
+              th:text="'Pág ' + (${page.number}+1) + ' / ' + ${page.totalPages}">
+          Pág 1/1
+        </span>
+      </li>
+
+      <!-- Siguiente -->
+      <li class="page-item" th:classappend="${page.last} ? ' disabled'">
+        <a class="page-link"
+           th:href="@{/admin/rifas/tickets(
+              q=${param.q},
+              estadoId=${param.estadoId},
+              rifaId=${param.rifaId},
+              page=${page.number+1},
+              size=${page.size},
+              nPage=${param.nPage},
+              nSize=${param.nSize}
+           )}">&raquo;</a>
+      </li>
+    </ul>
+  </nav>
+</div>
+
+        </div>
+      </div>
+
+      <!-- DERECHA · NÚMEROS SELECCIONADOS -->
+      <div class="col-lg-4">
+        <div class="card-d h-100">
+          <div class="card-header py-3 d-flex justify-content-between align-items-center">
+            <strong>Números seleccionados</strong>
+            <small class="subtle">
+              Vendidos: <b id="numsVendidos" th:text="${numsVendidos}">0</b> ·
+              Apartados: <b id="numsApartados" th:text="${numsApartados}">0</b>
+            </small>
+          </div>
+          <div class="card-body">
+            <div class="side-wrap">
+              <div class="d-flex flex-wrap gap-1" id="numsGrid">
+                <label class="chip"
+                       th:each="n : ${nums}"
+                       th:attr="data-num-id=${n.idNumero}">
+                  <input type="checkbox" class="form-check-input me-1 num-select" th:value="${n.idNumero}"/>
+                  <span th:text="${n.valor}">0001</span>
+                  <small class="ms-1"
+                         th:text="${n.boleto != null ? (n.boleto.estadoBoleto != null ? n.boleto.estadoBoleto.nombre : '') : ''}">APARTADO</small>
+                </label>
+              </div>
+              <div th:if="${#lists.isEmpty(nums)}" class="text-center subtle py-4 small">
+                No hay números con los filtros actuales.
+              </div>
+            </div>
+
+            <div class="d-flex gap-2 mt-3">
+              <button type="button" id="btnLiberar" class="btn btn-danger btn-sm">Liberar seleccionados</button>
+              <button type="button" id="btnClearSel" class="btn btn-outline-light btn-sm">Limpiar selección</button>
+            </div>
+
+            <!-- Paginación derecha (solo si existe 'numsPage') -->
+            <!-- Paginación derecha (solo si existe 'numsPage') -->
+<div class="divider" th:if="${numsPage != null and numsPage.totalPages > 1}"></div>
+<nav th:if="${numsPage != null and numsPage.totalPages > 1}">
+  <ul class="pagination pagination-sm justify-content-center mb-0">
+    <!-- Anterior -->
+    <li class="page-item" th:classappend="${numsPage.first} ? ' disabled'">
+      <a class="page-link"
+         th:href="@{/admin/rifas/tickets(
+            q=${param.q},
+            estadoId=${param.estadoId},
+            rifaId=${param.rifaId},
+            page=${param.page},
+            size=${param.size},
+            nPage=${numsPage.number-1},
+            nSize=${numsPage.size}
+         )}">&laquo;</a>
+    </li>
+
+    <!-- Info -->
+    <li class="page-item disabled">
+      <span class="page-link"
+            th:text="'Pág ' + (${numsPage.number}+1) + ' / ' + ${numsPage.totalPages}">
+        Pág 1/1
+      </span>
+    </li>
+
+    <!-- Siguiente -->
+    <li class="page-item" th:classappend="${numsPage.last} ? ' disabled'">
+      <a class="page-link"
+         th:href="@{/admin/rifas/tickets(
+            q=${param.q},
+            estadoId=${param.estadoId},
+            rifaId=${param.rifaId},
+            page=${param.page},
+            size=${param.size},
+            nPage=${numsPage.number+1},
+            nSize=${numsPage.size}
+         )}">&raquo;</a>
+    </li>
+  </ul>
+</nav>
+
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  
+  <!-- === PAGE BLOCKER (overlay) === -->
+<div id="pageBlocker" hidden>
+  <div class="blocker-box">
+    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+    <strong id="blockerMsg">Procesando…</strong>
+  </div>
+</div>
+  
+
+  <!-- JS -->
+ 
+ <script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  // === CSRF desde las <meta> ===
+  const CSRF = (() => {
+    const token  = document.querySelector('meta[name="_csrf"]')?.content;
+    const header = document.querySelector('meta[name="_csrf_header"]')?.content || 'X-CSRF-TOKEN';
+    return { token, header };
+  })();
+
+  // === Helpers de fetch ===
+  async function postJSON(url, payload){
+    const headers = { 'Content-Type': 'application/json' };
+    if (CSRF.token) headers[CSRF.header] = CSRF.token;
+    const res = await fetch(url, { method:'POST', headers, body: JSON.stringify(payload) });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    return res.json();
+  }
+  
+  // === Page Blocker ===
+  const $blocker   = () => document.getElementById('pageBlocker');
+  const $blockMsg  = () => document.getElementById('blockerMsg');
+
+  function blockPage(msg = 'Procesando…'){
+    const el = $blocker(); if(!el) return;
+    const m  = $blockMsg(); if (m) m.textContent = msg;
+    el.removeAttribute('hidden');
+  }
+  function unblockPage(){
+    const el = $blocker(); if(!el) return;
+    el.setAttribute('hidden','');
+  }
+
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  
+  async function postForm(url, formData){
+    const headers = {};
+    if (CSRF.token) headers[CSRF.header] = CSRF.token;
+    const res = await fetch(url, { method:'POST', headers, body: formData });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    return res.json();
+  }
+
+  // === Botones del panel derecho ===
+  const btnLiberar = document.getElementById('btnLiberar');
+  const btnClearSel= document.getElementById('btnClearSel');
+  const grid       = document.getElementById('numsGrid');
+
+  btnClearSel?.addEventListener('click', () => {
+    grid?.querySelectorAll('input.num-select:checked')?.forEach(chk => chk.checked = false);
+  });
+
+  btnLiberar?.addEventListener('click', async () => {
+	    const checks = Array.from(grid?.querySelectorAll('input.num-select:checked') || []);
+	    if (!checks.length) { alert('Selecciona al menos un número'); return; }
+
+	    // ⬇️ Bloquea pantalla
+	    blockPage('Liberando números…');
+
+	    btnLiberar.disabled = true;
+	    const original = btnLiberar.innerHTML;
+	    btnLiberar.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Liberando…';
+
+	    const items = checks.map(chk => {
+	      const label = chk.closest('[data-num-id]');
+	      return { id: Number(chk.value), state: (label?.dataset?.state || '').toUpperCase() };
+	    });
+
+	    try {
+	      const data = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds: items.map(i => i.id) });
+	      if (!data.ok) throw new Error(data.error || 'Error');
+
+	      items.forEach(i => {
+	        grid.querySelector(`[data-num-id="${i.id}"]`)?.remove();
+	      });
+
+	      if (typeof data.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = data.numsVendidos;
+	      if (typeof data.numsApartados === 'number') document.getElementById('numsApartados').textContent = data.numsApartados;
+
+	    } catch(err){
+	      alert('No se pudieron liberar: ' + err.message);
+	    } finally {
+	      btnLiberar.disabled = false;
+	      btnLiberar.innerHTML = original;
+
+	      // ⬇️ Desbloquea pantalla
+	      unblockPage();
+	    }
+	  });
+
+
+  // === Filtros rápidos (Rifa y búsqueda) ===
+  const selRifa = document.getElementById('selectRifa');
+  const inputQ  = document.getElementById('q');
+  function goWithParams(params){
+    const url = new URL(window.location.href);
+    Object.entries(params).forEach(([k,v]) => {
+      if (v === null || v === undefined || v === '') url.searchParams.delete(k);
+      else url.searchParams.set(k, v);
+    });
+    window.location.href = url.toString();
+  }
+  selRifa?.addEventListener('change', () => { goWithParams({ rifaId: selRifa.value, page:0, nPage:0 }); });
+  let qTimer;
+  inputQ?.addEventListener('input', () => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(()=> goWithParams({ q: inputQ.value, page:0, nPage:0 }), 400);
+  });
+
+  // === Persistencia de selección entre recargas (panel derecho) ===
+  const SEL_KEY = 'bc:selectedNums';
+  const getSelSet = () => {
+    try { return new Set(JSON.parse(sessionStorage.getItem(SEL_KEY) || '[]')); }
+    catch { return new Set(); }
+  };
+  const saveSelSet = (set) => sessionStorage.setItem(SEL_KEY, JSON.stringify([...set]));
+
+  // Restaurar selección al cargar
+  const selSet = getSelSet();
+  document.querySelectorAll('#numsGrid input.num-select').forEach(chk => {
+    const id = Number(chk.value);
+    if (selSet.has(id)) chk.checked = true;
+  });
+  // Mantener selección viva
+  document.getElementById('numsGrid')?.addEventListener('change', (e) => {
+    const chk = e.target.closest('input.num-select');
+    if (!chk) return;
+    const id = Number(chk.value);
+    const set = getSelSet();
+    if (chk.checked) set.add(id); else set.delete(id);
+    saveSelSet(set);
+  });
+
+  // === ACCIONES DEL COMBO POR FILA (delegación global robusta) ===
+  document.addEventListener('change', async (e) => {
+    const sel = e.target.closest('select.ticket-action');
+    if (!sel) return;
+
+    const action = sel.value;
+    if (!action) return;
+
+    const row = sel.closest('tr');
+    const ticketId = sel.dataset.ticketId || row?.dataset.ticketId;
+    if (!ticketId) { sel.value=''; return; }
+
+    sel.disabled = true;
+
+    // ⬇️ Bloquea pantalla (mensaje dinámico según acción)
+// ⬇️ Bloquea pantalla (mensaje dinámico según acción)
+let msg = 'Procesando…';
+if (action === 'VENDIDO')       msg = 'Marcando como vendido…';
+else if (action === 'GANADOR') msg = 'Marcando como ganador…';
+else if (action === 'CANCELAR_LIBERAR') msg = 'Cancelando y liberando…';
+
+blockPage(msg);
+
+
+
+    try {
+      if (action === 'VENDIDO') {
+        // 1) Cambiar estado a VENDIDO
+        const res = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
+                                   new URLSearchParams({ nuevoEstado:'VENDIDO' }));
+        if (!res.ok) throw new Error(res.error || 'No se pudo marcar vendido');
+
+        // 2) Refrescar badge de estado
+        const tdEstado = row.querySelector('.td-estado');
+        if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-vendido px-2 py-1">VENDIDO</span>';
+
+        // 3) Dejar solo la acción de cancelar+liberar
+        sel.innerHTML = '<option value="">Acciones…</option><option value="CANCELAR_LIBERAR">Cancelar y liberar</option>';
+
+        // 4) Contadores
+        if (typeof res.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res.numsVendidos;
+        if (typeof res.numsApartados === 'number') document.getElementById('numsApartados').textContent = res.numsApartados;
+      }
+      
+      
+      if (action === 'GANADOR') {
+          // 1) Cambiar estado a VENDIDO
+          const res = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
+                                     new URLSearchParams({ nuevoEstado:'GANADOR' }));
+          if (!res.ok) throw new Error(res.error || 'No se pudo marcar vendido');
+
+          // 2) Refrescar badge de estado
+          const tdEstado = row.querySelector('.td-estado');
+          if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-vendido px-2 py-1">GANADOR</span>';
+
+          // 3) Dejar solo la acción de cancelar+liberar
+          sel.innerHTML = '<option value="">Acciones…</option><option value="CANCELAR_LIBERAR">Cancelar y liberar</option>';
+
+          // 4) Contadores
+          if (typeof res.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res.numsVendidos;
+          if (typeof res.numsApartados === 'number') document.getElementById('numsApartados').textContent = res.numsApartados;
+        }
+
+      if (action === 'CANCELAR_LIBERAR') {
+        // 1) Cambiar estado del boleto a CANCELADO
+        const res1 = await postForm(`/admin/rifas/tickets/estado/${ticketId}`,
+                                    new URLSearchParams({ nuevoEstado:'CANCELADO' }));
+        if (!res1.ok) throw new Error(res1.error || 'No se pudo cancelar el boleto');
+
+        // 2) Liberar los números del boleto
+        const numsAttr = row.getAttribute('data-nums') || '';
+        const numeroIds = numsAttr.split(',').map(s => parseInt(s.trim(),10)).filter(Number.isFinite);
+
+        if (numeroIds.length) {
+          const res2 = await postJSON('/admin/rifas/tickets/numeros/liberar', { numeroIds });
+          if (!res2.ok) throw new Error(res2.error || 'No se pudieron liberar los números');
+
+          // Quitar del panel derecho si alguno está renderizado
+          numeroIds.forEach(id => document.querySelector(`#numsGrid [data-num-id="${id}"]`)?.remove());
+
+          // Contadores
+          if (typeof res2.numsVendidos === 'number') document.getElementById('numsVendidos').textContent = res2.numsVendidos;
+          if (typeof res2.numsApartados === 'number') document.getElementById('numsApartados').textContent = res2.numsApartados;
+        }
+
+        // 3) Actualizar badge y acciones
+        const tdEstado = row.querySelector('.td-estado');
+        if (tdEstado) tdEstado.innerHTML = '<span class="badge badge-cancelado px-2 py-1">CANCELADO</span>';
+        sel.innerHTML = '<option value="">Acciones…</option>'; // sin más acciones
+      }
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      sel.disabled = false;
+      sel.value = '';
+      // ⬇️ Desbloquea pantalla
+      unblockPage();
+    }
+  });
+});
+/*]]>*/
+</script>
+ 
+
+  
+  
+  <script th:inline="javascript">
+document.addEventListener('DOMContentLoaded', () => {
+  const selEstado = document.getElementById('selectEstado');
+  function goWithParams(params){
+    const url = new URL(window.location.href);
+    Object.entries(params).forEach(([k,v]) => {
+      if (v === null || v === undefined || v === '') url.searchParams.delete(k);
+      else url.searchParams.set(k, v);
+    });
+    window.location.href = url.toString();
+  }
+  selEstado?.addEventListener('change', () => {
+    goWithParams({ estadoId: selEstado.value, page: 0, nPage: 0 });
+  });
+});
+</script>
+  
+  
+  
+  
+  
+  
+  <!-- === DROP-IN SKIN: pegar al FINAL del <head> o justo antes de </body> === -->
+<style>
+/* === PAGE BLOCKER styles === */
+#pageBlocker{
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,.65);
+  backdrop-filter: saturate(120%) blur(2px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: wait;
+}
+#pageBlocker[hidden]{ display: none; }
+.blocker-box{
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  background: #111827;     /* caja oscura para que contraste con el fondo claro */
+  color: #fff;
+  padding: .9rem 1.1rem;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  font-weight: 800;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Tipografía y base */
+:root{
+  --font-body: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+  --fx-glow: 0 10px 30px rgba(0,0,0,.25);
+  --bc-bg: #0b1220;              /* ya definido, reforzamos */
+  --bc-card: #0f172a;
+  --bc-border: #1f2937;
+  --bc-text: #e7ecf2;            /* + contraste */
+  --bc-muted: #a8b3c7;           /* más legible */
+  --bc-soft: #111827;
+  --bc-info: #60a5fa;
+  --bc-accent: #22c55e;
+}
+html { scroll-behavior: smooth; }
+body{
+  font-family: var(--font-body);
+  font-size: 15.5px;             /* + tamaño */
+  line-height: 1.45;
+  color: var(--bc-text);
+  text-rendering: optimizeLegibility;
+}
+
+/* Títulos y encabezados */
+.page-title{ 
+  font-weight: 900; 
+  letter-spacing:.3px; 
+  font-size: 1.4rem; 
+}
+.card-d .card-header strong{ font-weight: 800; letter-spacing:.2px; }
+.subtle{ color: var(--bc-muted) !important; }
+
+/* Cards más “elevadas” y respirables */
+.card-d{
+  border-radius: 20px;
+  border: 1px solid var(--bc-border);
+  background: linear-gradient(180deg, rgba(255,255,255,.025), rgba(255,255,255,.005));
+  box-shadow: var(--fx-glow);
+}
+.card-d .card-body{ padding: 1rem 1rem; }
+.card-d .card-header{ padding: .85rem 1rem !important; }
+
+/* Controles de filtro: mayor contraste y foco claro */
+.filter-label{ font-size:.82rem; color: var(--bc-muted); font-weight:700; }
+.form-select, .form-control{
+  background: #111827;
+  border:1px solid #223047;
+  color: var(--bc-text);
+  border-radius: 12px;
+}
+.form-select::placeholder, .form-control::placeholder{ color:#98a7be; opacity:.9; }
+.form-select:focus, .form-control:focus{
+  border-color: var(--bc-info);
+  box-shadow: 0 0 0 .25rem rgba(96,165,250,.15);
+}
+
+/* Botones */
+.btn{ border-radius: 12px; font-weight: 700; }
+.btn-primary{ background: linear-gradient(90deg,#3b82f6,#2563eb); border:0; }
+.btn-outline-light{ border-color:#2a3a54; }
+.btn-outline-light:hover{ background:#172036; }
+
+/* Tabla moderna y súper legible */
+.table-modern{
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--bc-border);
+}
+.table-modern thead th{
+  background: linear-gradient(180deg, #15233f, #0f1c33);
+  color: #eaf2ff;
+  font-weight: 800;
+  text-transform: uppercase;
+  font-size: .78rem;
+  position: sticky; top: 0; z-index: 2;
+}
+.table-modern td, .table-modern th{
+  padding: .9rem 1rem;
+  vertical-align: middle;
+  border-color: #1e2a3f;
+}
+.table-modern tbody tr{ background: rgba(255,255,255,.02); }
+.table-modern tbody tr:nth-child(even){ background: rgba(255,255,255,.045); }
+.table-modern tbody tr:hover{ background: rgba(96,165,250,.14); }
+
+/* Índice con alto contraste */
+.idx-badge{
+  min-width: 2rem; height: 2rem; font-size:.95rem; font-weight:900;
+  color:#fff; border-radius:999px; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid rgba(255,255,255,.15);
+  box-shadow: 0 2px 10px rgba(0,0,0,.25);
+}
+
+/* Badges de estado más claras */
+.td-estado .badge{
+  font-weight: 800; letter-spacing:.4px; border:1px solid transparent; padding:.3rem .6rem; border-radius: 999px;
+}
+.badge-apartado{ color:#ffd166; background: rgba(245,158,11,.15); border-color: rgba(245,158,11,.35); }
+.badge-vendido { color:#083c2a; background:#34d399; border-color:#0ea969; }
+.badge-cancelado{ color:#4a0f0f; background:#fca5a5; border-color:#ef4444; }
+
+/* Chips de números más grandes y legibles */
+.chip{
+  background: #0e1730; color: var(--bc-text); border:1px dashed #2a3a54;
+  padding:.45rem .75rem; font-weight:800; font-size:.95rem; letter-spacing:.2px;
+}
+.chip small{ color:#9fb1cc; font-weight:800; }
+
+/* Panel derecho */
+.side-wrap{ 
+  border-radius: 14px; border:1px solid var(--bc-border); 
+  background: rgba(255,255,255,.02); 
+}
+
+/* Paginación mejor centrada y visible */
+.pagination .page-link{
+  background:#121b2f; border-color:#2a3a54; color:#dbe6ff;
+}
+.pagination .page-link:hover{ background:#17253f; }
+.pagination .disabled .page-link{ color:#7d8baa; }
+
+/* Espaciados utilitarios sutiles */
+.container-fluid .row.g-3 > [class*="col-"]{ padding-bottom:.2rem; }
+
+
+@media (max-width: 576px){
+  .table-modern td, .table-modern th{ padding:.7rem .7rem; }
+  .page-title{ font-size: 1.2rem; }
+}
+
+
+
+</style>
+
+
+<style id="light-fix-overrides">
+/* Base clara y texto negro */
+html, body{
+  background: #fff !important;
+  color: #111827 !important; /* negro/gris muy oscuro para buena lectura */
+}
+
+/* Tarjetas, bordes y encabezados */
+.card-d{
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 16px !important;
+  box-shadow: 0 6px 24px rgba(0,0,0,.06) !important;
+}
+.card-d .card-header{
+  background: #f8fafc !important;
+  color: #111827 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+/* Etiquetas y texto tenue */
+.subtle, .filter-label, .text-muted{
+  color: #64748b !important; /* slate-500 */
+}
+
+/* Controles (inputs/selects) en claro */
+.form-select, .form-control{
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #cbd5e1 !important; /* slate-300 */
+  border-radius: 10px !important;
+}
+.form-select:focus, .form-control:focus{
+  border-color: #60a5fa !important;      /* azul suave */
+  box-shadow: 0 0 0 .25rem rgba(96,165,250,.20) !important;
+}
+
+/* Botones outline claros: que no “desaparezcan” en fondo blanco */
+.btn-outline-light{
+  color: #111827 !important;
+  border-color: #cbd5e1 !important;
+  background: #ffffff !important;
+}
+.btn-outline-light:hover{
+  background: #f1f5f9 !important; /* slate-100 */
+}
+
+/* Tabla clara y legible */
+.table-modern{
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+}
+.table-modern thead th{
+  background: #f3f4f6 !important; /* gris claro */
+  color: #111827 !important;
+  font-weight: 800 !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+.table-modern td, .table-modern th{
+  border-color: #eef2f7 !important;
+  color: #111827 !important;
+}
+.table-modern tbody tr:nth-child(even){
+  background: #fafafa !important;
+}
+.table-modern tbody tr:hover{
+  background: #eef6ff !important; /* leve highlight */
+}
+
+/* Badges de estado en claro */
+.td-estado .badge{ border: 1px solid transparent; font-weight: 800; }
+.badge-apartado {
+  background: #fef3c7 !important;  /* amber-100 */
+  color: #92400e !important;        /* amber-800 */
+  border-color: #fcd34d !important; /* amber-300 */
+}
+.badge-vendido {
+  background: #dcfce7 !important;  /* emerald-100 */
+  color: #065f46 !important;        /* emerald-800 */
+  border-color: #86efac !important; /* emerald-300 */
+}
+.badge-cancelado {
+  background: #fee2e2 !important;  /* red-100 */
+  color: #991b1b !important;        /* red-800 */
+  border-color: #fca5a5 !important; /* red-300 */
+}
+
+/* Chips del panel derecho en claro */
+.chip{
+  background: #f8fafc !important;   /* slate-50 */
+  color: #0f172a !important;         /* slate-900 */
+  border: 1px dashed #e5e7eb !important;
+}
+.chip small{ color:#475569 !important; } /* slate-600 */
+
+/* Paginación clara */
+.pagination .page-link{
+  background: #ffffff !important;
+  border: 1px solid #dee2e6 !important;
+  color: #0d6efd !important; /* bootstrap primary */
+}
+.pagination .page-link:hover{
+  background: #e9ecef !important;
+}
+.pagination .disabled .page-link{
+  color: #94a3b8 !important; background: #ffffff !important;
+}
+
+/* “Números seleccionados” contadores y etiquetas en oscuro */
+.idx-badge{
+  background: #eef2ff !important;
+  color: #111827 !important;
+  border: 1px solid #c7d2fe !important;
+}
+
+/* Panel lateral contenedor */
+.side-wrap{
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 12px !important;
+}
+
+/* Asegura que cualquier resto heredado oscuro no pinte textos en blanco */
+* { color: inherit; }
+
+/* Colorear chip por estado (sin cambiar tu HTML) */
+#numsGrid [data-state*="APARTADO" i]{ background: rgba(251,191,36,.15); border-color: rgba(251,191,36,.5); }
+#numsGrid [data-state*="VENDIDO"  i]{ background: rgba(52,211,153,.16); border-color: rgba(16,185,129,.55); }
+#numsGrid [data-state*="CANCELADO" i]{ background: rgba(239,68,68,.16); border-color: rgba(239,68,68,.55); }
+
+
+
+/* Responsive fino */
+.tbl-sticky{ max-height: 66vh; }
+@media (max-width: 992px){
+  .tbl-sticky{ max-height: unset; }
+}
+@media (max-width: 576px){
+  .page-title{ font-size: 1.35rem; }
+  .table-modern td, .table-modern th{ padding:.7rem .65rem; }
+}
+
+
+</style>
+<style>
+  /* Contenedor “tarjeta” del paginador */
+  .pager-shell {
+    background: #f8fafc;
+    border-radius: 999px;
+    padding: .35rem .75rem;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    box-shadow: 0 1px 3px rgba(15,23,42,.08);
+  }
+
+  .pager-shell small {
+    font-size: .75rem;
+    color: #6b7280;
+    margin-right: .35rem;
+  }
+
+  /* Estilo suave para los links */
+  .pagination-soft .page-link {
+    border-radius: 999px !important;
+    border: none;
+    font-size: .75rem;
+    padding: .3rem .6rem;
+    color: #4b5563;
+    background-color: transparent;
+  }
+
+  .pagination-soft .page-link:hover {
+    background-color: #e5e7eb;
+    color: #111827;
+  }
+
+  .pagination-soft .page-item.disabled .page-link {
+    color: #9ca3af;
+    background-color: transparent;
+  }
+
+  .pagination-soft .page-item.active .page-link {
+    background: linear-gradient(90deg,#2563eb,#3b82f6);
+    color: #fff;
+    font-weight: 600;
+  }
+
+  /* Para que no se peguen tanto los elementos */
+  .pagination-soft {
+    gap: .15rem;
+  }
+</style>
+
+
+
+  
+</body>
+</html>

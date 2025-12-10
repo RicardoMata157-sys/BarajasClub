@@ -1,0 +1,2306 @@
+<!DOCTYPE html>
+<html lang="es" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments :: head('Comprar boleto')}">
+
+<meta name="_csrf" th:content="${_csrf.token}" />
+<meta name="_csrf_header" th:content="${_csrf.headerName}" />
+
+
+
+</head>
+
+<script>
+  // Hace crecer el textarea al contenido, con tope
+  function autoGrowTextarea(el) {
+    if (!el) return;
+    el.classList.remove('scrolled');
+    el.style.height = 'auto';                // recalcular desde 0
+    const max = parseInt(getComputedStyle(el).maxHeight, 10);
+    el.style.height = Math.min(el.scrollHeight, max) + 'px';
+    if (el.scrollHeight > max) el.classList.add('scrolled'); // activa scroll si rebasó
+  }
+</script>
+
+
+<script>
+
+// document.getElementById('selectRifa')?.addEventListener('change', (e) => {
+// 	  e.target.form?.submit();                 // GET /admin/edicion?id=<valor>
+// 	});
+
+
+function updateMaxUI() {
+  // Máximo permitido = boletos x números por boleto
+  const max = getMAX();
+  const sMax = document.getElementById('spanMaxSel');
+  if (sMax) sMax.textContent = String(max);
+
+  // Encabezado “Selecciona tus Números : <numPorBoleto>”
+  const sNPB = document.getElementById('spanNumPorBoleto');
+  if (sNPB) sNPB.textContent = String(NUM_POR_BOLETO);
+}
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('selBoletos');
+  const hidden = document.getElementById('cantidadBoletos');
+  if (!sel || !hidden) return;
+  // set inicial
+  hidden.value = sel.value;
+  // sync en cambios
+  sel.addEventListener('change', () => hidden.value = sel.value);
+});
+</script>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+	
+let clienteModal = null;
+let ticketModal  = null;
+document.addEventListener('DOMContentLoaded', () => {
+  // --- Estado global ---
+  let RIFA_ID = /*[[${rifaSeleccionada != null ? rifaSeleccionada.id : 0}]]*/ 0;
+  const BASE  = /*[[@{/}]]*/ '/';
+
+  const grid       = document.getElementById('gridNumeros');
+  const input      = document.getElementById('numeroTicket');
+  const selCount   = document.getElementById('selCount');
+  const selBoletos = document.getElementById('selBoletos');
+  const btnAuto    = document.getElementById('btnAuto');
+  const btnClear   = document.getElementById('btnClear');
+  const paginator  = document.getElementById('paginator');
+  const pageMeta   = document.getElementById('pageMeta');
+  const pageSizeSel= document.getElementById('pageSizeSelect');
+  const spanNumPorBoleto= document.getElementById('spanNumPorBoleto');
+  
+  
+//   const btnClear = document.getElementById('btnClear');
+  const rifaId = Number(document.getElementById('rifaId').value);
+  
+  const CSRF = (() => {
+	  const token  = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+	  const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+	  return { token, header };
+	})();
+  
+  if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+	    const elCliente = document.getElementById('clienteExistenteModal');
+	    const elTicket  = document.getElementById('ticketModal');
+	    if (elCliente) clienteModal = bootstrap.Modal.getOrCreateInstance(elCliente);
+	    if (elTicket)  ticketModal  = bootstrap.Modal.getOrCreateInstance(elTicket);
+	  }
+  
+  
+  // Paginación
+  let currentPage  = 1;
+  let pageSize     = Number(sessionStorage.getItem('raffle.pageSize') || pageSizeSel?.value || 1000);
+  let totalPages   = 1;
+  let totalItems   = 0;
+  let digits       = Number(grid?.dataset?.digits || 2); // respaldo si backend no manda "digits"
+
+  // Selección y tope
+  const seleccion = new Set();
+//   let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;
+//   let CANT_BOLETOS   = Number(selBoletos?.value || 1);
+//   const getMAX = () => NUM_POR_BOLETO * CANT_BOLETOS;
+
+  // ---- Utilidades ----
+  const norm = (n) => {
+    // limpia y pad-left al tamaño "digits" actual
+    const raw = String(n).replace(/[^\d]/g, '');
+    return raw.padStart(digits, '0');
+  };
+  
+  
+  
+  
+  
+//--- Loader global ---
+  let __loadingCount = 0;
+  function showLoader(){
+    __loadingCount++;
+    document.getElementById('loadingOverlay')?.classList.remove('d-none');
+  }
+  function hideLoader(){
+    __loadingCount = Math.max(0, __loadingCount-1);
+    if (__loadingCount === 0) {
+      document.getElementById('loadingOverlay')?.classList.add('d-none');
+    }
+  }
+
+  // --- Spinner en botón mientras corre una tarea async ---
+  function withBtnSpinner(btn, fn){
+    return (async()=>{
+      if (!btn) return fn();
+      const original = btn.innerHTML;
+      const label = btn.dataset.loadingText || btn.textContent || 'Cargando…';
+      btn.disabled = true;
+      btn.innerHTML = `<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>${label}`;
+      try { return await fn(); }
+      finally { btn.disabled = false; btn.innerHTML = original; }
+    })();
+  }
+
+  
+  
+  
+  
+  let NUM_POR_BOLETO = /*[[${numPorBoleto}]]*/ 1;  // se sobrescribe con el JSON
+  let CANT_BOLETOS   = Number(document.getElementById('selBoletos')?.value || 1);
+
+  const getMAX = () =>
+    (Number(NUM_POR_BOLETO) || 1) * (Number(CANT_BOLETOS) || 1);
+
+  function updateMaxUI() {
+    const npb = document.getElementById('spanNumPorBoleto');
+    const max = document.getElementById('spanMaxSel');
+    if (npb) npb.textContent = String(NUM_POR_BOLETO);
+    if (max) max.textContent = String(getMAX());
+  }
+
+  function trimSelectionToMax() {
+    const MAX = getMAX();
+    if (seleccion.size <= MAX) return;
+    const arr = Array.from(seleccion)
+      .map(n => String(n).padStart(digits, '0'))
+      .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+    while (arr.length > MAX) arr.pop();
+    seleccion.clear();
+    arr.forEach(n => seleccion.add(n));
+  }
+
+  
+  
+  
+  
+  
+
+  function refreshInput(){
+	  const arr = Array.from(seleccion)
+	    .map(norm)
+	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+
+	  const input = document.getElementById('numeroTicket');
+	  if (!input) return;
+
+	  input.value = arr.join(', ');
+	  autoGrowTextarea(input);
+	  if (selCount) selCount.textContent = String(arr.length);
+// 	  if (spanNumPorBoleto) spanNumPorBoleto.textContent = String(arr.length);
+
+	  updateMaxUI(); // <-- ¡clave! refresca Y con el MAX actual
+	}
+
+
+
+  function makeBtn(label, state){
+    // label ya viene normalizado por backend; normalizamos también para estado seleccionado
+    const lab = norm(label);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-sm num-btn';
+    btn.textContent = lab;
+    btn.dataset.label = lab;
+    btn.dataset.num   = String(parseInt(lab,10));
+
+    if (state === 'disp') {
+      if (seleccion.has(lab)) {
+        btn.classList.add('btn-primary','selected');
+      } else {
+        btn.classList.add('btn-success');
+      }
+    } else if (state === 'ap') {
+      btn.classList.add('btn-warning'); btn.disabled = true; btn.title='Apartado';
+    } else {
+      btn.classList.add('btn-dark'); btn.disabled = true; btn.title='Pagado';
+    }
+    return btn;
+  }
+
+  function setPageMeta(page, size, total){
+    if (!pageMeta) return;
+    const from = total === 0 ? 0 : ((page-1)*size)+1;
+    const to   = Math.min(total, page*size);
+    pageMeta.textContent = `Mostrando ${from}–${to} de ${total}`;
+  }
+
+  function addPageItem(ul, text, page, {disabled=false, active=false, aria='' }={}){
+    const li = document.createElement('li');
+    li.className = `page-item ${disabled?'disabled':''} ${active?'active':''}`;
+    const a = document.createElement('a');
+    a.className = 'page-link';
+    a.href='#';
+    a.textContent = text;
+    if (aria) a.setAttribute('aria-label', aria);
+    a.addEventListener('click', (e)=> {
+      e.preventDefault();
+      if (disabled || page === currentPage) return;
+      currentPage = page;
+      fetchAndRender(currentPage);
+    });
+    li.appendChild(a);
+    ul.appendChild(li);
+  }
+
+  function addEllipsis(ul){
+    const li = document.createElement('li');
+    li.className = 'page-item disabled';
+    li.innerHTML = `<span class="page-link">…</span>`;
+    ul.appendChild(li);
+  }
+
+  // Paginador con ventana (máx. 7 botones numéricos)
+  function buildPaginator(tp){
+    totalPages = Math.max(1, tp);
+    paginator.innerHTML = '';
+    const ul = paginator;
+
+    const MAX_NUM = 7;
+    const windowHalf = Math.floor(MAX_NUM/2);
+
+    let start = Math.max(1, currentPage - windowHalf);
+    let end   = Math.min(totalPages, start + MAX_NUM - 1);
+    start     = Math.max(1, end - MAX_NUM + 1);
+
+    // first/prev
+    addPageItem(ul, '«', 1, { disabled: currentPage===1, aria:'Primera' });
+    addPageItem(ul, '‹', Math.max(1, currentPage-1), { disabled: currentPage===1, aria:'Anterior' });
+
+    if (start > 1) {
+      addPageItem(ul, '1', 1, { active: currentPage===1 });
+      if (start > 2) addEllipsis(ul);
+    }
+
+    for (let p=start; p<=end; p++){
+      addPageItem(ul, String(p), p, { active: p===currentPage });
+    }
+
+    if (end < totalPages) {
+      if (end < totalPages-1) addEllipsis(ul);
+      addPageItem(ul, String(totalPages), totalPages, { active: currentPage===totalPages });
+    }
+
+    // next/last
+    addPageItem(ul, '›', Math.min(totalPages, currentPage+1), { disabled: currentPage===totalPages, aria:'Siguiente' });
+    addPageItem(ul, '»', totalPages, { disabled: currentPage===totalPages, aria:'Última' });
+  }
+
+  function buildGridPayload(data){
+    // Sincroniza "digits" por si backend lo define
+    digits = Number(data.digits ?? digits ?? 2);
+    NUM_POR_BOLETO = Number(data.numPorBoleto ?? NUM_POR_BOLETO);
+
+    // data.disp = disponibles de ESTA página (Strings ya listos)
+    const dispOnPage = (data.disp || []).map(norm);
+
+    // Ordena: seleccionados primero
+    const selOnPage  = dispOnPage.filter(l => seleccion.has(l));
+    const restOnPage = dispOnPage.filter(l => !seleccion.has(l));
+
+    grid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    selOnPage.forEach(l => frag.appendChild(makeBtn(l, 'disp')));
+    restOnPage.forEach(l => frag.appendChild(makeBtn(l, 'disp')));
+
+    (data.ap  || []).map(norm).forEach(l => frag.appendChild(makeBtn(l, 'ap')));
+    (data.pag || []).map(norm).forEach(l => frag.appendChild(makeBtn(l, 'pag')));
+
+    grid.appendChild(frag);
+
+    // meta
+    setPageMeta(data.page || 1, data.size || pageSize, data.total || 0);
+  }
+
+//   async function fetchAndRender(page){
+// 	  if (!RIFA_ID) return;
+// 	  const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+// 	  const res = await fetch(url, { cache:'no-store' });
+// 	  if (!res.ok) throw new Error('HTTP '+res.status);
+// 	  const data = await res.json();
+
+// 	  // 1) Título desde JSON
+// 	  const h1 = document.querySelector('h1.h4.mb-3');
+// 	  if (h1 && data.nombreRifaSeleccionada) {
+// 	    h1.textContent = data.nombreRifaSeleccionada;
+// 	  }
+
+// 	  // 2) Imagen de preview desde JSON
+// 	  const box  = document.querySelector('.preview-box');
+// 	  const img  = box?.querySelector('img.preview-img');
+// 	  const empty= box?.querySelector('.preview-empty');
+// 	  if (img && data.imgUrl) {
+// 	    img.src = data.imgUrl;
+// 	    img.classList.remove('d-none');
+// 	    empty?.classList.add('d-none');
+// 	  } else {
+// 	    img?.classList.add('d-none');
+// 	    empty?.classList.remove('d-none');
+// 	  }
+
+// 	  // 3) Leyenda (cuenta de disponibles/apartados/pagados)
+// 	  updateLegendFromData(data);
+
+// 	  // 4) Grilla + paginador (tu código ya lo hace)
+// 	  buildGridPayload(data);
+// 	  buildPaginator(data.totalPages || 1);
+// 	  refreshInput();
+// 	}
+
+
+  async function fetchAndRender(page){
+	    if (!RIFA_ID) return;
+	    showLoader();
+	    
+	    
+	    try {
+	        const url = `${BASE}detalle/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+	        const res = await fetch(url, { cache:'no-store' });
+	        if (!res.ok) throw new Error('HTTP '+res.status);
+	        const data = await res.json();
+	        totalItems = Number(data.total || 0);
+		    
+		    // 1) Título desde JSON
+			  const h1 = document.querySelector('h1.h4.mb-3');
+			  if (h1 && data.nombreRifaSeleccionada) {
+			    h1.textContent = data.nombreRifaSeleccionada;
+			  }
+		    
+		    // 2) Imagen de preview desde JSON
+			  const box  = document.querySelector('.preview-box');
+			  const img  = box?.querySelector('img.preview-img');
+			  const empty= box?.querySelector('.preview-empty');
+			  if (img && data.imgUrl) {
+			    img.src = data.imgUrl;
+			    img.classList.remove('d-none');
+			    empty?.classList.add('d-none');
+			  } else {
+			    img?.classList.add('d-none');
+			    empty?.classList.remove('d-none');
+			  }
+			  updateLegendFromData(data); 
+
+			    buildGridPayload(data);
+			    updateMaxUI(); 
+			    buildPaginator(data.totalPages || 1);
+			    refreshInput();
+	      } catch (err) {
+	        console.error('[fetchAndRender] error:', err);
+	      } finally {
+	        hideLoader();            // <-- CLAVE
+	      }
+	    
+	   
+	    
+// 	    const url = `${BASE}admin/rifa/${RIFA_ID}/numeros-simple?page=${page}&size=${pageSize}&_=${Date.now()}`;
+// 	    const res = await fetch(url, { cache:'no-store' });
+// 	    if (!res.ok) throw new Error('HTTP '+res.status);
+// 	    const data = await res.json();
+
+// 	    totalItems = Number(data.total || 0);
+	    
+// 	    // 1) Título desde JSON
+// 		  const h1 = document.querySelector('h1.h4.mb-3');
+// 		  if (h1 && data.nombreRifaSeleccionada) {
+// 		    h1.textContent = data.nombreRifaSeleccionada;
+// 		  }
+	    
+// 	    // 2) Imagen de preview desde JSON
+// 		  const box  = document.querySelector('.preview-box');
+// 		  const img  = box?.querySelector('img.preview-img');
+// 		  const empty= box?.querySelector('.preview-empty');
+// 		  if (img && data.imgUrl) {
+// 		    img.src = data.imgUrl;
+// 		    img.classList.remove('d-none');
+// 		    empty?.classList.add('d-none');
+// 		  } else {
+// 		    img?.classList.add('d-none');
+// 		    empty?.classList.remove('d-none');
+// 		  }
+	    
+// 	    updateLegendFromData(data); 
+
+// 	    buildGridPayload(data);
+// 	    updateMaxUI(); 
+// 	    buildPaginator(data.totalPages || 1);
+// 	    refreshInput();
+	  }
+
+
+  // Delegación clicks en grilla
+//   grid.addEventListener('click', (e) => {
+//     const btn = e.target.closest('.num-btn');
+//     if (!btn || btn.disabled) return;
+//     const label = norm(btn.dataset.label || btn.textContent.trim());
+//     const isOn  = seleccion.has(label);
+//     const MAX   = getMAX();
+//     if (!isOn && seleccion.size >= MAX) return;
+
+//     if (isOn){
+//       seleccion.delete(label);
+//       btn.classList.remove('btn-primary','selected');
+//       btn.classList.add('btn-success');
+//     } else {
+//       seleccion.add(label);
+//       btn.classList.remove('btn-success');
+//       btn.classList.add('btn-primary','selected');
+//     }
+//     refreshInput();
+//   });
+
+  
+//   grid.addEventListener('click', async (e) => {
+//   const btn = e.target.closest('.num-btn');
+//   if (!btn || btn.disabled) return;
+
+//   // usa el label tal como lo guardas (si puedes, mejor usa data-id con el ID real de BD)
+//   const label = norm(btn.dataset.label || btn.textContent);
+//   const isOn  = seleccion.has(label);
+//   const MAX   = getMAX();
+//   if (!isOn && seleccion.size >= MAX) return;
+
+//   // Optimistic UI
+//   btn.disabled = true;
+//   let prevClasses = btn.className;
+
+//   try {
+//     if (isOn){
+//       // quitar en UI
+//       seleccion.delete(label);
+//       btn.classList.remove('btn-primary','selected');
+//       btn.classList.add('btn-success');
+
+//       // persistir en servidor
+//       await setSeleccionServidor({ label, selected: false });
+//     } else {
+//       // poner en UI
+//       seleccion.add(label);
+//       btn.classList.remove('btn-success');
+//       btn.classList.add('btn-primary','selected');
+
+//       // persistir en servidor
+//       await setSeleccionServidor({ label, selected: true });
+//     }
+//     refreshInput();
+//   } catch (err) {
+// 	  console.error('Fallo al persistir selección:', err);
+// 	  // rollback UI/estado local (ya lo tenías)
+// 	  btn.className = prevClasses;
+// 	  if (isOn) { seleccion.add(label); } else { seleccion.delete(label); }
+
+// 	  // Usa toast si fue conflicto 409; si no, un mensaje genérico
+// 	  if (String(err.message).startsWith('409')) {
+// 	    showNoDisp('Número ya no disponible');
+// 	  } else {
+// 	    showNoDisp('No se pudo actualizar en el servidor. Intenta de nuevo.');
+// 	  }
+// 	}
+// });
+  
+  
+  
+  grid.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.num-btn');
+  if (!btn || btn.disabled) return;
+
+  const label = norm(btn.dataset.label || btn.textContent);
+  const isOn  = seleccion.has(label);
+  const MAX   = getMAX();
+  if (!isOn && seleccion.size >= MAX) return;
+
+  btn.disabled = true;               // <— desactiva durante la petición
+  const prevClasses = btn.className;
+
+  try {
+    if (isOn) {
+      // UI optimista
+      seleccion.delete(label);
+      btn.classList.remove('btn-primary','selected');
+      btn.classList.add('btn-success');
+      // persistir
+      const data = await setSeleccionServidor({ label, selected: false });
+      // si el backend responde ok=false (no eras el dueño), revierte
+      if (data && data.ok === false) {
+        btn.className = prevClasses;
+        seleccion.add(label);
+        showNoDisp(data.msg || 'No se pudo deseleccionar');
+      }
+    } else {
+      seleccion.add(label);
+      btn.classList.remove('btn-success');
+      btn.classList.add('btn-primary','selected');
+      await setSeleccionServidor({ label, selected: true });
+    }
+    refreshInput();
+  }  catch (err) {
+	  if (String(err.message).startsWith('409')) {
+		    // 1) Toast
+		    showNoDisp('Número ya no disponible');
+
+		    // 2) Opción LIGERA: dejar el botón en VERDE y sacar el número de la selección
+		    rollbackToGreen(btn, label, seleccion);
+
+		    // 3) (Opcional) Opción FUERTE: recargar el grid para reflejar estados actuales
+		    const REFRESH_ON_CONFLICT = true;  // <-- pon en false si no quieres recargar
+		    if (REFRESH_ON_CONFLICT) {
+		      await fetchAndRender(currentPage);
+		    }
+		  } else {
+		    // Errores no 409: rollback visual previo y toast genérico
+		    btn.className = prevClasses;
+		    if (isOn) { seleccion.add(label); } else { seleccion.delete(label); }
+		    showNoDisp('No se pudo actualizar en el servidor. Intenta de nuevo.');
+		  }
+		}
+    finally {
+    btn.disabled = false;            // <— REACTÍVALO SIEMPRE
+  }
+});
+
+  
+  
+//   async function setSeleccionServidor({ label, selected }) {
+// 	  showLoader();
+// 	  const res = await fetch(`${BASE}admin/rifa/${RIFA_ID}/seleccion`, {
+// 	    method: 'POST',
+// 	    credentials: 'same-origin',
+// 	    headers: {
+// 	      'Content-Type': 'application/json',
+// 	      ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+// 	    },
+// 	    body: JSON.stringify({
+// 	      numero: label,
+// 	      seleccionado: !!selected,
+// 	      rifaId: RIFA_ID            // ← antes enviabas el hidden inicial
+// 	    })
+// 	  });
+// 	  if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+// 	  return res.json();
+// 	}
+
+
+  
+// async function setSeleccionServidor({ label, selected }) {
+//   showLoader();
+//   try {
+//     const qs = new URLSearchParams({
+//       numero: label,
+//       seleccionado: String(!!selected),
+//       rifaId: String(RIFA_ID)
+//     });
+
+//     const res = await fetch(`${BASE}detalle/${RIFA_ID}/seleccion?${qs.toString()}`, {
+//       method: 'GET',
+//       credentials: 'same-origin',
+//       cache: 'no-store' // evita cachear la respuesta
+//       // ⚠️ NO body, NO 'Content-Type' en GET
+//     });
+
+//     if (!res.ok) throw new Error(await res.text() || `HTTP ${res.status}`);
+//     return res.json();
+//   } finally {
+//     hideLoader();
+//   }
+// }
+
+
+async function setSeleccionServidor({ label, selected }) {
+  showLoader();
+  try {
+    const qs = new URLSearchParams({
+      numero: label,
+      seleccionado: String(!!selected),
+      rifaId: String(RIFA_ID)
+    });
+
+    const res = await fetch(`${BASE}detalle/${RIFA_ID}/seleccion?${qs.toString()}`, {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store'
+    });
+
+    // Caso “Número ya no disponible” → 409
+    if (res.status === 409) {
+      let data;
+      try { data = await res.json(); } catch {}
+      showNoDisp(data?.msg || 'Número ya no disponible');
+      // Lanza error para que el caller haga rollback visual
+      throw new Error('409 Numero no disponible');
+    }
+
+    if (!res.ok) {
+      throw new Error((await res.text()) || `HTTP ${res.status}`);
+    }
+
+    return res.json();
+  } finally {
+    hideLoader();
+  }
+}
+
+
+
+  
+  
+  
+  
+  
+  
+
+  
+  
+  btnAuto?.addEventListener('click', async () => {
+  const faltan = getMAX() - seleccion.size;
+  if (faltan <= 0 || !RIFA_ID) return;
+  showLoader();
+  try{
+    const url = `${BASE}detalle/${RIFA_ID}/auto-numeros?faltan=${faltan}&_=${Date.now()}`;
+    const res = await fetch(url, { cache:'no-store' });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    const nums = await res.json(); // ej. ["01","15","23"]
+    nums.map(norm).forEach(n => seleccion.add(n));
+    currentPage = 1;                // verlos en la primera página
+    await fetchAndRender(currentPage);
+  } catch(err){
+    console.error('[autoPick] error:', err);
+  } finally {
+    hideLoader();                   // <-- CLAVE
+  }
+});
+
+
+  // Limpiar
+//   btnClear?.addEventListener('click', () => {
+//     seleccion.clear();
+//     fetchAndRender(currentPage);
+//   });
+  
+  
+async function limpiarSeleccion() {
+  const ids = Array.from(seleccion);
+  if (!ids.length) {
+    seleccion.clear();
+    return fetchAndRender(currentPage);
+  }
+
+  // arma query ?numeroIds=12&numeroIds=34&numeroIds=56
+  const qs = new URLSearchParams();
+  ids.forEach(id => qs.append('numeroIds', id));
+
+  const res = await fetch(`${BASE}detalle/${RIFA_ID}/limpiar-auto?${qs.toString()}`, {
+    method: 'GET',
+    credentials: 'same-origin',  // envía cookies/sesión
+    cache: 'no-store'
+    // NO body, NO Content-Type en GET
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+
+  seleccion.clear();
+  await fetchAndRender(1);
+}
+
+  
+  
+btnClear?.addEventListener('click', () =>
+withBtnSpinner(btnClear, async () => {
+  showLoader();
+  try {
+    await limpiarSeleccion(); // tu función existente
+  } finally {
+    hideLoader();
+  }
+})
+);
+
+//   btnClear?.addEventListener('click', async (e) => {
+// 	  try { await limpiarSeleccion(); }
+// 	  catch (err) { console.error(err); alert('No se pudo limpiar la selección.'); }
+// 	});
+  
+  
+
+  // Cambio cantidad de boletos -> recalcula tope y recorta si hace falta
+//  selBoletos?.addEventListener('change', () => {
+//   CANT_BOLETOS = Number(selBoletos.value || 1);
+//   const MAX = getMAX();
+//   if (seleccion.size > MAX) {
+//     const arr = Array.from(seleccion).sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+//     while (arr.length > MAX) arr.pop();
+//     seleccion.clear();
+//     arr.forEach(x => seleccion.add(x));
+//   }
+//   updateMaxUI();           // <<--- NUEVO
+//   refreshInput();
+// });
+  
+//   const selBoletos = document.getElementById('selBoletos');
+selBoletos?.addEventListener('change', () => {
+  CANT_BOLETOS = Number(selBoletos.value || 1);
+  updateMaxUI();
+  trimSelectionToMax();
+  refreshInput(); // tu función que actualiza el textarea y el contador X
+});
+
+
+  // Selector de tamaño de página
+  pageSizeSel?.addEventListener('change', () => {
+    pageSize = Number(pageSizeSel.value || 120);
+    sessionStorage.setItem('raffle.pageSize', String(pageSize));
+    currentPage = 1;
+    fetchAndRender(currentPage);
+  });
+
+  // Cambio de rifa
+// Usa un puntero al hidden para mantenerlo sincronizado:
+const rifaIdHidden = document.getElementById('rifaId');
+
+// En el change de edición, además de setear RIFA_ID, sincroniza el hidden:
+document.getElementById('selectRifa')?.addEventListener('change', async (e) => {
+  const newId = Number(e.target.value);
+  if (!newId) return;
+  RIFA_ID = newId;
+  if (rifaIdHidden) rifaIdHidden.value = String(RIFA_ID); // ← CLAVE
+  seleccion.clear();
+  currentPage = 1;
+  await fetchAndRender(currentPage);
+  updateMaxUI();
+});
+
+
+  // Inicial
+  if (RIFA_ID) {
+    // sincroniza selector si había preferencia guardada
+    if (pageSizeSel) pageSizeSel.value = String(pageSize);
+    fetchAndRender(currentPage);
+  } else {
+    refreshInput();
+  }
+});
+
+
+
+function updateLegendFromData(data) {
+	  // Preferimos campos de conteo si existen para no depender de arrays gigantes
+	  const dispTotal = Number(
+	    data?.total ?? data?.dispTotal ?? (Array.isArray(data?.dispAll) ? data.dispAll.length
+	                               : (Array.isArray(data?.disp) ? data.disp.length : 0))
+	  );
+	  const apTotal  = Number(data?.apCount  ?? (Array.isArray(data?.ap)  ? data.ap.length  : 0));
+	  const pagTotal = Number(data?.pagCount ?? (Array.isArray(data?.pag) ? data.pag.length : 0));
+
+	  const d = document.getElementById('countDisp');
+	  const a = document.getElementById('countAp');
+	  const p = document.getElementById('countPag');
+
+	  if (d) d.textContent = dispTotal;
+	  if (a) a.textContent = apTotal;
+	  if (p) p.textContent = pagTotal;
+	}
+
+
+
+// function refreshInput() {
+// 	  const arr = Array.from(seleccion)
+// 	    .map(n => String(n).padStart(digits, '0'))
+// 	    .sort((a,b)=>parseInt(a,10)-parseInt(b,10));
+
+// 	  const input = document.getElementById('numeroTicket');
+// 	  if (!input) return;
+
+// 	  input.value = arr.join(', ');
+// 	  autoGrowTextarea(input);   // <-- ¡clave!
+// 	  const selCount = document.getElementById('selCount');
+// 	  if (selCount) selCount.textContent = String(arr.length);
+// 	}
+
+
+
+
+/*]]>*/
+</script>
+
+
+
+
+
+
+
+
+
+
+<body>
+	<header th:replace="~{fragments :: navbar}"></header>
+	
+	<div class="container py-3">
+	
+   <main class="container py-4">
+
+  <!-- HERO -->
+  <div class="hero-public mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div>
+      <div class="section-kicker mb-1">Participa en</div>
+      <h3 id="tituloRifa"
+          th:text="${nombreRifaSeleccionada != null ? nombreRifaSeleccionada :
+                    (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">Edición</h3>
+    </div>
+
+    <div class="d-flex flex-wrap gap-3">
+      <div class="stat-pill">
+        <span class="badge bg-success-subtle text-success-emphasis">Disponible</span>
+        <strong id="countDisp"
+                th:text="${dispNumeros != null ? #lists.size(dispNumeros) : 0}">0</strong>
+      </div>
+      <div class="stat-pill">
+        <span class="badge bg-warning-subtle text-warning-emphasis">Apartado</span>
+        <strong id="countAp" th:text="${ap != null ? #lists.size(ap) : 0}">0</strong>
+      </div>
+      <div class="stat-pill">
+        <span class="badge bg-dark-subtle text-dark-emphasis">Pagado</span>
+        <strong id="countPag" th:text="${pag != null ? #lists.size(pag) : 0}">0</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+
+    <!-- COLUMNA IZQUIERDA: Imagen + grid + paginación -->
+    <div class="col-lg-8">
+
+      <!-- Imagen -->
+      <div class="form-card">
+        <div class="section-kicker mb-2">Vista previa</div>
+        <div class="preview-box" id="imgBox">
+          <img id="imgRifa" class="preview-img"
+               th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+               th:src="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+               th:alt="|Imagen de ${rifaSeleccionada.nombre}|"/>
+          <div class="preview-empty" id="noImg"
+               th:if="${rifaSeleccionada == null or (#strings.isEmpty(rifaSeleccionada.pathImagen) and #strings.isEmpty(rifaSeleccionada.rutaImagen))}">
+            <i class="bi bi-image me-1"></i> Sin imagen
+          </div>
+        </div>
+        <a class="small mt-2 d-inline-block text-decoration-none" id="imgLink"
+           th:if="${rifaSeleccionada != null and (rifaSeleccionada.pathImagen != null or rifaSeleccionada.rutaImagen != null)}"
+           th:href="@{${#strings.isEmpty(rifaSeleccionada.pathImagen) ? rifaSeleccionada.rutaImagen : rifaSeleccionada.pathImagen}}"
+           target="_blank" rel="noopener">Abrir imagen en nueva pestaña</a>
+      </div>
+
+      <!-- Encabezado selección + contador -->
+      <div class="card card-soft p-3 mb-3">
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <h2 class="h6 m-0">
+            Números por boleto: <span id="spanNumPorBoleto" th:text="${numPorBoleto}">1</span>
+          </h2>
+          <div class="small">
+            Seleccionados: <strong id="selCount">0</strong> /
+            <strong id="spanMaxSel" th:text="${numPorBoleto}">1</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Meta + Por página + Boletos -->
+      <div class="card card-soft p-3 mb-2">
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <div id="pageMeta" class="small text-muted">—</div>
+
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label m-0 small">Por página</label>
+              <select id="pageSizeSelect" class="form-select form-select-sm" style="width:auto">
+                <option value="100">100</option>
+                <option value="200">200</option>
+                <option value="500" selected>500</option>
+                <option value="1000">1000</option>
+              </select>
+            </div>
+
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label m-0 small">Boletos</label>
+              <select id="selBoletos" class="form-select form-select-sm" style="width:auto">
+                <option value="1" selected>1</option>
+                <option value="2">2</option><option value="3">3</option>
+                <option value="4">4</option><option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="30">30</option>
+                <option value="40">40</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paginador -->
+        <nav class="mt-2">
+          <ul id="paginator" class="pagination pagination-sm justify-content-center mb-0"></ul>
+        </nav>
+      </div>
+
+      <!-- GRID -->
+      <div class="card card-soft p-3">
+        <div id="gridNumeros"
+             class="grid-numeros"
+             th:with="dg=${digitosNumeros != null ? digitosNumeros : 2}"
+             th:attr="data-digits=${dg}">
+
+          <!-- DISPONIBLES -->
+          <button type="button" class="btn btn-success btn-sm num-btn"
+                  th:each="n : ${dispNumeros}"
+                  th:text="${#numbers.formatInteger(n, dg)}"
+                  th:attr="data-num=${n}, data-label=${#numbers.formatInteger(n, dg)}">
+            01
+          </button>
+
+          <!-- APARTADOS -->
+          <button type="button" class="btn btn-warning btn-sm num-btn"
+                  th:each="n : ${ap}" th:text="${n}" disabled aria-disabled="true" title="Apartado">01</button>
+
+          <!-- PAGADOS -->
+          <button type="button" class="btn btn-dark btn-sm num-btn"
+                  th:each="n : ${pag}" th:text="${n}" disabled aria-disabled="true" title="Pagado">01</button>
+        </div>
+
+       
+      </div>
+    </div>
+
+    <!-- COLUMNA DERECHA: Formulario comprador -->
+    <div class="col-lg-4">
+      <div class="card card-soft p-3 sticky-lg-top" style="top: 1rem;">
+        <h2 class="h6 mb-3">Datos del comprador</h2>
+
+        <form id="formCompra" method="POST" th:action="@{/detalle/confirmar}">
+        <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" />
+        
+          <input type="hidden" id="rifaId" name="rifaId"
+            th:value="${rifaSeleccionada != null ? rifaSeleccionada.id : (id != null ? id : 0)}" />
+
+          <!-- Seleccionados -->
+          <div class="mb-2">
+            <label class="form-label">Números seleccionados</label>
+            <textarea id="numeroTicket" name="numeroTicket" class="form-control autosize" rows="1" wrap="soft" readonly></textarea>
+            <div class="form-text">Se llena automáticamente con los números elegidos (separados por comas).</div>
+          </div>
+
+          <!-- Acciones -->
+          <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+            <button type="button" class="btn btn-outline-primary btn-sm" id="btnAuto">Selección automática</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" id="btnClear">Limpiar selección</button>
+          </div>
+
+          <!-- Campos -->
+          <div class="row g-2">
+            <div class="col-12"><label class="form-label">Nombre(s)</label><input name="nombre" class="form-control" required /></div>
+            <div class="col-sm-6"><label class="form-label">Apellido paterno</label><input name="apellidoP" class="form-control" required /></div>
+            <div class="col-sm-6"><label class="form-label">Apellido materno</label><input name="apellidoM" class="form-control" /></div>
+<!--             <div class="col-12"><label class="form-label">Correo</label><input id="email" name="email" type="email" class="form-control" /></div> -->
+            <div class="col-12">
+              <label class="form-label">Teléfono</label>
+              <input id="telefono" name="telefono"
+       class="form-control"
+       type="tel" inputmode="numeric"
+       pattern="^\d{10}$"
+       minlength="10" maxlength="10"
+       required />
+<div class="form-text">Exactamente 10 dígitos (solo números).</div>
+
+            </div>
+            <div class="col-sm-6"><label class="form-label">Municipio</label><input name="municipio" class="form-control" /></div>
+            <div class="col-sm-6"><label class="form-label">Estado</label><input name="estado" class="form-control" /></div>
+            <div class="col-sm-6"><label class="form-label">Código Postal</label><input name="codigoPostal" class="form-control" /></div>
+            <div class="col-sm-6">
+            <input type="hidden" name="compraId" th:value="${compraId}">
+              <label class="form-label">Tipo de pago</label>
+              <select class="form-control" name="tipoPagoId" required>
+                <option value="" disabled selected>Selecciona...</option>
+                <option th:each="tp : ${tiposPago}" th:value="${tp.id}" th:text="${tp.nombre}"></option>
+              </select>
+            </div>
+          </div>
+
+          <input type="hidden" name="cantidadBoletos" id="cantidadBoletos" value="">
+          <input type="hidden" name="clienteId" id="clienteId" />
+
+							<button class="btn btn-primary w-100 mt-3" type="submit"
+								id="btnComprar" data-loading-text="Procesando...">
+								Comprar boleto</button>
+
+						</form>
+      </div>
+    </div>
+
+  </div>
+</main>
+   
+ 
+  
+  
+	
+	</div>
+
+	<th:block th:replace="~{fragments_admin :: scripts}"></th:block>
+
+
+
+<style>
+/* Contenedor hero */
+.hero-public {
+  border: 1px solid #e9ecef;
+  border-radius: 14px;
+  padding: 1rem 1.25rem;
+  background: #fff;
+}
+
+/* Tarjetas suaves */
+.card-soft {
+  border: 1px solid #e9ecef;
+  border-radius: 14px;
+  background: #fff;
+}
+
+/* Paginador compacto y centrado */
+.pagination .page-link { border: 0; }
+.pagination .page-item.active .page-link { background: #1d4ed8; }
+.pagination .page-item.disabled .page-link { opacity: .5; }
+#pageMeta { min-height: 1.5rem; }
+
+/* Grid de números: no se desborda y es responsivo */
+.grid-numeros {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
+  gap: .5rem;
+}
+.num-btn {
+  min-width: 56px;            /* coincidir con minmax del grid */
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chips de counters del hero */
+.stat-pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 999px;
+  padding: .25rem .6rem;
+}
+
+/* Vista previa */
+/* Vista previa: tamaño más compacto y responsivo */
+.preview-box{
+  height: clamp(140px, 26vh, 240px);  /* más chica en móviles y controlada en desktop */
+  border-radius: 16px;
+  border: 1px solid #e8e8ef;
+  background:
+    radial-gradient(120% 120% at 10% 0%, #ffffff, #f6f7fb 60%),
+    linear-gradient(180deg, rgba(255,255,255,.6), rgba(255,255,255,.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  overflow: hidden;
+  position: relative;
+}
+
+.preview-img{
+  max-width: 100%;
+  max-height: 100%;       /* se ajusta al alto del cuadro */
+  width: auto;
+  height: auto;
+  object-fit: contain;    /* sin recortes, cabrá completa */
+  filter: drop-shadow(0 8px 18px rgba(0,0,0,.12));
+  animation: fadeIn .35s ease-in-out both;
+}
+
+/* Texto “Sin imagen” más discreto */
+.preview-empty{
+  color: #8b90a0;
+  font-size: .9rem;
+}
+
+
+/* Textarea autosize (ya la usas) */
+.autosize { overflow: hidden; resize: none; line-height: 1.4; min-height: 2.4rem; max-height: 40vh; }
+
+/* Botones de acción en formulario */
+#btnAuto, #btnClear { white-space: nowrap; }
+</style>
+
+
+	<!-- Modal Boleto -->
+	<div class="modal fade" id="ticketModal" tabindex="-1"
+		aria-hidden="true" th:classappend="${mostrarTicket} ? 'show' : ''"
+		th:style="${mostrarTicket} ? 'display:block' : 'display:none'">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content">
+
+
+				<!-- Header -->
+				<!-- Header (bonito y robusto) -->
+<div th:with="
+     rifaNombreFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa')
+                       ? ticketGroup['nombreRifa']
+                       : (nombreRifaSeleccionada != null ? nombreRifaSeleccionada
+                           : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición'))},
+     boletosFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos')
+                       ? ticketGroup['cantidadBoletos'] : (cantidadBoletos != null ? cantidadBoletos : 0)},
+     npbFinal=${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                       ? ticketGroup['numerosPorBoleto'] : (numPorBoleto != null ? numPorBoleto : 1)}
+" class="modal-header py-2">
+  <div class="d-flex align-items-center gap-2">
+    <div class="rounded-circle d-inline-flex align-items-center justify-content-center"
+         style="width:36px;height:36px;background:#f1f3f5;">
+      <i class="bi bi-ticket-perforated"></i>
+    </div>
+    <div>
+      <div class="text-muted small mb-1">Edición</div>
+     <h6 class="m-0"
+  th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'nombreRifa')
+             ? ticketGroup['nombreRifa']
+             : (rifaSeleccionada != null ? rifaSeleccionada.nombre : 'Edición')}">
+  Edición
+</h6>
+
+    </div>
+  </div>
+
+  <div class="d-flex align-items-center gap-2 ms-auto">
+    <span class="badge text-bg-light border">Boletos: <span th:text="${boletosFinal}">0</span></span>
+    <span class="badge text-bg-light border">Núm x boleto: <span th:text="${npbFinal}">1</span></span>
+    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+  </div>
+</div>
+
+
+
+				<!-- Body (scrollable) -->
+				<div class="modal-body">
+					<!-- Comprador -->
+					<div class="mb-3">
+						<div class="section-title mb-1">Comprador</div>
+						<div class="row g-2"
+							th:with="comp=${ticketGroup != null ? ticketGroup['comprador'] : null}">
+							<div class="col-8">
+								<div
+									th:text="${comp != null 
+                     ? ( (comp['nombre'] != null ? comp['nombre'] : '') + ' ' 
+                         + (comp['apellido_patrno'] != null ? comp['apellido_patrno'] : '') + ' ' 
+                         + (comp['apellido_materno'] != null ? comp['apellido_materno'] : '') )
+                     : ''}">
+									Nombre Completo</div>
+								<div class="small text-muted"
+									th:text="${comp != null ? comp['email'] : ''}">correo@ejemplo.com</div>
+								<div class="small text-muted"
+									th:text="${comp != null ? comp['telefono'] : ''}">55 0000
+									0000</div>
+							</div>
+							<div class="col-4 text-end">
+								<div class="header-subtle">Núm. por boleto</div>
+								<div class="fw-semibold"
+									th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                   ? ticketGroup['numerosPorBoleto'] : 1}">1</div>
+							</div>
+						</div>
+
+					</div>
+
+					<!-- Lista de boletos -->
+					<!-- Resumen compacto (folios + números consolidados) -->
+					<div class="section-title mb-2">Resumen de compra</div>
+
+					<!-- Folios (compacto) -->
+					<div class="mb-3"
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Folios</div>
+						<div class="d-flex flex-wrap gap-1">
+							<span class="badge rounded-pill text-bg-light border"
+								th:each="t : ${ticketGroup['tickets']}"
+								th:text="${#maps.containsKey(t,'folio') ? t['folio'] : t}">ABC123</span>
+						</div>
+					</div>
+
+					<div
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Participa con</div>
+						<div class="ticket-nums d-flex flex-wrap gap-1">
+							<th:block th:each="t : ${ticketGroup['tickets']}">
+								<span class="pill"
+									th:each="n : ${#maps.containsKey(t,'numeros') ? t['numeros'] : {}}"
+									th:text="${n}">0031</span>
+
+							</th:block>
+						</div>
+					</div>
+
+
+					<!-- Total -->
+					<div class="d-flex justify-content-between align-items-center">
+						<div class="muted">
+							<span>Total de boletos:</span> <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'cantidadBoletos')
+                   ? ticketGroup['cantidadBoletos'] : 0}">0</strong>
+							<span class="ms-2">· Números por boleto:</span> <strong th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'numerosPorBoleto')
+                   ? ticketGroup['numerosPorBoleto'] : 1}">1</strong>
+						</div>
+						<div class="text-end">
+							<div class="muted">Total</div>
+							<div class="fs-5 fw-bold"
+     th:text="${ticketGroup != null and #maps.containsKey(ticketGroup,'total')
+               ? '$ ' + #numbers.formatDecimal(ticketGroup['total'], 1, 2)
+               : '$ 0.00'}">$ 0.00</div>
+						</div>
+					</div>
+
+					<div class="d-flex justify-content-end gap-2 mt-3">
+						<button type="button" class="btn btn-outline-secondary"
+							data-bs-dismiss="modal">Cerrar</button>
+						<button type="button" class="btn btn-primary" id="btnTicketOk">Entendido</button>
+
+
+
+
+
+					</div>
+
+
+				</div>
+
+			</div>
+		</div>
+	</div>
+
+
+
+	<div class="modal fade" id="clienteExistenteModal" tabindex="-1"
+		aria-hidden="true">
+		<div class="modal-dialog modal-dialog-centered">
+			<div class="modal-content border-0">
+				<div class="modal-header">
+					<h6 class="modal-title m-0">Cliente ya registrado</h6>
+					<button type="button" class="btn-close" data-bs-dismiss="modal"
+						aria-label="Cerrar"></button>
+				</div>
+				<div class="modal-body">
+					<p class="mb-2">Encontramos un cliente con ese correo o
+						teléfono:</p>
+					<div class="p-2 rounded border bg-light">
+						<div>
+							<strong id="cliNombre">—</strong>
+						</div>
+						<div class="small text-muted">
+							Email: <span id="cliEmail">—</span>
+						</div>
+						<div class="small text-muted">
+							Teléfono: <span id="cliTel">—</span>
+						</div>
+					</div>
+					<p class="mt-2 mb-0">¿Quieres usar este cliente para la compra?</p>
+				</div>
+				<div class="modal-footer">
+					<button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+					<button id="btnUsarCliente" class="btn btn-primary">Usar
+						cliente</button>
+				</div>
+			</div>
+		</div>
+	</div>
+	
+	
+	<!-- Modal: Detalle de compra final -->
+<div class="modal fade" id="ticketModalFinal" tabindex="-1" aria-labelledby="ticketModalFinalLabel" aria-hidden="true" th:if="${ticketGroup != null}">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="ticketModalFinalLabel">Detalle de tu compra</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="mb-3" th:with="comp=${ticketGroup != null ? ticketGroup['comprador'] : null}">
+  <strong>Cliente:</strong>
+  <div th:with="comp=${ticketGroup != null ? ticketGroup['comprador'] : null}">
+  <span th:text="${comp != null 
+                  ? ( (comp['nombre'] != null ? comp['nombre'] : '') + ' ' +
+                      (comp['apellido_patrno'] != null ? comp['apellido_patrno'] : '') + ' ' +
+                      (comp['apellido_materno'] != null ? comp['apellido_materno'] : '') )
+                  : ''}">Nombre Apellidos</span><br>
+  <small>
+    Tel: <span th:text="${comp != null ? (comp['telefono'] != null ? comp['telefono'] : '') : ''}">5555555555</span> ·
+  </small>
+</div>
+
+</div>
+
+
+        <div class="mb-3">
+          <strong>Rifa:</strong> <span th:text="${ticketGroup.nombreRifa}">Nombre Rifa</span><br>
+          <strong>Total:</strong> $<span th:text="${#numbers.formatDecimal(ticketGroup.total,1,2)}">0.00</span>
+        </div>
+
+        <!-- Folios (compacto) -->
+					<div class="mb-3"
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Folios</div>
+						<div class="d-flex flex-wrap gap-1">
+							<span class="badge rounded-pill text-bg-light border"
+								th:each="t : ${ticketGroup['tickets']}"
+								th:text="${#maps.containsKey(t,'folio') ? t['folio'] : t}">ABC123</span>
+						</div>
+					</div>
+					
+					
+					
+					<div
+						th:if="${ticketGroup != null and #maps.containsKey(ticketGroup,'tickets')}">
+						<div class="header-subtle mb-1">Participa con</div>
+						<div class="ticket-nums d-flex flex-wrap gap-1">
+							<th:block th:each="t : ${ticketGroup['tickets']}">
+								<span class="pill"
+									th:each="n : ${#maps.containsKey(t,'numeros') ? t['numeros'] : {}}"
+									th:text="${n}">0031</span>
+
+							</th:block>
+						</div>
+					</div>
+
+        <div class="alert alert-warning" role="alert" th:text="${ticketGroup.leyendaPago}">
+          Leyenda de pago (2 horas, cuentas, titular, etc.)
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button id="btnEnviarWhats" type="button" class="btn btn-success">
+          Aceptar y enviar datos por WhatsApp/SMS
+        </button>
+       
+      </div>
+    </div>
+  </div>
+</div>
+	
+	
+	<!-- Toast: Número ya no disponible -->
+<div class="position-fixed top-0 end-0 p-3" style="z-index:2100">
+  <div id="popNumeroNoDisp" class="toast align-items-center text-bg-danger border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="popNumeroNoDispText">Número ya no disponible</div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Toast: Validación de selección -->
+<div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:2100">
+  <div id="popValidacion" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="popValidacionText">
+        Debes seleccionar todos los números requeridos antes de continuar.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+
+
+
+<div class="position-fixed top-0 start-50 translate-middle-x p-3" style="z-index:2100">
+  <div id="popValidacion" class="toast align-items-center text-bg-warning border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body" id="popValidacionText">
+        Debes seleccionar todos los números requeridos antes de continuar.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Cerrar"></button>
+    </div>
+  </div>
+</div>
+
+
+<!-- Overlay global para bloquear la pantalla -->
+<div id="loadingOverlay"
+     class="d-none position-fixed top-0 start-0 w-100 h-100"
+     style="z-index: 2500;
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(3px);">
+  <div class="d-flex w-100 h-100 align-items-center justify-content-center">
+    <div class="bg-white rounded px-4 py-3 shadow-lg d-flex align-items-center gap-2">
+      <div class="spinner-border text-primary spinner-border-sm" role="status" aria-hidden="true"></div>
+      <strong>CARGANDO....</strong>
+    </div>
+  </div>
+</div>
+
+
+
+
+<script>
+function showVal(msg){
+  const el  = document.getElementById('popValidacion');
+  const txt = document.getElementById('popValidacionText');
+  if (txt) txt.textContent = msg || 'Completa la selección antes de continuar.';
+  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true });
+  t.show();
+}
+</script>
+
+	
+
+
+<script>
+function rollbackToGreen(btn, label, seleccion) {
+  // borra de seleccionados y pinta VERDE
+  seleccion.delete(label);
+  btn.classList.remove('btn-primary', 'selected', 'btn-warning', 'btn-dark');
+  btn.classList.add('btn-success');
+}
+</script>
+
+<style>
+  /* Colores y contraste SOLO dentro del modal */
+  #ticketModal .ticket-nums { gap: .45rem; }
+
+  /* Si ya usas .pill en otros lados, aquí lo forzamos dentro del modal */
+  #ticketModal .pill {
+    --chip-bg: #0d6efd;      /* azul vivo */
+    --chip-fg: #fff;         /* texto blanco */
+    --chip-shadow: 0 2px 8px rgba(13,110,253,.25);
+
+    background: var(--chip-bg) !important;
+    color: var(--chip-fg) !important;
+    border: 0 !important;
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: .3px;
+    font-variant-numeric: tabular-nums;
+    padding: .35rem .6rem;
+    box-shadow: var(--chip-shadow);
+  }
+
+  /* Alterna sutilmente 3 tonos para que no se vean todas iguales (opcional) */
+  #ticketModal .ticket-nums .pill:nth-child(3n+1) { --chip-bg: #0b5ed7; } /* Primary 600 */
+  #ticketModal .ticket-nums .pill:nth-child(3n+2) { --chip-bg: #1d4ed8; } /* Indigo 600 */
+  #ticketModal .ticket-nums .pill:nth-child(3n+3) { --chip-bg: #0ea5e9; } /* Sky 500 */
+
+  /* Hover/focus para desktop */
+  @media (hover:hover){
+    #ticketModal .pill:hover { filter: brightness(1.06); }
+  }
+
+  /* Si tu sitio tiene tema oscuro (opcional) */
+  [data-bs-theme="dark"] #ticketModal .pill {
+    --chip-shadow: 0 2px 10px rgba(0,0,0,.3);
+  }
+  
+  
+
+/* ——— Compactar verticalmente la columna izquierda ——— */
+.col-lg-8 > .form-card,
+.col-lg-8 > .card.card-soft {
+  margin-bottom: .6rem !important; /* antes ~1rem–1.25rem */
+}
+
+/* Reducir padding de las tarjetas de control para que todo quede más junto */
+.col-lg-8 .card.card-soft.p-3 { padding: .75rem !important; }
+
+/* Quitar aire bajo el link “Abrir imagen…” */
+#imgLink { margin-top: .25rem !important; }
+
+/* Reducir separación vertical global de la grid bootstrap solo aquí */
+.row.g-4 { --bs-gutter-y: .6rem; }
+
+/* Vista previa un poco más compacta para que el grid “suba” */
+.preview-box { height: clamp(130px, 22vh, 210px); }
+.preview-img { max-height: 100%; }
+
+/* El grid no agrega espacio extra */
+#gridNumeros { margin-top: 0 !important; }
+</style>
+  
+  
+  <style>
+  /* ======== Números grandes y coloridos en ticketModalFinal ======== */
+  #ticketModalFinal .ticket-nums {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+  }
+
+  /* Estilo base del “chip” */
+  #ticketModalFinal .pill{
+    --chip-bg: #0d6efd;          /* color por defecto (se sobreescribe abajo) */
+    --chip-fg: #fff;             /* texto blanco */
+    --chip-shadow: 0 4px 14px rgba(0,0,0,.18);
+
+    background: var(--chip-bg);
+    color: var(--chip-fg);
+    border: 0;
+    border-radius: 999px;
+    font-weight: 800;            /* bien marcado */
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .3px;
+    line-height: 1;
+    padding: .65rem .95rem;
+    font-size: clamp(1rem, 2.2vw + .25rem, 1.45rem);  /* responsivo */
+    box-shadow: var(--chip-shadow);
+    user-select: text;
+  }
+
+  /* Paleta alternada para que “salten” visualmente */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+1){ --chip-bg:#ef4444; } /* rojo */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+2){ --chip-bg:#f59e0b; } /* ámbar */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+3){ --chip-bg:#10b981; } /* verde */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+4){ --chip-bg:#0ea5e9; } /* cielo */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+5){ --chip-bg:#6366f1; } /* índigo */
+  #ticketModalFinal .ticket-nums .pill:nth-child(6n+6){ --chip-bg:#ec4899; } /* rosa */
+
+  /* Hover/focus (desktop) */
+  @media (hover:hover){
+    #ticketModalFinal .pill:hover{ filter: brightness(1.08); transform: translateY(-1px); }
+  }
+
+  /* Accesibilidad: alto contraste si el tema es oscuro */
+  [data-bs-theme="dark"] #ticketModalFinal .pill{
+    --chip-shadow: 0 6px 18px rgba(0,0,0,.35);
+  }
+
+  /* Mejora visual de la etiqueta “Participa con” */
+  #ticketModalFinal .header-subtle{
+    font-size: .9rem;
+    font-weight: 600;
+    color: #475569;
+  }
+  
+  #ticketModalFinal .badge.rounded-pill.text-bg-light.border{
+  font-weight: 600;
+  padding: .45rem .7rem;
+  font-size: 1rem;
+  border-color: #e2e8f0 !important;
+}
+  
+</style>
+  
+
+
+
+
+<script>
+function showNoDisp(msg){
+  const el  = document.getElementById('popNumeroNoDisp');
+  const txt = document.getElementById('popNumeroNoDispText');
+  if (txt) txt.textContent = msg || 'Número ya no disponible';
+  const t = bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true });
+  t.show();
+}
+</script>
+
+
+
+	<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  const mostrar = /*[[${mostrarTicket}]]*/ false;
+  if (!mostrar) return;
+
+  const compraId = /*[[${compraId}]]*/ 0;
+  const btnOk = document.getElementById('btnTicketOk');
+
+  async function enviarSms() {
+    if (!compraId) return;
+    try {
+      const res = await fetch(`/detalle/${compraId}/enviar-sms`, { method: 'POST' });
+      // podrías mostrar un toast de “SMS enviado”
+    } catch(e) { console.error('No se pudo enviar SMS', e); }
+  }
+
+  btnOk?.addEventListener('click', async () => {
+    await enviarSms();
+    // vuelve al detalle de la rifa:
+    const rifaId = /*[[${ticketGroup != null && #maps.containsKey(ticketGroup,'rifaId') ? ticketGroup['rifaId'] : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)}]]*/ 0;
+    window.location.href = `/detalle/${rifaId}`;
+  });
+});
+/*]]>*/
+</script>
+
+
+	<script>
+  document.getElementById('selBoletos').addEventListener('change', function () {
+    document.getElementById('cantidadBoletos').value = this.value;
+  });
+</script>
+
+
+
+<script>
+// Se ejecuta cuando el DOM está listo
+// document.addEventListener('DOMContentLoaded', () => {
+//   const form        = document.getElementById('formCompra');     // <-- el form de compra
+//   if (!form) return;  // por si el id cambia en otra vista
+
+//   const txtNumeros  = document.getElementById('numeroTicket');   // textarea oculto/campo con los números
+//   const selBoletos  = document.getElementById('selBoletos');     // select de cantidad de boletos
+//   const spanNPB     = document.getElementById('spanNumPorBoleto'); // span con “números por boleto”
+
+//   // Helper de toast (o cambia por alert si aún no tienes toast)
+//   function showVal(msg){
+//     if (window.bootstrap && document.getElementById('popValidacion')) {
+//       const el  = document.getElementById('popValidacion');
+//       const txt = document.getElementById('popValidacionText');
+//       if (txt) txt.textContent = msg || 'Completa la selección antes de continuar.';
+//       bootstrap.Toast.getOrCreateInstance(el, { delay: 2800, autohide: true }).show();
+//     } else {
+//       alert(msg || 'Completa la selección antes de continuar.');
+//     }
+//   }
+
+//   // Valida ANTES de enviar
+//   form.addEventListener('submit', (e) => {
+//     const seleccionados = (txtNumeros?.value || '')
+//       .split(',')
+//       .map(s => s.trim())
+//       .filter(Boolean);
+
+//     const npb      = Math.max(1, parseInt((spanNPB?.textContent || '1'), 10)); // números por boleto
+//     const boletos  = Math.max(1, parseInt((selBoletos?.value || '1'), 10));    // boletos seleccionados
+//     const requeridos = npb * boletos;
+
+//     if (seleccionados.length === 0) {
+//       e.preventDefault();
+//       showVal('Selecciona al menos un número para continuar.');
+//       document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+//       return;
+//     }
+//     if (seleccionados.length !== requeridos) {
+//       e.preventDefault();
+//       showVal(`Debes seleccionar exactamente ${requeridos} número(s). Llevas ${seleccionados.length}.`);
+//       document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+//       return;
+//     }
+//     // si pasa la validación, se envía normal
+//   });
+// });
+
+document.addEventListener('DOMContentLoaded', () => {
+  const form        = document.getElementById('formCompra');
+  const btnComprar  = document.getElementById('btnComprar'); // <-- nuevo
+  const telefono    = document.getElementById('telefono');
+  const clienteId   = document.getElementById('clienteId');
+
+  const modalEl     = document.getElementById('clienteExistenteModal');
+  const modal       = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+  const cliNom      = document.getElementById('cliNombre');
+  const cliEmail    = document.getElementById('cliEmail');
+  const cliTel      = document.getElementById('cliTel');
+  const btnUsar     = document.getElementById('btnUsarCliente');
+
+  
+  function showLoader(){
+	  __loadingCount++;
+	  document.getElementById('loadingOverlay')?.classList.remove('d-none');
+	}
+	function hideLoader(){
+	  __loadingCount = Math.max(0, __loadingCount-1);
+	  if (__loadingCount === 0) {
+	    document.getElementById('loadingOverlay')?.classList.add('d-none');
+	  }
+	}
+
+  
+  
+  
+  function telValido() {
+    const raw = (telefono?.value || '').trim();
+    return raw.length >= 10;
+  }
+
+  form?.addEventListener('submit', (e) => {
+    // ⚠️ Siempre detenemos el submit primero.
+    e.preventDefault();
+
+    // 1. Validación de números seleccionados (ya la tienes en el archivo)
+    {
+      const { seleccionados, requeridos } = getSeleccionStatus();
+      if (seleccionados.length === 0) {
+        showVal('Selecciona al menos un número para continuar.');
+        document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+        return;
+      }
+      if (seleccionados.length !== requeridos) {
+        needMoreNumbersToast(seleccionados.length, requeridos);
+        return;
+      }
+    }
+
+    // 2. Validación de campos del form
+    if (!telValido() || !form.checkValidity()) {
+      form.reportValidity();
+      return;
+    }
+
+    // 3. Si ya hay clienteId elegido antes, ya no preguntamos nada -> submit directo
+    if (clienteId?.value) {
+      // deshabilitar doble clic y mostrar spinner DURANTE el submit real
+      withBtnSpinner(btnComprar, async () => {
+        showLoader();
+        form.submit(); // submit real
+      });
+      return;
+    }
+
+    // 4. Si NO hay clienteId aún, llamamos al backend para revisar teléfono
+    withBtnSpinner(btnComprar, async () => {
+      showLoader();
+      try {
+        const params = new URLSearchParams({
+          telefono: telefono.value.trim()
+        });
+
+        const res = await fetch(`/detalle/clientes/check-telefono?${params.toString()}`, {
+          method: 'GET',
+          credentials: 'same-origin',
+          cache: 'no-store'
+        });
+
+        if (!res.ok) {
+          // si falla la validación previa del cliente, reactivamos botón
+          console.error('Error check-telefono:', res.status);
+          showVal('No se pudo validar el teléfono. Intenta de nuevo.');
+          return;
+        }
+
+        const data = await res.json();
+
+        if (data.exists) {
+          // Abrimos modal de "cliente ya registrado"
+          if (cliNom)   cliNom.textContent   = data.nombre || '—';
+          if (cliEmail) cliEmail.textContent = data.email  || '—';
+          if (cliTel)   cliTel.textContent   = data.telefono || '—';
+
+          if (clienteId) clienteId.value = data.id || '';
+
+          // Mostrar modal para confirmar uso de ese cliente
+          modal?.show();
+
+          // Cuando el usuario presione "Usar cliente", hacemos submit definitivo
+          btnUsar?.addEventListener('click', () => {
+            modal?.hide();
+            // IMPORTANTE: hacemos el submit final con spinner otra vez para que no puedan spamear
+            withBtnSpinner(btnComprar, async () => {
+              showLoader();
+              form.submit();
+            });
+          }, { once:true });
+
+        } else {
+          // No existe cliente previo -> submit directo
+          form.submit();
+        }
+
+      } catch (err) {
+        console.error('Fallo en validación cliente:', err);
+        showVal('No se pudo validar el cliente. Intenta otra vez.');
+      } finally {
+        hideLoader();
+        // OJO: withBtnSpinner ya vuelve a habilitar el botón y restaura el texto
+        // cuando termina la promesa. No necesitas hacerlo manual.
+      }
+    }); // fin withBtnSpinner
+  });
+});
+
+
+
+
+
+
+</script>
+
+<script>
+function getSeleccionStatus() {
+  const txtNumeros  = document.getElementById('numeroTicket');     // textarea con la lista
+  const selBoletos  = document.getElementById('selBoletos');       // cantidad de boletos
+  const spanNPB     = document.getElementById('spanNumPorBoleto'); // números por boleto
+  const seleccionados = (txtNumeros?.value || '')
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+
+  const npb      = Math.max(1, parseInt((spanNPB?.textContent || '1'), 10));
+  const boletos  = Math.max(1, parseInt((selBoletos?.value || '1'), 10));
+  const requeridos = npb * boletos;
+
+  return { seleccionados, requeridos };
+}
+
+function needMoreNumbersToast(sel, req) {
+  showVal(`Debes seleccionar exactamente ${req} número(s). Llevas ${sel}.`);
+  document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+</script>
+
+
+
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+document.addEventListener('DOMContentLoaded', () => {
+  const BASE      = /*[[@{/}]]*/ '/';
+  const form      = document.querySelector('form[action$="/detalle/confirmar"]');
+  const telefono  = document.getElementById('telefono');
+  const clienteId = document.getElementById('clienteId');
+
+  const modalEl   = document.getElementById('clienteExistenteModal');
+  const modal     = modalEl ? bootstrap.Modal.getOrCreateInstance(modalEl) : null;
+  const cliNom    = document.getElementById('cliNombre');
+  const cliEmail  = document.getElementById('cliEmail');
+  const cliTel    = document.getElementById('cliTel');
+  const btnUsar   = document.getElementById('btnUsarCliente');
+
+  function telValido() {
+    const raw = (telefono?.value || '').trim();
+    return raw.length >= 10;
+  }
+
+  form?.addEventListener('submit', async (e) => {
+    // === VALIDACIÓN DE NÚMEROS REQUERIDOS (ANTES DE TODO) ===
+    {
+      const { seleccionados, requeridos } = getSeleccionStatus();
+      if (seleccionados.length === 0) {
+        e.preventDefault();
+        showVal('Selecciona al menos un número para continuar.');
+        document.getElementById('gridNumeros')?.scrollIntoView({ behavior:'smooth', block:'start' });
+        return;
+      }
+      if (seleccionados.length !== requeridos) {
+        e.preventDefault();
+        needMoreNumbersToast(seleccionados.length, requeridos);
+        return;
+      }
+    }
+    // === FIN VALIDACIÓN ===
+
+    if (!telValido() || !form.checkValidity()) {
+      e.preventDefault();
+      form.reportValidity();
+      return;
+    }
+    if (clienteId?.value) return; // ya seleccionado del modal
+
+    e.preventDefault();
+    try {
+      const params = new URLSearchParams({ telefono: telefono.value.trim() });
+      const res = await fetch(`${BASE}detalle/clientes/check-telefono?${params.toString()}`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+
+      if (data && data.exists) {
+        // abre modal de cliente existente
+        cliNom.textContent   = data.nombre   || '—';
+        cliEmail.textContent = data.email    || '—';
+        cliTel.textContent   = data.telefono || '—';
+        modalEl.dataset.clienteId = data.id || '';
+        modal?.show();
+      } else {
+        form.submit(); // no existe -> continuar
+      }
+    } catch (err) {
+      console.error('Error check-telefono', err);
+      form.submit(); // en error, deja seguir
+    }
+  });
+
+  // === AQUÍ VIENE EL ARREGLO CLAVE DEL MODAL ===
+  btnUsar?.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    // revalidar selección ANTES de continuar con el submit
+    const { seleccionados, requeridos } = getSeleccionStatus();
+    if (seleccionados.length !== requeridos) {
+      needMoreNumbersToast(seleccionados.length, requeridos);
+      // cerrar el modal para que el usuario siga eligiendo
+      modal?.hide();
+      return; // NO continuar
+    }
+    // Si está completo: setear clienteId y enviar
+    const id = modalEl?.dataset?.clienteId || '';
+    const hiddenCli = document.getElementById('clienteId');
+    if (hiddenCli) hiddenCli.value = id;
+    modal?.hide();
+    document.getElementById('formCompra')?.submit();
+  });
+});
+/*]]>*/
+</script>
+
+	
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+	
+	 // Llega desde flash attribute tras el redirect
+  let ticketGroup = /*[[${ticketGroup}]]*/ null;
+  let openFinalModal = /*[[${openFinalModal}]]*/ false;
+
+  // Para compatibilidad: abre si hay ticketGroup aunque no venga la banderita
+  let mostrarTicketFinal = (ticketGroup != null) || openFinalModal;
+  
+  
+  
+document.addEventListener('DOMContentLoaded', () => {
+	if (mostrarTicketFinal) {
+        // Bootstrap 5
+        var myModal = new bootstrap.Modal(document.getElementById('ticketModalFinal'));
+        myModal.show();
+    }
+
+  const compraId  = /*[[${compraId}]]*/ 0;
+  const tel = /*[[${ticketGroup != null && ticketGroup.comprador != null ? ticketGroup.comprador.telefono : ''}]]*/ '';
+  const nombre    = /*[[${ticketGroup != null ? ticketGroup.comprador.nombre : ''}]]*/ '';
+  const apellido_paterno    = /*[[${ticketGroup != null ? ticketGroup.comprador.apellido_patrno : ''}]]*/ '';
+  const apellido_materno    = /*[[${ticketGroup != null ? ticketGroup.comprador.apellido_materno : ''}]]*/ '';
+  const nombreRifa    = /*[[${ticketGroup != null ? ticketGroup.nombreRifa : ''}]]*/ '';
+  const total     = /*[[${ticketGroup != null ? ticketGroup.total : 0}]]*/ 0;
+  const telefonosConfirmados = /*[[${ticketGroup != null && ticketGroup.comprador != null ? ticketGroup.comprador.telefono : ''}]]*/ '';
+
+  const folios = /*[[${ticketGroup != null && ticketGroup.tickets != null 
+                     ? ticketGroup.tickets.![folio] 
+                     : {}}]]*/ [];   // ← usa [] como fallback
+
+  const numerosNested = /*[[${ticketGroup != null && ticketGroup.tickets != null 
+      ? ticketGroup.tickets.![numeros] 
+      : {}}]]*/ [];
+
+                     
+                     
+  const CSRF = (() => {
+	    const token  = document.querySelector('meta[name="_csrf"]')?.getAttribute('content');
+	    const header = document.querySelector('meta[name="_csrf_header"]')?.getAttribute('content') || 'X-CSRF-TOKEN';
+	    return { token, header };
+	  })();
+                     
+// 2) Aplanar en JS sin errores
+const numeros = Array.isArray(numerosNested)
+? (typeof numerosNested.flat === 'function'
+? numerosNested.flat()
+: numerosNested.reduce((acc, arr) => acc.concat(arr || []), []))
+: [];
+
+// Construir el mensaje usando "numeros"
+const mensaje = [
+`¡Hola, soy ${nombre} ${apellido_paterno} ${apellido_materno},  Aparte números para la edicion: ${nombreRifa}!`,
+``,
+`Folios: ${folios.join(', ')}`,
+`Números: ${numeros.join(', ')}`,
+`Total: $${Number(total).toFixed(2)}`,
+``,
+`Tienes 24 horas para realizar el depósito.`,
+`Mi cuenta BBVA:`,
+`Cuenta CLABE: 012 306 02932601117 4`,
+`Tarjeta de débito: 4152 3142 4145 7947`,
+`Titular: Andrés Molina`,
+``,
+`En la nota del depósito escribe tu nombre.`,
+`Si no recibimos el depósito en 24 horas, tus números se liberarán.`,
+`Envia tu comprobante de pago para recibir la confirmacion del pago realizado.`
+].join('\n');
+
+// Mostrar modal solo si existe
+const modalEl = document.getElementById('ticketModalFinal');
+if (modalEl) {
+const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+modal.show();
+
+// Click en botón WhatsApp
+document.getElementById('btnEnviarWhats')?.addEventListener('click', async () => {
+	  // 1) Llama a tus endpoints (igual que ya hacías)
+	  try {
+	    const body = new URLSearchParams({
+	      telefono: (tel || '').trim(),
+	      compraId: String(compraId || '')
+	    });
+
+	    await fetch('/detalle/enviar-whatsapp', {
+	      method: 'POST',
+	      headers: {
+	        'Content-Type': 'application/x-www-form-urlencoded',
+	        ...(CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+	      },
+	      body
+	    });
+	  } catch (e) {
+	    console.error('Fallo enviar-whatsapp', e);
+	  }
+
+	  // 2) (opcional) SMS existente
+	  try {
+	    await fetch(`/detalle/${compraId}/enviar-sms`, {
+	      method: 'POST',
+	      headers: (CSRF.token ? { [CSRF.header]: CSRF.token } : {})
+	    });
+	  } catch {}
+
+	  // 3) Abrir WhatsApp de forma compatible con Safari iOS
+	  const numeroDestino = '527731440601'; // tu número E.164 MX (52 + 10 dígitos)
+	  const texto = encodeURIComponent(mensaje);
+
+	  const isIOS  = /iP(hone|od|ad)/.test(navigator.userAgent);
+	  const appUrl = `whatsapp://send?phone=${numeroDestino}&text=${texto}`;   // abre la app
+	  const webUrl = `https://wa.me/${numeroDestino}?text=${texto}`;           // fallback web
+
+	  // Usar <a> oculto preserva el gesto del usuario en iOS
+	  const a = document.createElement('a');
+	  a.style.display = 'none';
+	  a.rel = 'noopener';
+	  a.target = '_self';     // importante para iOS
+	  a.href = isIOS ? appUrl : webUrl;
+	  document.body.appendChild(a);
+	  a.click();
+
+	  // Fallback si la app no abre (o no está instalada)
+	  setTimeout(() => {
+	    // en iOS intentamos web como plan B; en Android casi nunca llega aquí
+	    if (isIOS) window.location.href = webUrl;
+	  }, 1200);
+
+	  // 4) NO redirijas de inmediato. Espera a que el usuario regrese a la página
+	  //    y entonces llevas a /detalle/{rifaId} si quieres.
+	  const rifaIdRedir = /*[[${ticketGroup != null ? ticketGroup.rifaId : (rifaSeleccionada != null ? rifaSeleccionada.id : 0)}]]*/ 0;
+	  if (rifaIdRedir) {
+	    document.addEventListener('visibilitychange', () => {
+	      if (!document.hidden) {
+	        window.location.href = `/detalle/${rifaIdRedir}`;
+	      }
+	    }, { once: true });
+	  }
+	});
+
+}
+});
+/*]]>*/
+</script>
+
+
+
+
+	<style>
+/* Modal ancho medio y alto controlado */
+#ticketModal .modal-dialog {
+	max-width: 720px;
+}
+
+#ticketModal .modal-content {
+	border-radius: 14px;
+	overflow: hidden;
+}
+
+/* Cabecera y pie fijos; cuerpo con scroll */
+#ticketModal .modal-header, #ticketModal .modal-footer {
+	background: #f8f9fa;
+	border-color: #e9ecef;
+}
+
+#ticketModal .modal-body {
+	max-height: 60vh;
+	overflow: auto;
+	padding: 1rem;
+}
+
+/* Tarjeta de cada boleto (compacta) */
+.ticket-item {
+	border: 1px solid #e9ecef;
+	border-radius: 12px;
+	padding: .75rem .9rem;
+	background: #fff;
+}
+
+.ticket-item:hover {
+	box-shadow: 0 1px 10px rgba(0, 0, 0, .05);
+}
+
+/* Chips de números */
+.ticket-nums {
+	display: flex;
+	flex-wrap: wrap;
+	gap: .35rem;
+}
+
+.ticket-chip {
+	display: inline-block;
+	border: 1px solid #dee2e6;
+	border-radius: 999px;
+	padding: .15rem .55rem;
+	font-size: .85rem;
+	line-height: 1.1;
+	background: #f8f9fa;
+	white-space: nowrap;
+}
+
+.num-btn {
+	min-width: 3.2rem;
+	text-align: center;
+	font-variant-numeric: tabular-nums;
+}
+
+
+
+.muted {
+	color: #6c757d;
+	font-size: .88rem;
+}
+
+.section-title {
+	font-weight: 600;
+	font-size: .95rem;
+	color: #495057;
+}
+
+/* Lista vertical compacta */
+.vstack-compact>*+* {
+	margin-top: .75rem;
+}
+
+/* Header compacto */
+.header-subtle {
+	font-size: .8rem;
+	color: #6c757d;
+}
+</style>
+
+
+<style>
+#loadingOverlay{
+  position: fixed;
+  inset: 0;
+  background: rgba(255,255,255,.6);
+  backdrop-filter: blur(1px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;          /* Sobre modales y grilla */
+}
+.d-none{ display: none !important; }
+</style>
+
+
+
+<!-- Overlay de carga global -->
+<div id="loadingOverlay" class="d-none">
+  <div class="text-center">
+    <div class="spinner-border" role="status" aria-label="Cargando"></div>
+    <div class="small mt-2">Cargando…</div>
+  </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<style>
+/* Estilos del preview */
+.preview-box {
+	min-height: 180px;
+	border-radius: 16px;
+	border: 1px solid #e8e8ef;
+	background: radial-gradient(120% 120% at 10% 0%, #ffffff, #f6f7fb 60%),
+		linear-gradient(180deg, rgba(255, 255, 255, .6),
+		rgba(255, 255, 255, .4));
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 10px;
+	overflow: hidden;
+	position: relative;
+}
+
+.preview-img {
+	max-height: 170px;
+	max-width: 100%;
+	width: auto;
+	height: auto;
+	object-fit: contain;
+	filter: drop-shadow(0 8px 18px rgba(0, 0, 0, .12));
+	animation: fadeIn .45s ease-in-out both;
+}
+
+.preview-empty {
+	color: #8b90a0;
+	font-size: .9rem;
+}
+
+@media ( min-width : 768px) {
+	.preview-box {
+		min-height: 210px;
+	}
+	.preview-img {
+		max-height: 200px;
+	}
+}
+
+.autosize {
+	overflow: hidden;
+	resize: none;
+	line-height: 1.4;
+	min-height: 2.4rem;
+	max-height: 40vh; /* antes: 12rem */
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+		"Liberation Mono", monospace;
+	white-space: pre-wrap;
+}
+
+.autosize.scrolled {
+	overflow-y: auto;
+}
+</style>
+
+
+<style>
+  /* FIX: quitar espacio extra del preview sin tocar rutas/funcionalidad */
+  .preview-box{
+    min-height: 0 !important;
+    height: clamp(130px, 22vh, 210px) !important; /* mismo tamaño compacto */
+    padding: 8px !important;
+  }
+  /* compactar un poco los márgenes entre imagen y grid */
+  .col-lg-8 > .form-card,
+  .col-lg-8 > .card.card-soft { margin-bottom: .6rem !important; }
+  #gridNumeros { margin-top: .25rem !important; }
+  .row.g-4 { --bs-gutter-y: .6rem; }
+</style>
+
+
+</body>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</html>
