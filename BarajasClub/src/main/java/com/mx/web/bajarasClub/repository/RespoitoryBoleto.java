@@ -36,33 +36,33 @@ public interface RespoitoryBoleto extends JpaRepository<Boleto, Integer> {
 //			                    @Param("q") String q,
 //			                    Pageable pageable);
 	
-//	 @Query("""
-//			    SELECT b FROM Boleto b
-//			    LEFT JOIN b.rifa r
-//			    LEFT JOIN b.cliente c
-//			    LEFT JOIN b.EstadoBoleto eb
-//			    WHERE (:rifaId IS NULL OR r.id = :rifaId)
-//			      AND (:estadoId IS NULL OR (eb IS NOT NULL AND eb.idEstadoBoleto = :estadoId))
-//			      AND (
-//			        COALESCE(:q, '') = '' OR
-//			        UPPER(b.folio)           LIKE CONCAT('%', UPPER(:q), '%') OR
-//			        UPPER(c.nombre)          LIKE CONCAT('%', UPPER(:q), '%') OR
-//			        UPPER(c.apellido_patrno) LIKE CONCAT('%', UPPER(:q), '%') OR
-//			        UPPER(c.apellido_materno) LIKE CONCAT('%', UPPER(:q), '%') OR
-//			        UPPER(c.email)           LIKE CONCAT('%', UPPER(:q), '%') OR
-//			        c.telefono               LIKE CONCAT('%', :q, '%')
-//			      )
-//			    ORDER BY b.fechaCompra DESC, b.id DESC
-//			  """)
-//			  Page<Boleto> search(@Param("rifaId") Integer rifaId,
-//			                      @Param("estadoId") Integer estadoId,
-//			                      @Param("q") String q,
-//			                      Pageable pageable);
+	 @Query("""
+			    SELECT b FROM Boleto b
+			    LEFT JOIN b.rifa r
+			    LEFT JOIN b.cliente c
+			    LEFT JOIN b.EstadoBoleto eb
+			    WHERE (:rifaId IS NULL OR r.id = :rifaId)
+			      AND (:estadoId IS NULL OR (eb IS NOT NULL AND eb.idEstadoBoleto = :estadoId))
+			      AND (
+			        COALESCE(:q, '') = '' OR
+			        UPPER(b.folio)           LIKE CONCAT('%', UPPER(:q), '%') OR
+			        UPPER(c.nombre)          LIKE CONCAT('%', UPPER(:q), '%') OR
+			        UPPER(c.apellido_patrno) LIKE CONCAT('%', UPPER(:q), '%') OR
+			        UPPER(c.apellido_materno) LIKE CONCAT('%', UPPER(:q), '%') OR
+			        UPPER(c.email)           LIKE CONCAT('%', UPPER(:q), '%') OR
+			        c.telefono               LIKE CONCAT('%', :q, '%')
+			      )
+			    ORDER BY b.fechaCompra DESC, b.id DESC
+			  """)
+			  Page<Boleto> searchSinId(@Param("rifaId") Integer rifaId,
+			                      @Param("estadoId") Integer estadoId,
+			                      @Param("q") String q,
+			                      Pageable pageable);
 			
 	
 	
-	@Query("""
-		       SELECT b FROM Boleto b
+	 @Query("""
+		       SELECT DISTINCT b FROM Boleto b
 		       LEFT JOIN b.rifa r
 		       LEFT JOIN b.EstadoBoleto eb
 		       LEFT JOIN b.numeros n
@@ -80,6 +80,7 @@ public interface RespoitoryBoleto extends JpaRepository<Boleto, Integer> {
 		        @Param("numero") String numero,
 		        Pageable pageable
 		);
+
 
 	
 	

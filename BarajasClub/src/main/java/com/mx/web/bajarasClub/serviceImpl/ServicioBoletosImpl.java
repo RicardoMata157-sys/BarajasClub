@@ -29,7 +29,12 @@ public class ServicioBoletosImpl implements ServicioBoletos {
 	@Override
 	public Page<Boleto> regresaBoletosEstado(Integer raffleId, Integer estadoId, String term, Pageable boletosPg) {
 		// TODO Auto-generated method stub
-		return respoitoryBoleto.search(raffleId, estadoId, term, boletosPg);
+		if(raffleId == null &&  estadoId == null) {
+			return respoitoryBoleto.searchSinId(raffleId, estadoId, term, boletosPg);
+		}else {
+			return respoitoryBoleto.search(raffleId, estadoId, term, boletosPg);
+		}
+		
 	}
 	@Override
 	public Boleto regresaBoletoId(Integer id) {
